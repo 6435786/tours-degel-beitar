@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מערכת ניהול טיולים</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#1a56db;--primary-dark:#1240a8;--primary-light:#e8f0fe;
+  --success:#059669;--success-light:#d1fae5;
+  --danger:#dc2626;--danger-light:#fee2e2;--info:#0891b2;--info-light:#cffafe;
+  --warn:#d97706;--warn-light:#fef3c7;
+  --bg:#f0f4f8;--surface:#fff;--surface2:#f8fafc;
+  --border:#e2e8f0;--border-strong:#cbd5e1;
+  --text:#0f172a;--text-muted:#64748b;--text-light:#94a3b8;
+  --shadow:0 4px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 24px rgba(0,0,0,.12);
+  --radius:10px;--radius-sm:6px;--radius-lg:16px;
+  --font:'Heebo',sans-serif;
+}
+html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--text);direction:rtl;font-size:15px}
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.app-header{background:var(--primary);color:#fff;display:flex;align-items:center;gap:16px;padding:0 20px;height:60px;flex-shrink:0;box-shadow:0 2px 8px rgba(26,86,219,.3)}
+.brand{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.trip-selector{display:flex;align-items:center;gap:8px;flex:1}
+.trip-selector label{font-size:12px;opacity:.8;white-space:nowrap}
+.trip-select{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:5px 10px;border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;cursor:pointer;min-width:160px}
+.trip-select option{background:#1240a8;color:#fff}
+.header-actions{display:flex;gap:8px;align-items:center}
+.undo-btn{background:rgba(255,255,255,.12);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.2);padding:6px 13px;border-radius:var(--radius-sm);font-family:var(--font);font-size:12px;font-weight:500;cursor:not-allowed;transition:all .2s;white-space:nowrap}
+.undo-btn.active{background:rgba(255,255,255,.2);color:#fff;cursor:pointer;border-color:rgba(255,255,255,.4)}
+.undo-btn.active:hover{background:rgba(255,255,255,.3)}
+.btn-new-trip{background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4);padding:6px 13px;border-radius:var(--radius-sm);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-new-trip:hover{background:rgba(255,255,255,.3)}
+.btn-trip-mgmt{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);width:32px;height:32px;border-radius:var(--radius-sm);cursor:pointer;font-size:15px;transition:all .2s;position:relative}
+.btn-trip-mgmt:hover{background:rgba(255,255,255,.25)}
+.trip-menu{position:absolute;top:52px;left:120px;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow-lg);z-index:500;min-width:160px;padding:6px;border:1px solid var(--border)}
+.trip-menu button{display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;border:none;background:none;font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;border-radius:var(--radius-sm);text-align:right;transition:background .15s}
+.trip-menu button:hover{background:var(--surface2)}
+.trip-menu button.danger-item{color:var(--danger)}
+.trip-menu button.danger-item:hover{background:var(--danger-light)}
+.tab-nav{background:var(--surface);border-bottom:2px solid var(--border);display:flex;padding:0 12px;gap:1px;flex-shrink:0;overflow-x:auto}
+.tab-btn{display:flex;align-items:center;gap:5px;padding:11px 14px;border:none;background:none;font-family:var(--font);font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;white-space:nowrap;border-radius:var(--radius-sm) var(--radius-sm) 0 0}
+.tab-btn:hover{color:var(--primary);background:var(--primary-light)}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:700}
+.app-main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border:none;border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-dark)}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border-strong)}.btn-secondary:hover{background:var(--border)}
+.btn-danger{background:var(--danger-light);color:var(--danger);border:1px solid #fca5a5}.btn-danger:hover{background:var(--danger);color:#fff}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{background:#047857}
+.btn-sm{padding:4px 9px;font-size:11.5px}
+.btn-icon{padding:4px 6px}
+.coming-soon{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text-muted)}
+.coming-soon .cs-icon{font-size:52px}
+.coming-soon h2{font-size:20px;font-weight:700;color:var(--text)}
+.no-trip{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;color:var(--text-muted);text-align:center}
+.no-trip .nt-icon{font-size:60px}
+.no-trip h2{font-size:22px;font-weight:700;color:var(--text)}
+.no-trip p{font-size:14px;max-width:320px}
+
+/* LISTS */
+.lists-tab{display:flex;height:100%;overflow:hidden}
+.lists-sidebar{width:205px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;padding:10px 6px}
+.lists-sidebar h3{font-size:10px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.8px;padding:4px 10px 8px}
+.list-nav-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:8px 10px;border:none;background:none;font-family:var(--font);font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border-radius:var(--radius-sm);text-align:right;transition:all .15s}
+.list-nav-btn:hover{background:var(--primary-light);color:var(--primary)}
+.list-nav-btn.active{background:var(--primary);color:#fff;font-weight:600}
+.list-num{font-size:10px;opacity:.6}
+.lists-content{flex:1;overflow:hidden;display:flex;flex-direction:column;padding:14px;gap:10px}
+.list-editor{flex:1;overflow:hidden;display:flex;flex-direction:column;background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow)}
+.list-editor-header{display:flex;align-items:center;justify-content:space-between;padding:13px 17px;border-bottom:1px solid var(--border);flex-shrink:0}
+.list-title{display:flex;align-items:center;gap:8px}
+.list-title h2{font-size:15px;font-weight:700}
+.row-count{background:var(--primary-light);color:var(--primary);font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px}
+.list-actions{display:flex;gap:6px}
+.table-wrap{flex:1;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--surface2);padding:8px 11px;text-align:right;font-weight:600;font-size:11px;color:var(--text-muted);border-bottom:2px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:1}
+th.col-num{width:38px;color:var(--text-light)}
+th.col-act{width:48px}
+tbody tr:hover{background:var(--surface2)}
+tbody tr:not(:last-child) td{border-bottom:1px solid var(--border)}
+tbody td{padding:5px 11px;vertical-align:middle}
+td.col-num{color:var(--text-light);font-size:11px;text-align:center}
+.cell-input{width:100%;min-width:60px;border:1px solid transparent;background:transparent;font-family:var(--font);font-size:13px;color:var(--text);padding:3px 5px;border-radius:var(--radius-sm);transition:all .15s;direction:rtl}
+.cell-input:hover{border-color:var(--border-strong);background:#fff}
+.cell-input:focus{outline:none;border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px var(--primary-light)}
+.del-btn{opacity:0;transition:opacity .15s}
+tbody tr:hover .del-btn{opacity:1}
+.empty-state{text-align:center;padding:38px 20px;color:var(--text-muted)}
+.empty-state .es-icon{font-size:34px;margin-bottom:8px}
+.add-row-form{background:var(--surface2);border-top:1px solid var(--border);padding:11px 17px;flex-shrink:0}
+.add-row-form h4{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px}
+.add-row-fields{display:flex;flex-wrap:wrap;gap:7px;align-items:flex-end}
+.field-group{display:flex;flex-direction:column;gap:3px;flex:1;min-width:95px}
+.field-group label{font-size:10px;font-weight:600;color:var(--text-muted)}
+.field-input{padding:6px 9px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;background:#fff;direction:rtl;transition:all .15s}
+.field-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+
+/* MAIN TABLE */
+.main-table-tab{display:flex;flex-direction:column;height:100%;overflow:hidden;padding:14px;gap:10px}
+.main-table-toolbar{display:flex;align-items:center;gap:10px;flex-shrink:0;background:var(--surface);padding:11px 15px;border-radius:var(--radius);box-shadow:var(--shadow);flex-wrap:wrap}
+.main-table-toolbar h2{font-size:15px;font-weight:700}
+.filter-input{padding:6px 11px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;direction:rtl;min-width:160px}
+.filter-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.main-table-wrap{flex:1;overflow:auto;background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow)}
+.main-table-wrap table{font-size:12px}
+.main-table-wrap thead th{font-size:10.5px;padding:7px 9px}
+.main-table-wrap tbody td{padding:4px 7px}
+.cell-checkbox{display:flex;justify-content:center}
+.cell-checkbox input[type=checkbox]{width:15px;height:15px;cursor:pointer;accent-color:var(--primary)}
+.cell-select{width:100%;border:1px solid transparent;background:transparent;font-family:var(--font);font-size:12px;color:var(--text);padding:2px 4px;border-radius:var(--radius-sm);direction:rtl;cursor:pointer;max-width:130px}
+.cell-select:hover{border-color:var(--border-strong);background:#fff}
+.cell-select:focus{outline:none;border-color:var(--primary);background:#fff}
+.badge-bus{background:var(--info-light);color:var(--info);font-size:10.5px;padding:2px 7px;border-radius:8px;font-weight:600;white-space:nowrap}
+.badge-exception{background:var(--danger);color:#fff;font-size:10.5px;padding:2px 7px;border-radius:8px;font-weight:700;animation:pulse 1s infinite}
+.hebrew-date{font-size:10.5px;color:var(--text-muted)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px)}
+.modal{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:24px;width:520px;max-width:94vw;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:17px;font-weight:700;margin-bottom:14px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:13px}
+.form-group label{font-size:12px;font-weight:600;color:var(--text-muted)}
+.form-control{padding:8px 11px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-family:var(--font);font-size:13.5px;direction:rtl}
+.form-control:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.clone-section{margin-bottom:14px}
+.clone-section h4{font-size:13px;font-weight:700;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.clone-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.clone-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12.5px;cursor:pointer;transition:all .15s;user-select:none}
+.clone-item:hover{background:var(--primary-light)}
+.clone-item input[type=checkbox]{accent-color:var(--primary);width:14px;height:14px;flex-shrink:0}
+.field-list{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:11.5px;color:var(--text-muted);margin-bottom:11px;line-height:1.8}
+.import-zone{border:2px dashed var(--border-strong);border-radius:var(--radius);padding:24px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2)}
+.import-zone:hover,.import-zone.drag-over{border-color:var(--primary);background:var(--primary-light)}
+.import-zone .iz-icon{font-size:32px;margin-bottom:8px}
+.import-zone p{color:var(--text-muted);font-size:13px}
+.import-zone strong{color:var(--primary)}
+.import-options{display:flex;flex-direction:column;gap:7px;margin-top:11px}
+.import-option{display:flex;align-items:center;gap:10px;padding:10px 13px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-family:var(--font);font-size:13px;font-weight:500;background:var(--surface2);transition:all .15s}
+.import-option:hover{border-color:var(--primary);background:var(--primary-light);color:var(--primary)}
+.file-selected{background:var(--success-light);color:var(--success);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;margin-bottom:11px;display:flex;align-items:center;gap:8px}
+.file-selected button{margin-right:auto;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px}
+.settings-page{padding:18px;overflow-y:auto;height:100%}
+
+/* EDIT ROW MODAL */
+.edit-modal{width:720px;max-width:96vw}
+.trip-name-sub{font-size:12px;color:var(--text-muted);margin-bottom:16px;margin-top:-10px}
+.form-section{margin-bottom:18px}
+.form-section-title{font-size:13px;font-weight:700;color:var(--primary);background:var(--primary-light);padding:6px 12px;border-radius:var(--radius-sm);margin-bottom:10px;border-right:3px solid var(--primary)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.form-field{display:flex;flex-direction:column;gap:4px}
+.form-field-full{grid-column:1/-1}
+.form-field label{font-size:11px;font-weight:600;color:var(--text-muted)}
+.form-field input,.form-field select,.form-field textarea{padding:7px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;direction:rtl;background:#fff;width:100%}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.form-field textarea{min-height:70px;resize:vertical}
+.checkbox-field{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer;margin-top:2px}
+.checkbox-field input[type=checkbox]{width:16px;height:16px;accent-color:var(--primary);flex-shrink:0}
+.checkbox-field label{font-size:13px;font-weight:500;cursor:pointer}
+.calc-display{padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-weight:600;color:var(--text-muted);min-height:34px}
+.calc-display.buses{background:var(--info-light);color:var(--info);border-color:#bae6fd}
+.calc-display.exception{background:var(--danger);color:#fff;animation:pulse 1s infinite}
+.select-with-add{display:flex;gap:6px;align-items:center}
+.select-with-add select{flex:1}
+.btn-add-new{background:var(--success-light);color:var(--success);border:1px solid #6ee7b7;padding:6px 10px;border-radius:var(--radius-sm);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s}
+.btn-add-new:hover{background:var(--success);color:#fff}
+.settings-card{background:var(--surface);padding:18px;border-radius:var(--radius-lg);box-shadow:var(--shadow);margin-bottom:14px;max-width:680px}
+.settings-card h4{font-size:14px;font-weight:700;margin-bottom:12px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);padding:8px 20px;border-radius:30px;font-family:var(--font);font-size:13px;font-weight:600;box-shadow:var(--shadow-lg);z-index:2000;pointer-events:none}
+.toast-success{background:var(--success);color:#fff}
+.toast-danger{background:var(--danger);color:#fff}
+.toast-info{background:var(--info);color:#fff}
+.toast-warn{background:var(--warn);color:#fff}
+
+/* EDIT FORM MODAL */
+.edit-modal{width:780px;max-width:96vw}
+.edit-modal h3{font-size:18px;font-weight:700;margin-bottom:4px}
+.edit-modal .trip-name-sub{font-size:12px;color:var(--text-muted);margin-bottom:16px}
+.form-section{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px}
+.form-section-title{font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.form-field{display:flex;flex-direction:column;gap:4px}
+.form-field label{font-size:11px;font-weight:600;color:var(--text-muted)}
+.form-field input,.form-field select,.form-field textarea{padding:7px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-family:var(--font);font-size:13px;direction:rtl;background:#fff;transition:all .15s}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.form-field textarea{resize:vertical;min-height:56px}
+.form-field-full{grid-column:1/-1}
+.select-with-add{display:flex;gap:5px;align-items:center}
+.select-with-add select{flex:1}
+.btn-add-new{background:var(--success-light);color:var(--success);border:1px solid #6ee7b7;padding:6px 9px;border-radius:var(--radius-sm);font-size:13px;cursor:pointer;white-space:nowrap;font-family:var(--font);font-weight:600;transition:all .15s;flex-shrink:0}
+.btn-add-new:hover{background:var(--success);color:#fff}
+.calc-display{padding:7px 10px;background:var(--primary-light);color:var(--primary);border-radius:var(--radius-sm);font-size:13px;font-weight:600;min-height:33px;display:flex;align-items:center}
+.calc-display.buses{background:var(--info-light);color:var(--info)}
+.calc-display.exception{background:var(--danger);color:#fff;animation:pulse 1s infinite}
+.checkbox-field{display:flex;align-items:center;gap:8px;padding:7px 0}
+.checkbox-field input{width:16px;height:16px;accent-color:var(--primary);cursor:pointer;flex-shrink:0}
+.checkbox-field label{font-size:13px;font-weight:500;cursor:pointer}
+/* quick-add panel inside edit modal */
+.quick-add-panel{background:var(--warn-light);border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:12px 14px;margin-top:8px}
+.quick-add-panel h5{font-size:12px;font-weight:700;color:var(--warn);margin-bottom:8px}
+.quick-add-fields{display:flex;flex-wrap:wrap;gap:7px;align-items:flex-end}
+.quick-add-fields input,.quick-add-fields select{padding:5px 8px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-family:var(--font);font-size:12.5px;direction:rtl;min-width:100px}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div class="brand">🗺️ ניהול טיולים</div>
+    <div class="trip-selector">
+      <label>טיול פעיל:</label>
+      <select class="trip-select" id="tripSelect" onchange="selectTrip(this.value)">
+        <option value="">— בחר טיול —</option>
+      </select>
+    </div>
+    <div class="header-actions">
+      <button class="btn-new-trip" onclick="openNewTripModal()">+ טיול חדש</button>
+      <button class="btn-trip-mgmt" id="tripMgmtBtn" onclick="toggleTripMenu()" title="ניהול טיול פעיל">⚙️</button>
+      <div class="trip-menu" id="tripMenu" style="display:none">
+        <button onclick="renameTripPrompt()">✏️ שנה שם</button>
+        <button onclick="duplicateTripPrompt()">📋 שכפל</button>
+        <button onclick="deleteTripPrompt()" class="danger-item">🗑️ מחק</button>
+      </div>
+      <button class="undo-btn" id="undoBtn" onclick="doUndo()" disabled>↩ בטל שינוי</button>
+    </div>
+  </header>
+  <nav class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('main-table')">📋 טבלה ראשית</button>
+    <button class="tab-btn" onclick="switchTab('reports')">📊 דוחות</button>
+    <button class="tab-btn" onclick="switchTab('archives')">🗂️ מאגרי מידע</button>
+    <button class="tab-btn" onclick="switchTab('lists')">📝 רשימות</button>
+    <button class="tab-btn" onclick="switchTab('contacts')">👥 אנשי קשר</button>
+    <button class="tab-btn" onclick="switchTab('trip-folders')">🎒 תיקי טיול</button>
+    <button class="tab-btn" onclick="switchTab('settings')">⚙️ הגדרות</button>
+  </nav>
+  <main class="app-main" id="appMain"></main>
+</div>
+
+<!-- NEW TRIP MODAL -->
+<div class="modal-overlay" id="newTripModal" style="display:none">
+  <div class="modal">
+    <h3>➕ טיול חדש</h3>
+    <div class="form-group">
+      <label>שם הטיול</label>
+      <input class="form-control" id="newTripName" placeholder="לדוגמה: טיול תשפ״ו" dir="rtl" onkeydown="if(event.key==='Enter')createTrip()">
+    </div>
+    <div class="form-group">
+      <label>התחל מ...</label>
+      <select class="form-control" id="newTripSource" onchange="updateCloneOptions()">
+        <option value="empty">טיול ריק (חדש לגמרי)</option>
+      </select>
+    </div>
+    <div id="cloneOptionsWrap" style="display:none">
+      <div class="clone-section">
+        <h4>📝 רשימות — מה לשכפל?</h4>
+        <div class="clone-grid" id="cloneListsGrid"></div>
+      </div>
+      <div class="clone-section">
+        <h4>📋 שדות טבלה ראשית — מה לשכפל?</h4>
+        <div class="clone-grid" id="cloneTableGrid"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('newTripModal')">ביטול</button>
+      <button class="btn btn-success" onclick="createTrip()">✓ צור טיול</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-overlay" id="importModal" style="display:none">
+  <div class="modal">
+    <h3 id="importModalTitle">ייבוא Excel</h3>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">סדר העמודות הנדרש:</p>
+    <div class="field-list" id="importFieldList"></div>
+    <div id="importDropZone" class="import-zone" onclick="document.getElementById('fileInput').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="handleDrop(event)">
+      <div class="iz-icon">📂</div><p>גרור קובץ Excel לכאן</p><p><strong>או לחץ לבחירת קובץ</strong></p>
+    </div>
+    <div id="fileSelectedDiv" style="display:none" class="file-selected">✓ <span id="fileSelectedName"></span><button onclick="clearSelectedFile()">✕</button></div>
+    <div id="importOptions" class="import-options" style="display:none">
+      <button class="import-option" onclick="doImport('replace')">🔄 <span><strong>החלף</strong> את כל הנתונים</span></button>
+      <button class="import-option" onclick="doImport('append')">➕ <span><strong>הוסף</strong> על גבי הקיים</span></button>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileSelect(this.files[0])">
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('importModal')">ביטול</button></div>
+  </div>
+</div>
+
+<script>
+// ── DATA DEFS ──
+const LIST_DEFS = {
+  list1:{name:'קהילות',fields:['שם קהילה','כתובת']},
+  list2:{name:'מסלולים',fields:['שם מסלול','פירוט מספרי מסלולים להזנה','שם קליט','משך זמן משוער']},
+  list3:{name:'אתרים',fields:['שם אתר','פירוט להזנה ממשרד החינוך','שם קליט']},
+  list4:{name:'אטרקציות',fields:['שם אטרקציה מלא','פרטים להזנה משרד החינוך','שם קליט','מיקום בארץ','קישור וויז','משך זמן פעילות','מחיר','כמות משתתפים','מינימום כמות','חוזר מנכ"ל 1','חוזר מנכ"ל 2','חוזר מנכ"ל 3','ספק']},
+  list5:{name:'שמות טבלאות ראשיות',fields:['שם טבלה']},
+  list6:{name:'אנשי קשר',fields:['שם מאוחד','שם משפחה','שם פרטי','ת.ז.','טלפון','מייל','קהילה','תפקיד']},
+  list7:{name:'משתתפים',fields:['שם משפחה','שם פרטי','ת.ז.','טלפון','קהילה']},
+  list8:{name:'מחירון אוטובוסים',fields:['סוג','מחיר בסיס','כמות שעות לבסיס','מחיר לשעה נוספת','כביש-6 צד אחד','כביש-6 2 צדדים']},
+  list9:{name:'מסמכים כלליים',fields:['שם מסמך']},
+  list10:{name:'ניהול סיכונים',fields:['שם אתר','שם קובץ']},
+  list11:{name:'מפות',fields:['שם אתר','שם קובץ']},
+  list12:{name:'חוזרי מנכ"ל',fields:['שם אטרקציה','שם קובץ']},
+};
+const LIST_KEYS = Object.keys(LIST_DEFS);
+
+const MT_FIELDS = [
+  {id:'f1', label:'שם קהילה',type:'auto'},
+  {id:'f2', label:'פעיל',type:'checkbox'},
+  {id:'f3', label:'מס\' אישור',type:'text'},
+  {id:'f4', label:'טיול מאושר',type:'checkbox'},
+  {id:'f5', label:'נרשמים',type:'calc_participants'},
+  {id:'f6', label:'מלווים',type:'number'},
+  {id:'f7', label:'תיקון כמות',type:'number'},
+  {id:'f8', label:'מצורף עם',type:'select',source:'list1_col0'},
+  {id:'f9', label:'סה"כ',type:'calc_total'},
+  {id:'f10',label:'אוטובוסים',type:'calc_buses'},
+  {id:'f11',label:'שעת יציאה',type:'time'},
+  {id:'f12',label:'שעת חזרה',type:'time'},
+  {id:'f13',label:'תאריך',type:'date'},
+  {id:'f14',label:'תאריך עברי',type:'calc_hebrew'},
+  {id:'f15',label:'יום',type:'calc_day'},
+  {id:'f16',label:'אחראי קהילה',type:'calc_contact'},
+  {id:'f17',label:'אחראי טיול',type:'select',source:'list6_col0'},
+  {id:'f18',label:'טיול 1',type:'select',source:'list2_col0'},
+  {id:'f19',label:'טיול 2',type:'select',source:'list2_col0'},
+  {id:'f20',label:'טיול 3',type:'select',source:'list2_col0'},
+  {id:'f21',label:'אתר 1',type:'select',source:'list3_col0'},
+  {id:'f22',label:'אתר 2',type:'select',source:'list3_col0'},
+  {id:'f23',label:'אטרקציה 1',type:'select',source:'list4_col0'},
+  {id:'f32',label:'שעת אטרקציה 1',type:'time'},
+  {id:'f24',label:'הוזמן ישירות 1',type:'checkbox'},
+  {id:'f25',label:'משתתפים בפועל 1',type:'number'},
+  {id:'f26',label:'אטרקציה 2',type:'select',source:'list4_col0'},
+  {id:'f33',label:'שעת אטרקציה 2',type:'time'},
+  {id:'f27',label:'הוזמן ישירות 2',type:'checkbox'},
+  {id:'f28',label:'משתתפים בפועל 2',type:'number'},
+  {id:'f29',label:'הערות',type:'text'},
+  {id:'f30',label:'שעות אוטובוס בפועל',type:'text'},
+  {id:'f31',label:'כביש 6',type:'select',options:['ללא','צד אחד','שני צדדים']},
+];
+
+const CALC_TYPES = ['calc_total','calc_buses','calc_hebrew','calc_day','calc_contact','calc_participants'];
+
+const DEF_CLONE_LISTS = {list1:true,list2:true,list3:true,list4:true,list5:true,list6:true,list7:false,list8:true,list9:true,list10:true,list11:true,list12:true};
+const DEF_CLONE_MT = {f1:true,f18:true,f19:true,f20:true,f21:true,f22:true,f23:true,f26:true};
+
+// ── STATE ──
+let state = (() => {
+  try {
+    // Try new key first
+    const r = localStorage.getItem('trips_v3');
+    if (r) { const p=JSON.parse(r); if(!p.trips) p.trips={}; if(!p.global) p.global={settings:{}}; return p; }
+
+    // Migrate from old key (trips_app_v2)
+    const old = localStorage.getItem('trips_app_v2');
+    if (old) {
+      const p = JSON.parse(old);
+      // Old format had flat lists, wrap into a trip called "טיול ראשון"
+      const lists = p.lists || {};
+      // Ensure all list keys exist
+      LIST_KEYS.forEach(k => { if(!lists[k]) lists[k]=[]; });
+      const migrated = {
+        trips: { 'טיול ראשון': { lists, mainTable:[] } },
+        activeTrip: 'טיול ראשון',
+        global: { settings:{} }
+      };
+      // Save to new key immediately
+      localStorage.setItem('trips_v3', JSON.stringify(migrated));
+      return migrated;
+    }
+  } catch(e) {}
+  return {trips:{},activeTrip:null,global:{settings:{}}};
+})();
+
+let undoStack=[], activeTab='main-table', activeList='list1', activeTrip=state.activeTrip||null, importFile=null, importListKey=null;
+
+function emptyTrip() { const l={}; LIST_KEYS.forEach(k=>l[k]=[]); return {lists:l,mainTable:[]}; }
+function getTD() { return activeTrip && state.trips[activeTrip] ? state.trips[activeTrip] : null; }
+function snap() { return JSON.stringify(state.trips); }
+function save() { state.activeTrip=activeTrip; localStorage.setItem('trips_v3',JSON.stringify(state)); updateUndoBtn(); updateTripSel(); }
+function pushU(s) { undoStack.push(s); if(undoStack.length>50) undoStack.shift(); updateUndoBtn(); }
+function doUndo() { if(!undoStack.length) return; state.trips=JSON.parse(undoStack.pop()); save(); render(); showToast('הפעולה בוטלה','info'); }
+function updateUndoBtn() { const b=document.getElementById('undoBtn'); if(undoStack.length){b.classList.add('active');b.disabled=false;}else{b.classList.remove('active');b.disabled=true;} }
+document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();doUndo();} });
+
+function updateTripSel() {
+  const s=document.getElementById('tripSelect');
+  s.innerHTML='<option value="">— בחר טיול —</option>'+Object.keys(state.trips).map(t=>`<option value="${h(t)}" ${t===activeTrip?'selected':''}>${h(t)}</option>`).join('');
+}
+function selectTrip(n) { activeTrip=n||null; save(); render(); }
+
+// ── NEW TRIP ──
+function openNewTripModal() {
+  document.getElementById('newTripName').value='';
+  const src=document.getElementById('newTripSource');
+  src.innerHTML='<option value="empty">טיול ריק</option>'+Object.keys(state.trips).map(t=>`<option value="${h(t)}">שכפל מ: ${h(t)}</option>`).join('');
+  document.getElementById('cloneOptionsWrap').style.display='none';
+  buildCloneGrids();
+  document.getElementById('newTripModal').style.display='flex';
+  setTimeout(()=>document.getElementById('newTripName').focus(),80);
+}
+function buildCloneGrids() {
+  const cl=state.global.settings.cloneLists||DEF_CLONE_LISTS;
+  const cm=state.global.settings.cloneMTFields||DEF_CLONE_MT;
+  document.getElementById('cloneListsGrid').innerHTML=LIST_KEYS.map(k=>`<label class="clone-item"><input type="checkbox" id="cl_${k}" ${cl[k]!==false?'checked':''}><span>${LIST_DEFS[k].name}</span></label>`).join('');
+  document.getElementById('cloneTableGrid').innerHTML=MT_FIELDS.filter(f=>!CALC_TYPES.includes(f.type)).map(f=>`<label class="clone-item"><input type="checkbox" id="cmf_${f.id}" ${cm[f.id]?'checked':''}><span>${f.label}</span></label>`).join('');
+}
+function updateCloneOptions() { document.getElementById('cloneOptionsWrap').style.display=document.getElementById('newTripSource').value!=='empty'?'block':'none'; }
+function createTrip() {
+  const name=document.getElementById('newTripName').value.trim();
+  if(!name){showToast('נא להזין שם','danger');return;}
+  if(state.trips[name]){showToast('שם זה כבר קיים','danger');return;}
+  const src=document.getElementById('newTripSource').value;
+  pushU(snap());
+  let td=emptyTrip();
+  if(src!=='empty'&&state.trips[src]) {
+    const sd=state.trips[src];
+    LIST_KEYS.forEach(k=>{ const el=document.getElementById('cl_'+k); if(el&&el.checked) td.lists[k]=JSON.parse(JSON.stringify(sd.lists[k]||[])); });
+    if((sd.mainTable||[]).length>0) {
+      td.mainTable=sd.mainTable.map(row=>{
+        const nr={}; MT_FIELDS.forEach(f=>{ const el=document.getElementById('cmf_'+f.id); nr[f.id]=(el&&el.checked)?row[f.id]:(f.type==='checkbox'?false:''); }); return nr;
+      });
+    }
+  }
+  state.trips[name]=td; activeTrip=name; save(); closeModal('newTripModal'); render(); showToast('הטיול "'+name+'" נוצר ✓');
+}
+
+// ── TABS ──
+function switchTab(t) {
+  activeTab=t;
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['main-table','reports','archives','lists','contacts','trip-folders','settings'][i]===t));
+  render();
+}
+function render() {
+  const m=document.getElementById('appMain');
+  if(activeTab==='lists') renderLists(m);
+  else if(activeTab==='main-table') renderMT(m);
+  else if(activeTab==='settings') renderSettings(m);
+  else m.innerHTML=`<div class="coming-soon"><div class="cs-icon">🚧</div><h2>בשלב הבנייה</h2><p>לשונית זו תהיה זמינה בשלב הבא</p></div>`;
+}
+
+// ── MAIN TABLE ──
+function renderMT(container) {
+  const td=getTD();
+  if(!activeTrip||!td){container.innerHTML=`<div class="no-trip"><div class="nt-icon">🗺️</div><h2>בחר טיול או צור טיול חדש</h2><p>לחץ על "+ טיול חדש" בראש המסך</p><button class="btn btn-primary" onclick="openNewTripModal()" style="margin-top:8px">+ טיול חדש</button></div>`;return;}
+  syncMTRows(td);
+  const rows=td.mainTable||[];
+  const fv=(document.getElementById('mtFilter')||{}).value||'';
+  const vis=rows.filter(r=>!fv||MT_FIELDS.some(f=>String(r[f.id]||'').includes(fv)));
+  const hdrs=MT_FIELDS.map(f=>`<th>${f.label}</th>`).join('');
+  const tbdy=vis.length===0
+    ?`<tr><td colspan="${MT_FIELDS.length+1}" style="text-align:center;padding:28px;color:var(--text-muted)">אין שורות — הוסף קהילות ברשימה 1</td></tr>`
+    :vis.map(row=>{
+        const ri=rows.indexOf(row);
+        const act=row.f2===true, mrg=row.f8&&row.f8!=='';
+        return `<tr style="${!act?'opacity:.5':''}${mrg?';background:var(--warn-light)':''}">
+          <td class="col-num" style="white-space:nowrap">
+            <button class="btn btn-primary btn-icon btn-sm" onclick="openEditRow(${ri})" title="ערוך שורה" style="margin-bottom:2px">✏️</button>
+            <div style="font-size:10px;color:var(--text-light);margin-top:1px">${ri+1}</div>
+          </td>${MT_FIELDS.map(f=>renderMTCell(f,row,ri,td)).join('')}</tr>`;
+      }).join('');
+  container.innerHTML=`<div class="main-table-tab">
+    <div class="main-table-toolbar">
+      <h2>📋 טבלה ראשית — ${h(activeTrip)}</h2>
+      <span class="row-count">${rows.filter(r=>r.f2).length} פעילים / ${rows.length}</span>
+      <input class="filter-input" id="mtFilter" placeholder="🔍 סינון..." dir="rtl" value="${h(fv)}" oninput="render()">
+      <button class="btn btn-secondary btn-sm" onclick="addMTRow()">+ שורה ידנית</button>
+    </div>
+    <div class="main-table-wrap"><table><thead><tr><th class="col-num">#</th>${hdrs}</tr></thead><tbody>${tbdy}</tbody></table></div>
+  </div>`;
+}
+
+function syncMTRows(td) {
+  if(!td.mainTable) td.mainTable=[];
+  (td.lists.list1||[]).forEach(r=>{
+    const name=r[0]||'';
+    if(name&&!td.mainTable.find(x=>x.f1===name)){
+      const nr={}; MT_FIELDS.forEach(f=>nr[f.id]=f.type==='checkbox'?false:''); nr.f1=name; td.mainTable.push(nr);
+    }
+  });
+}
+
+function renderMTCell(f,row,ri,td) {
+  const v=row[f.id];
+  switch(f.type) {
+    case 'auto': return `<td><strong style="font-size:12px">${h(v||'')}</strong></td>`;
+    case 'checkbox': return `<td class="cell-checkbox"><input type="checkbox" ${v?'checked':''} onchange="setMT(${ri},'${f.id}',this.checked)"></td>`;
+    case 'text': return `<td><input class="cell-input" value="${h(String(v||''))}" onchange="setMT(${ri},'${f.id}',this.value)" dir="rtl" style="min-width:70px"></td>`;
+    case 'number': return `<td><input class="cell-input" type="number" value="${h(String(v||''))}" onchange="setMT(${ri},'${f.id}',this.value)" style="min-width:55px;text-align:center"></td>`;
+    case 'time': return `<td><input class="cell-input" type="time" value="${h(String(v||''))}" onchange="setMT(${ri},'${f.id}',this.value)" style="min-width:75px"></td>`;
+    case 'date': return `<td><input class="cell-input" type="date" value="${h(String(v||''))}" onchange="setMT(${ri},'${f.id}',this.value)" style="min-width:115px"></td>`;
+    case 'select': {
+      const opts=f.options||getOpts(f.source,td);
+      const optsHtml=['<option value="">—</option>',...opts.map(o=>`<option value="${h(o)}" ${o===v?'selected':''}>${h(o)}</option>`)].join('');
+      return `<td><select class="cell-select" onchange="handleMTSel(${ri},'${f.id}',this.value,'${f.source||''}')">${optsHtml}</select></td>`;
+    }
+    case 'calc_total': { const t=calcTotal(row,td); return `<td><strong>${t||''}</strong></td>`; }
+    case 'calc_buses': { const t=calcTotal(row,td); const b=calcBuses(t); return `<td>${b?`<span class="${b==='חריג'?'badge-exception':'badge-bus'}">${b}</span>`:''}</td>`; }
+    case 'calc_hebrew': return `<td class="hebrew-date">${v?toHeb(v):''}</td>`;
+    case 'calc_day': return `<td style="font-size:11px">${row.f13?getDay(row.f13):''}</td>`;
+    case 'calc_contact': return `<td style="font-size:11px">${h(getContact(row.f1,td))}</td>`;
+    case 'calc_participants': { const c=countP(row.f1,td); return `<td style="text-align:center">${c||''}</td>`; }
+    default: return `<td>${h(String(v||''))}</td>`;
+  }
+}
+
+function setMT(ri,fid,val) {
+  const td=getTD(); if(!td) return;
+  pushU(snap()); td.mainTable[ri][fid]=val;
+  if(fid==='f13') td.mainTable[ri].f14=val;
+  if(fid==='f8'&&val) { const mr=td.mainTable.find(r=>r.f1===val); if(mr) mr.f2=false; }
+  save(); render();
+}
+function handleMTSel(ri,fid,val,src) {
+  if((fid==='f23'||fid==='f26')&&val) {
+    const td=getTD(); const a=(td.lists.list4||[]).find(r=>r[0]===val);
+    if(a&&a[8]){ const mn=parseInt(a[8]); const tot=calcTotal(td.mainTable[ri],td); if(tot<mn) showToast(`⚠️ מינימום לאטרקציה זו: ${mn} (יש: ${tot})`,'warn'); }
+  }
+  setMT(ri,fid,val);
+}
+function addMTRow() {
+  const td=getTD(); if(!td) return;
+  pushU(snap()); const nr={}; MT_FIELDS.forEach(f=>nr[f.id]=f.type==='checkbox'?false:''); nr.f1='הזנה ידנית';
+  td.mainTable.push(nr); save(); render();
+}
+
+// ── CALCULATIONS ──
+function getOpts(src,td) {
+  if(!src||!td) return [];
+  const m=src.match(/^(list\d+)_col(\d+)$/); if(!m) return [];
+  return (td.lists[m[1]]||[]).map(r=>r[parseInt(m[2])]||'').filter(Boolean);
+}
+function countP(name,td) { if(!name||!td) return 0; return (td.lists.list7||[]).filter(r=>r[4]===name).length; }
+function calcTotal(row,td) {
+  let t=(parseInt(countP(row.f1,td))||0)+(parseInt(row.f6)||0)+(parseInt(row.f7)||0);
+  if(row.f8&&td&&td.mainTable) { const mr=td.mainTable.find(r=>r.f1===row.f8); if(mr) t+=(parseInt(countP(mr.f1,td))||0)+(parseInt(mr.f6)||0)+(parseInt(mr.f7)||0); }
+  return t;
+}
+function calcBuses(n) {
+  if(!n||n<=0) return '';
+  if(n<=20) return 'מיניבוס 1';
+  if(n<=23) return 'מיניבוס23 1';
+  if(n<=54) return 'רגיל 1';
+  if(n<=60) return 'אוטובוס60 1';
+  if(n<=74) return 'רגיל 1 + מיניבוס 1';
+  if(n<=108) return 'רגיל 2';
+  if(n<=114) return 'רגיל 1 + אוטובוס60 1';
+  if(n<=120) return 'אוטובוס60 2';
+  return 'חריג';
+}
+function getContact(name,td) {
+  if(!name||!td) return '';
+  const contacts=td.lists.list6||[];
+  let c=contacts.find(r=>r[6]===name&&(r[7]||'').includes('נציג קהילה'));
+  if(!c) c=contacts.find(r=>r[6]===name);
+  return c?c[0]||'':'';
+}
+const DAYS=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+function getDay(d) { try{return DAYS[new Date(d).getDay()];}catch(e){return '';} }
+function toHeb(d) { try{ return new Intl.DateTimeFormat('he-u-ca-hebrew',{day:'numeric',month:'long',year:'numeric'}).format(new Date(d)); }catch(e){return '';} }
+
+// ── LISTS TAB ──
+function renderLists(container) {
+  const td=getTD();
+  if(!activeTrip||!td){container.innerHTML=`<div class="no-trip"><div class="nt-icon">📝</div><h2>בחר טיול תחילה</h2></div>`;return;}
+  const def=LIST_DEFS[activeList], rows=td.lists[activeList]||[];
+  const sb=LIST_KEYS.map((k,i)=>`<button class="list-nav-btn ${k===activeList?'active':''}" onclick="selList('${k}')"><span>${LIST_DEFS[k].name}</span><span class="list-num">${k===activeList?(td.lists[k]||[]).length+' ✓':'('+(i+1)+')'}</span></button>`).join('');
+  const hdrs=def.fields.map(f=>`<th>${f}</th>`).join('')+'<th class="col-act">מחק</th>';
+  const tbdy=rows.length===0
+    ?`<tr><td colspan="${def.fields.length+2}"><div class="empty-state"><div class="es-icon">📭</div><div>אין רשומות</div></div></td></tr>`
+    :rows.map((row,ri)=>`<tr><td class="col-num">${ri+1}</td>${def.fields.map((_,ci)=>`<td><input class="cell-input" value="${h(row[ci]||'')}" onchange="setLC('${activeList}',${ri},${ci},this.value)" dir="rtl"></td>`).join('')}<td><button class="btn btn-danger btn-icon btn-sm del-btn" onclick="delLR('${activeList}',${ri})">✕</button></td></tr>`).join('');
+  const adds=def.fields.map((f,i)=>`<div class="field-group"><label>${f}</label><input class="field-input" id="nf_${i}" placeholder="${f}" dir="rtl" onkeydown="if(event.key==='Enter')addLR('${activeList}')"></div>`).join('');
+  container.innerHTML=`<div class="lists-tab">
+    <aside class="lists-sidebar"><h3>רשימות</h3>${sb}</aside>
+    <div class="lists-content"><div class="list-editor">
+      <div class="list-editor-header">
+        <div class="list-title"><h2>רשימה ${LIST_KEYS.indexOf(activeList)+1}: ${def.name}</h2><span class="row-count">${rows.length}</span></div>
+        <div class="list-actions">
+          <button class="btn btn-secondary btn-sm" onclick="expL('${activeList}')">⬇ Excel</button>
+          <button class="btn btn-primary btn-sm" onclick="openImp('${activeList}')">⬆ ייבוא</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th class="col-num">#</th>${hdrs}</tr></thead><tbody>${tbdy}</tbody></table></div>
+      <div class="add-row-form"><h4>+ הוספת שורה</h4><div class="add-row-fields">${adds}<button class="btn btn-success" onclick="addLR('${activeList}')" style="align-self:flex-end">+ הוסף</button></div></div>
+    </div></div></div>`;
+}
+function selList(k){activeList=k;render();}
+function setLC(lk,ri,ci,v){const td=getTD();if(!td)return;pushU(snap());td.lists[lk][ri][ci]=v;save();}
+function delLR(lk,ri){const td=getTD();if(!td)return;pushU(snap());td.lists[lk].splice(ri,1);save();render();showToast('נמחק','info');}
+function addLR(lk){
+  const td=getTD();if(!td)return;
+  const def=LIST_DEFS[lk];
+  const vals=def.fields.map((_,i)=>{const el=document.getElementById('nf_'+i);return el?el.value.trim():'';});
+  if(vals.every(v=>!v)){showToast('נא למלא לפחות שדה אחד','danger');return;}
+  pushU(snap());td.lists[lk].push(vals);save();render();showToast('שורה נוספה ✓');
+}
+function expL(lk){
+  const td=getTD();if(!td)return;
+  const def=LIST_DEFS[lk];
+  const ws=XLSX.utils.aoa_to_sheet([def.fields,...(td.lists[lk]||[])]);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,def.name);XLSX.writeFile(wb,def.name+'.xlsx');
+  showToast('הורד ✓');
+}
+
+// ── SETTINGS ──
+function renderSettings(container) {
+  const cl=state.global.settings.cloneLists||DEF_CLONE_LISTS;
+  const cm=state.global.settings.cloneMTFields||DEF_CLONE_MT;
+  const lg=LIST_KEYS.map(k=>`<label class="clone-item"><input type="checkbox" id="s_cl_${k}" ${cl[k]!==false?'checked':''} onchange="saveSett()"><span>${LIST_DEFS[k].name}</span></label>`).join('');
+  const mg=MT_FIELDS.filter(f=>!CALC_TYPES.includes(f.type)).map(f=>`<label class="clone-item"><input type="checkbox" id="s_cmf_${f.id}" ${cm[f.id]?'checked':''} onchange="saveSett()"><span>${f.label}</span></label>`).join('');
+  container.innerHTML=`<div class="settings-page">
+    <h2 style="font-size:19px;font-weight:700;margin-bottom:16px">⚙️ הגדרות שכפול טיול</h2>
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">ברירת מחדל — מה לשכפל בעת יצירת טיול חדש מטיול קיים</p>
+    <div class="settings-card"><h4>📝 רשימות</h4><div class="clone-grid">${lg}</div></div>
+    <div class="settings-card"><h4>📋 שדות טבלה ראשית</h4><div class="clone-grid">${mg}</div></div>
+  </div>`;
+}
+function saveSett(){
+  const cl={},cm={};
+  LIST_KEYS.forEach(k=>{const el=document.getElementById('s_cl_'+k);if(el)cl[k]=el.checked;});
+  MT_FIELDS.forEach(f=>{const el=document.getElementById('s_cmf_'+f.id);if(el)cm[f.id]=el.checked;});
+  state.global.settings.cloneLists=cl;state.global.settings.cloneMTFields=cm;save();showToast('נשמר ✓');
+}
+
+// ── IMPORT ──
+function openImp(lk){importListKey=lk;importFile=null;const def=LIST_DEFS[lk];document.getElementById('importModalTitle').textContent='ייבוא Excel — '+def.name;document.getElementById('importFieldList').textContent=def.fields.join(' | ');document.getElementById('importDropZone').style.display='block';document.getElementById('fileSelectedDiv').style.display='none';document.getElementById('importOptions').style.display='none';document.getElementById('fileInput').value='';document.getElementById('importModal').style.display='flex';}
+function closeModal(id){document.getElementById(id).style.display='none';}
+function handleDrop(e){e.preventDefault();document.getElementById('importDropZone').classList.remove('drag-over');handleFileSelect(e.dataTransfer.files[0]);}
+function handleFileSelect(f){if(!f)return;importFile=f;document.getElementById('importDropZone').style.display='none';document.getElementById('fileSelectedName').textContent=f.name;document.getElementById('fileSelectedDiv').style.display='flex';document.getElementById('importOptions').style.display='flex';}
+function clearSelectedFile(){importFile=null;document.getElementById('importDropZone').style.display='block';document.getElementById('fileSelectedDiv').style.display='none';document.getElementById('importOptions').style.display='none';document.getElementById('fileInput').value='';}
+function doImport(mode){
+  if(!importFile)return;const td=getTD();if(!td)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];
+      const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});if(raw.length<2){showToast('קובץ ריק','danger');return;}
+      const def=LIST_DEFS[importListKey];
+      const nr=raw.slice(1).filter(r=>r.some(c=>c!=='')).map(r=>def.fields.map((_,i)=>String(r[i]??'')));
+      pushU(snap());if(mode==='replace')td.lists[importListKey]=nr;else td.lists[importListKey]=[...td.lists[importListKey],...nr];
+      save();closeModal('importModal');render();showToast('יובאו '+nr.length+' שורות ✓');
+    }catch(err){showToast('שגיאה בקריאה','danger');}
+  };reader.readAsBinaryString(importFile);
+}
+
+// ── UTILS ──
+function h(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+let tt;function showToast(msg,type='success'){let el=document.getElementById('toastEl');if(!el){el=document.createElement('div');el.id='toastEl';document.body.appendChild(el);}el.textContent=msg;el.className='toast toast-'+type;el.style.display='block';if(tt)clearTimeout(tt);tt=setTimeout(()=>el.style.display='none',2800);}
+
+
+// ── EDIT ROW FORM ──
+let editRowIdx = null;
+let editRowData = null;
+let qaListKey = null;
+let qaCallback = null;
+
+function openEditRow(ri) {
+  const td = getTD(); if(!td) return;
+  editRowIdx = ri;
+  editRowData = JSON.parse(JSON.stringify(td.mainTable[ri]));
+  const row = editRowData;
+  document.getElementById('editModalTitle').textContent = '✏️ עריכת שורה — ' + (row.f1||'');
+  document.getElementById('editModalSub').textContent = activeTrip;
+
+  const sections = [
+    {
+      title:'👥 פרטי קהילה וכמויות', icon:'',
+      fields:['f1','f2','f3','f4','f5','f6','f7','f8','f9','f10']
+    },
+    {
+      title:'📅 תאריכים ושעות', icon:'',
+      fields:['f13','f14','f15','f11','f12']
+    },
+    {
+      title:'👤 אחראים', icon:'',
+      fields:['f16','f17']
+    },
+    {
+      title:'🥾 מסלולים ואתרים', icon:'',
+      fields:['f18','f19','f20','f21','f22']
+    },
+    {
+      title:'🎡 אטרקציות', icon:'',
+      fields:['f23','f32','f24','f25','f26','f33','f27','f28']
+    },
+    {
+      title:'🚌 אוטובוסים והערות', icon:'',
+      fields:['f29','f30','f31']
+    }
+  ];
+
+  let html = '';
+  sections.forEach(sec => {
+    html += `<div class="form-section">
+      <div class="form-section-title">${sec.title}</div>
+      <div class="form-grid">`;
+    sec.fields.forEach(fid => {
+      const fdef = MT_FIELDS.find(f=>f.id===fid);
+      if(!fdef) return;
+      html += renderEditField(fdef, row, td);
+    });
+    html += '</div></div>';
+  });
+
+  document.getElementById('editModalBody').innerHTML = html;
+  document.getElementById('editRowModal').style.display = 'flex';
+}
+
+function renderEditField(fdef, row, td) {
+  const v = row[fdef.id] || '';
+  const isCalc = CALC_TYPES.includes(fdef.type);
+
+  // Full width fields
+  const fullWidth = ['f1','f29','f30'].includes(fdef.id);
+  const cls = fullWidth ? 'form-field form-field-full' : 'form-field';
+
+  if(fdef.type === 'checkbox') {
+    return `<div class="${cls}">
+      <div class="checkbox-field">
+        <input type="checkbox" id="ef_${fdef.id}" ${v?'checked':''} onchange="editRowData['${fdef.id}']=this.checked;refreshCalcs()">
+        <label for="ef_${fdef.id}">${fdef.label}</label>
+      </div>
+    </div>`;
+  }
+
+  if(isCalc) {
+    let calcVal = '';
+    if(fdef.type==='calc_total') calcVal = calcTotal(row,td)||'';
+    else if(fdef.type==='calc_buses') { const t=calcTotal(row,td); calcVal=calcBuses(t)||''; }
+    else if(fdef.type==='calc_hebrew') calcVal = v ? toHeb(v) : '';
+    else if(fdef.type==='calc_day') calcVal = row.f13 ? getDay(row.f13) : '';
+    else if(fdef.type==='calc_contact') calcVal = getContact(row.f1, td);
+    else if(fdef.type==='calc_participants') calcVal = countP(row.f1,td)||'';
+    const isBus = fdef.type==='calc_buses';
+    const isExc = calcVal==='חריג';
+    return `<div class="${cls}">
+      <label>${fdef.label}</label>
+      <div class="calc-display ${isBus?'buses':''} ${isExc?'exception':''}" id="calc_${fdef.id}">${h(String(calcVal))}</div>
+    </div>`;
+  }
+
+  if(fdef.type === 'select') {
+    const opts = fdef.options || getOpts(fdef.source, td);
+    const optsHtml = ['<option value="">— בחר —</option>',
+      ...opts.map(o=>`<option value="${h(o)}" ${o===v?'selected':''}>${h(o)}</option>`)
+    ].join('');
+    // Determine which list to add to
+    const addTarget = fdef.source ? fdef.source.match(/^(list\d+)/)?.[1] : null;
+    const addBtn = addTarget ? `<button class="btn-add-new" onclick="openQuickAdd('${addTarget}','ef_${fdef.id}','${fdef.id}')" title="הוסף חדש לרשימה">+ חדש</button>` : '';
+    return `<div class="${cls}">
+      <label>${fdef.label}</label>
+      <div class="select-with-add">
+        <select id="ef_${fdef.id}" onchange="editRowData['${fdef.id}']=this.value;handleEditSel('${fdef.id}',this.value)">${optsHtml}</select>
+        ${addBtn}
+      </div>
+    </div>`;
+  }
+
+  const inputType = fdef.type==='number'?'number':fdef.type==='time'?'time':fdef.type==='date'?'date':'text';
+  const isTextarea = fdef.id==='f29';
+  const inputEl = isTextarea
+    ? `<textarea id="ef_${fdef.id}" oninput="editRowData['${fdef.id}']=this.value" dir="rtl">${h(String(v))}</textarea>`
+    : `<input type="${inputType}" id="ef_${fdef.id}" value="${h(String(v))}" oninput="editRowData['${fdef.id}']=this.value;if('${fdef.id}'==='f13')refreshCalcs()" dir="${inputType==='text'?'rtl':'ltr'}">`;
+
+  return `<div class="${cls}">
+    <label>${fdef.label}</label>
+    ${inputEl}
+  </div>`;
+}
+
+function refreshCalcs() {
+  const td = getTD(); if(!td||!editRowData) return;
+  // Update f13 dependent fields
+  if(editRowData.f13) editRowData.f14 = editRowData.f13;
+  const calcs = {
+    calc_total: calcTotal(editRowData,td)||'',
+    calc_buses: calcBuses(calcTotal(editRowData,td))||'',
+    calc_hebrew: editRowData.f13?toHeb(editRowData.f13):'',
+    calc_day: editRowData.f13?getDay(editRowData.f13):'',
+    calc_contact: getContact(editRowData.f1,td),
+    calc_participants: countP(editRowData.f1,td)||''
+  };
+  MT_FIELDS.forEach(f => {
+    if(CALC_TYPES.includes(f.type)) {
+      const el = document.getElementById('calc_'+f.id);
+      if(el) {
+        const v = calcs[f.type]||'';
+        el.textContent = v;
+        el.className = 'calc-display' + (f.type==='calc_buses'?' buses':'') + (v==='חריג'?' exception':'');
+      }
+    }
+  });
+}
+
+function handleEditSel(fid, val) {
+  editRowData[fid] = val;
+  if(fid==='f8'&&val) {
+    const td=getTD(); const mr=td&&td.mainTable?td.mainTable.find(r=>r.f1===val):null;
+    if(mr) mr.f2=false;
+  }
+  if(fid==='f23'||fid==='f26') {
+    const td=getTD(); const a=(td.lists.list4||[]).find(r=>r[0]===val);
+    if(a&&a[8]){ const mn=parseInt(a[8]); const tot=calcTotal(editRowData,td); if(tot<mn) showToast(`⚠️ מינימום לאטרקציה זו: ${mn}`,'warn'); }
+  }
+  refreshCalcs();
+}
+
+function saveEditRow() {
+  const td = getTD(); if(!td||editRowIdx===null) return;
+  pushU(snap());
+  td.mainTable[editRowIdx] = JSON.parse(JSON.stringify(editRowData));
+  save(); render();
+  closeModal('editRowModal');
+  showToast('השינויים נשמרו ✓');
+}
+
+// ── QUICK ADD (from within edit form) ──
+function openQuickAdd(listKey, targetSelectId, fieldId) {
+  qaListKey = listKey;
+  qaCallback = {targetSelectId, fieldId};
+  const def = LIST_DEFS[listKey];
+  document.getElementById('qaTitle').textContent = '+ הוספה מהירה לרשימה: ' + def.name;
+  const fields = def.fields.map((f,i) =>
+    `<div class="form-field" style="margin-bottom:8px">
+      <label style="font-size:11px;font-weight:600;color:var(--text-muted)">${f}</label>
+      <input id="qa_f${i}" class="form-control" placeholder="${f}" dir="rtl">
+    </div>`).join('');
+  document.getElementById('qaBody').innerHTML = fields;
+  document.getElementById('quickAddModal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('qa_f0')?.focus(),80);
+}
+
+function saveQuickAdd() {
+  const td = getTD(); if(!td||!qaListKey) return;
+  const def = LIST_DEFS[qaListKey];
+  const vals = def.fields.map((_,i)=>{const el=document.getElementById('qa_f'+i);return el?el.value.trim():'';});
+  if(vals.every(v=>!v)){showToast('נא למלא לפחות שדה אחד','danger');return;}
+  pushU(snap());
+  td.lists[qaListKey].push(vals);
+  save();
+  // Update the select in edit form
+  if(qaCallback) {
+    const newVal = vals[0];
+    const sel = document.getElementById(qaCallback.targetSelectId);
+    if(sel) {
+      const opt = document.createElement('option');
+      opt.value = newVal; opt.textContent = newVal; opt.selected = true;
+      sel.appendChild(opt);
+      editRowData[qaCallback.fieldId] = newVal;
+    }
+  }
+  closeModal('quickAddModal');
+  showToast('נוסף לרשימה ✓');
+}
+
+// ── TRIP MANAGEMENT ──
+function toggleTripMenu() {
+  const m = document.getElementById('tripMenu');
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#tripMgmtBtn') && !e.target.closest('#tripMenu'))
+    document.getElementById('tripMenu').style.display = 'none';
+});
+
+function renameTripPrompt() {
+  document.getElementById('tripMenu').style.display = 'none';
+  if (!activeTrip) { showToast('בחר טיול תחילה', 'danger'); return; }
+  const newName = prompt('שם חדש לטיול:', activeTrip);
+  if (!newName || newName.trim() === activeTrip) return;
+  if (state.trips[newName.trim()]) { showToast('שם זה כבר קיים', 'danger'); return; }
+  pushU(snap());
+  state.trips[newName.trim()] = state.trips[activeTrip];
+  delete state.trips[activeTrip];
+  activeTrip = newName.trim();
+  save(); render(); showToast('שם הטיול שונה ✓');
+}
+
+function duplicateTripPrompt() {
+  document.getElementById('tripMenu').style.display = 'none';
+  if (!activeTrip) { showToast('בחר טיול תחילה', 'danger'); return; }
+  const newName = prompt('שם לטיול המשוכפל:', activeTrip + ' — עותק');
+  if (!newName || !newName.trim()) return;
+  if (state.trips[newName.trim()]) { showToast('שם זה כבר קיים', 'danger'); return; }
+  pushU(snap());
+  state.trips[newName.trim()] = JSON.parse(JSON.stringify(state.trips[activeTrip]));
+  activeTrip = newName.trim();
+  save(); render(); showToast('הטיול שוכפל ✓');
+}
+
+function deleteTripPrompt() {
+  document.getElementById('tripMenu').style.display = 'none';
+  if (!activeTrip) { showToast('בחר טיול תחילה', 'danger'); return; }
+  if (!confirm(`למחוק את הטיול "${activeTrip}"?\nפעולה זו לא ניתנת לביטול!`)) return;
+  pushU(snap());
+  delete state.trips[activeTrip];
+  activeTrip = Object.keys(state.trips)[0] || null;
+  save(); render(); showToast('הטיול נמחק', 'info');
+}
+
+// ── INIT ──
+updateTripSel();render();
+</script>
+
+<!-- EDIT ROW MODAL -->
+<div class="modal-overlay" id="editRowModal" style="display:none">
+  <div class="modal edit-modal">
+    <h3 id="editModalTitle">✏️ עריכת שורה</h3>
+    <div class="trip-name-sub" id="editModalSub"></div>
+    <div id="editModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('editRowModal')">סגור</button>
+      <button class="btn btn-success" onclick="saveEditRow()">✓ שמור שינויים</button>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK ADD MODAL -->
+<div class="modal-overlay" id="quickAddModal" style="display:none">
+  <div class="modal" style="width:460px">
+    <h3 id="qaTitle">הוספה מהירה</h3>
+    <div id="qaBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('quickAddModal')">ביטול</button>
+      <button class="btn btn-success" onclick="saveQuickAdd()">+ הוסף לרשימה</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
