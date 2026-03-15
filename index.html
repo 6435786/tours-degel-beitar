@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מערכת ניהול טיולים</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -355,40 +357,71 @@ const CALC_TYPES = ['calc_total','calc_buses','calc_hebrew','calc_day','calc_con
 const DEF_CLONE_LISTS = {list1:true,list2:true,list3:true,list4:true,list5:true,list6:true,list7:false,list8:true,list9:true,list10:true,list11:true,list12:true};
 const DEF_CLONE_MT = {f1:true,f18:true,f19:true,f20:true,f21:true,f22:true,f23:true,f26:true};
 
+// ── FIREBASE CONFIG ──
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyD-qW9wRAzgGpmz5I5rfNjouJ2Gx2Z9v_4",
+  authDomain: "tours-degel-beitar.firebaseapp.com",
+  projectId: "tours-degel-beitar",
+  storageBucket: "tours-degel-beitar.firebasestorage.app",
+  messagingSenderId: "116939096274",
+  appId: "1:116939096274:web:c90c858f659272e6b36d0b"
+};
+
 // ── STATE ──
-let state = (() => {
-  try {
-    // Try new key first
-    const r = localStorage.getItem('trips_v3');
-    if (r) { const p=JSON.parse(r); if(!p.trips) p.trips={}; if(!p.global) p.global={settings:{}}; return p; }
-
-    // Migrate from old key (trips_app_v2)
-    const old = localStorage.getItem('trips_app_v2');
-    if (old) {
-      const p = JSON.parse(old);
-      // Old format had flat lists, wrap into a trip called "טיול ראשון"
-      const lists = p.lists || {};
-      // Ensure all list keys exist
-      LIST_KEYS.forEach(k => { if(!lists[k]) lists[k]=[]; });
-      const migrated = {
-        trips: { 'טיול ראשון': { lists, mainTable:[] } },
-        activeTrip: 'טיול ראשון',
-        global: { settings:{} }
-      };
-      // Save to new key immediately
-      localStorage.setItem('trips_v3', JSON.stringify(migrated));
-      return migrated;
-    }
-  } catch(e) {}
-  return {trips:{},activeTrip:null,global:{settings:{}}};
-})();
-
-let undoStack=[], activeTab='main-table', activeList='list1', activeTrip=state.activeTrip||null, importFile=null, importListKey=null;
+let state = { trips:{}, activeTrip:null, global:{settings:{}} };
+let undoStack=[], activeTab='main-table', activeList='list1', activeTrip=null, importFile=null, importListKey=null;
+let db = null;
+let saveTimeout = null;
 
 function emptyTrip() { const l={}; LIST_KEYS.forEach(k=>l[k]=[]); return {lists:l,mainTable:[]}; }
 function getTD() { return activeTrip && state.trips[activeTrip] ? state.trips[activeTrip] : null; }
 function snap() { return JSON.stringify(state.trips); }
-function save() { state.activeTrip=activeTrip; localStorage.setItem('trips_v3',JSON.stringify(state)); updateUndoBtn(); updateTripSel(); }
+
+// Debounced save to Firestore
+function save() {
+  state.activeTrip = activeTrip;
+  // Always save to localStorage as backup
+  localStorage.setItem('trips_v3', JSON.stringify(state));
+  updateUndoBtn(); updateTripSel();
+  // Save to Firestore with debounce
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(saveToFirestore, 800);
+}
+
+async function saveToFirestore() {
+  if (!db) return;
+  try {
+    await db.collection('appData').doc('main').set({
+      trips: state.trips,
+      activeTrip: state.activeTrip,
+      global: state.global,
+      updatedAt: new Date().toISOString()
+    });
+  } catch(e) {
+    console.warn('Firestore save error:', e);
+  }
+}
+
+async function loadFromFirestore() {
+  if (!db) return false;
+  try {
+    const doc = await db.collection('appData').doc('main').get();
+    if (doc.exists) {
+      const data = doc.data();
+      state.trips = data.trips || {};
+      state.global = data.global || {settings:{}};
+      state.activeTrip = data.activeTrip || null;
+      activeTrip = state.activeTrip;
+      // Also save to localStorage as backup
+      localStorage.setItem('trips_v3', JSON.stringify(state));
+      return true;
+    }
+  } catch(e) {
+    console.warn('Firestore load error:', e);
+  }
+  return false;
+}
+
 function pushU(s) { undoStack.push(s); if(undoStack.length>50) undoStack.shift(); updateUndoBtn(); }
 function doUndo() { if(!undoStack.length) return; state.trips=JSON.parse(undoStack.pop()); save(); render(); showToast('הפעולה בוטלה','info'); }
 function updateUndoBtn() { const b=document.getElementById('undoBtn'); if(undoStack.length){b.classList.add('active');b.disabled=false;}else{b.classList.remove('active');b.disabled=true;} }
@@ -910,7 +943,59 @@ function deleteTripPrompt() {
 }
 
 // ── INIT ──
-updateTripSel();render();
+async function initApp() {
+  // Show loading
+  document.getElementById('appMain').innerHTML = '<div class="no-trip"><div class="nt-icon">⏳</div><h2>טוען נתונים...</h2></div>';
+
+  try {
+    // Initialize Firebase
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+
+    // Try to load from Firestore
+    const loaded = await loadFromFirestore();
+
+    if (!loaded) {
+      // Fallback: try localStorage (migration from old version)
+      try {
+        const old = localStorage.getItem('trips_app_v2');
+        if (old) {
+          const p = JSON.parse(old);
+          const lists = p.lists || {};
+          LIST_KEYS.forEach(k => { if(!lists[k]) lists[k]=[]; });
+          state.trips = { 'טיול ראשון': { lists, mainTable:[] } };
+          state.activeTrip = 'טיול ראשון';
+          activeTrip = 'טיול ראשון';
+          await saveToFirestore();
+          showToast('הנתונים הועברו לענן ✓');
+        } else {
+          const r = localStorage.getItem('trips_v3');
+          if (r) {
+            const p = JSON.parse(r);
+            state.trips = p.trips || {};
+            state.global = p.global || {settings:{}};
+            state.activeTrip = p.activeTrip || null;
+            activeTrip = state.activeTrip;
+            await saveToFirestore();
+            showToast('הנתונים הועברו לענן ✓');
+          }
+        }
+      } catch(e) {}
+    }
+  } catch(e) {
+    console.warn('Firebase init error:', e);
+    // Fallback to localStorage only
+    try {
+      const r = localStorage.getItem('trips_v3');
+      if (r) { const p=JSON.parse(r); state.trips=p.trips||{}; state.global=p.global||{settings:{}}; state.activeTrip=p.activeTrip||null; activeTrip=state.activeTrip; }
+    } catch(e2) {}
+  }
+
+  updateTripSel();
+  render();
+}
+
+initApp();
 </script>
 
 <!-- EDIT ROW MODAL -->
