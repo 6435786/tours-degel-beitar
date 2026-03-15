@@ -1019,9 +1019,9 @@ function calcBusPrice(row, td, busType) {
   else if (row.f31 === 'שני צדדים') total += road6two;
   return Math.round(total);
 }
-  // Get list of communities that are "attached" to another (appear in someone else's f8)
+
+function getActiveRows(td) {
   const attachedTo = new Set((td.mainTable||[]).map(r=>r.f8).filter(Boolean));
-  // Show: active (f2=true) AND not attached to another community
   return (td.mainTable||[]).filter(r => r.f2 && !attachedTo.has(r.f1));
 }
 
