@@ -1141,7 +1141,7 @@ function buildReport2(td) {
       row.f3,
       row.f4?'✓':'',
     ];
-    return `<tr>${cells.map((c,ci)=>`<td contenteditable="${ci>1?'true':'false'}">${h(String(c||''))}</td>`).join('')}</tr>`;
+    return `<tr>${cells.map((c,ci)=>`<td contenteditable="${ci>1?'true':'false'}" ${ci>1?`onblur="reportEdit(${rows.indexOf(row)},'${['','','f18','','f19','','f20','','f21','','f22','','f23','','f26','','f9','f17','','','','f3','f4'][ci] || ''}',this.textContent)"`:''}>${h(String(c||''))}</td>`).join('')}</tr>`;
   }).join('');
   return `<h2 class="report-title">הזנות משרד החינוך — ${h(activeTrip)}</h2>
     <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>`;
@@ -1206,9 +1206,9 @@ function buildReport3(td) {
       <td>${h(row.f15||getDay(row.f13))}</td>
       <td>${h(row.f11||'')}</td>
       <td>${h(row.f12||'')}</td>
-      <td contenteditable="true" style="background:var(--warn-light)">${h(row.f34||'')}</td>
-      <td style="text-align:center">${hours||''}</td>
-      <td contenteditable="true">${''}</td>
+      <td contenteditable="true" style="background:var(--warn-light)" onblur="reportEditByRow('${row.f1}','f34',this.textContent)">${h(row.f34||'')}</td>
+      <td>${hours||''}</td>
+      <td contenteditable="true" onblur="reportEditByRow('${row.f1}','f29',this.textContent)">${h(row.f29||'')}</td>
       <td contenteditable="true">${''}</td>
       <td style="font-weight:600">${price?price.toLocaleString()+' ₪':''}</td>
     </tr>`;
@@ -1285,6 +1285,15 @@ function buildReport4(td) {
     <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>
     ${summaryRows?`<h3 class="report-section-title">סיכום לתשלום לפי ספק</h3>
     <table class="report-table" style="max-width:400px"><thead><tr><th>ספק</th><th>סה"כ לתשלום</th></tr></thead><tbody>${summaryRows}</tbody></table>`:''}`;
+}
+
+function reportEditByRow(communityName, fieldId, value) {
+  const td = getTD(); if(!td) return;
+  const row = td.mainTable.find(r => r.f1 === communityName);
+  if(!row) return;
+  pushU(snap());
+  row[fieldId] = value;
+  save();
 }
 
 function reportEdit(rowIdx, fieldId, value) {
