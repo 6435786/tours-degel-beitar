@@ -1477,6 +1477,11 @@ function renderArchives(container) {
   loadArchiveFiles(def.folder);
 }
 
+function getPdfUrl(url) {
+  // Convert Cloudinary raw URL to viewable PDF URL
+  return url.replace('/raw/upload/', '/image/upload/fl_attachment/').replace('/raw/upload/', '/raw/upload/');
+}
+
 async function loadArchiveFiles(folder) {
   const files = await fetchCloudinaryFiles(folder);
   const body = document.getElementById('archiveBody');
@@ -1486,16 +1491,20 @@ async function loadArchiveFiles(folder) {
     return;
   }
   const rows = files.map(f => {
-    const name = f.public_id.split('/').pop();
-    const url = f.secure_url;
-    const isPdf = f.format === 'pdf' || url.includes('.pdf');
+    const name = (f.original_filename || f.public_id.split('/').pop());
+    const rawUrl = f.secure_url;
+    // Convert to viewable URL - add fl_attachment flag
+    const viewUrl = rawUrl.replace('/raw/upload/', '/raw/upload/fl_attachment:false/');
+    const dlUrl = rawUrl.replace('/raw/upload/', '/raw/upload/fl_attachment/');
+    const isPdf = f.format === 'pdf' || rawUrl.includes('.pdf') || name.toLowerCase().endsWith('.pdf');
     return `<tr>
       <td>${isPdf ? '📄' : '🖼️'}</td>
-      <td><a href="${url}" target="_blank" style="color:var(--primary);text-decoration:none">${name}</a></td>
+      <td style="font-size:13px">${h(name)}</td>
       <td style="font-size:11px;color:var(--text-muted)">${new Date(f.created_at).toLocaleDateString('he-IL')}</td>
       <td style="font-size:11px;color:var(--text-muted)">${Math.round((f.bytes||0)/1024)} KB</td>
-      <td>
-        <a href="${url}" target="_blank" class="btn btn-secondary btn-sm">👁 צפה</a>
+      <td style="display:flex;gap:4px">
+        <a href="${viewUrl}" target="_blank" class="btn btn-secondary btn-sm">👁 צפה</a>
+        <a href="${dlUrl}" download="${h(name)}" class="btn btn-secondary btn-sm">⬇</a>
         <button class="btn btn-danger btn-sm" onclick="deleteFile('${f.public_id}','${folder}')">🗑</button>
       </td>
     </tr>`;
