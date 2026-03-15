@@ -423,10 +423,13 @@ function save() {
 async function saveToFirestore() {
   if (!db) return;
   try {
+    // Firestore doesn't support nested arrays, so we serialize to JSON string
     await db.collection('appData').doc('main').set({
-      trips: state.trips,
-      activeTrip: state.activeTrip,
-      global: state.global,
+      data: JSON.stringify({
+        trips: state.trips,
+        activeTrip: state.activeTrip,
+        global: state.global
+      }),
       updatedAt: new Date().toISOString()
     });
   } catch(e) {
@@ -439,12 +442,12 @@ async function loadFromFirestore() {
   try {
     const doc = await db.collection('appData').doc('main').get();
     if (doc.exists) {
-      const data = doc.data();
-      state.trips = data.trips || {};
-      state.global = data.global || {settings:{}};
-      state.activeTrip = data.activeTrip || null;
+      const raw = doc.data();
+      const parsed = JSON.parse(raw.data || '{}');
+      state.trips = parsed.trips || {};
+      state.global = parsed.global || {settings:{}};
+      state.activeTrip = parsed.activeTrip || null;
       activeTrip = state.activeTrip;
-      // Also save to localStorage as backup
       localStorage.setItem('trips_v3', JSON.stringify(state));
       return true;
     }
