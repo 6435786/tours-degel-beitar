@@ -1102,7 +1102,7 @@ function buildReport1(td) {
         if(f==='טלפון אחראי') return `<td>${h(phone)}</td>`;
         if(f==='f9') return `<td><strong>${total||''}</strong></td>`;
         if(f==='f10') return `<td><span class="${buses==='חריג'?'badge-exception':'badge-bus'}">${buses}</span></td>`;
-        return `<td contenteditable="true" onblur="reportEdit(${ri},'${f}',this.textContent)">${h(String(row[f]||''))}</td>`;
+        return `<td>${h(String(row[f]||''))}</td>`;
       }).join('')}
     </tr>`;
   }).join('');
@@ -1141,7 +1141,7 @@ function buildReport2(td) {
       row.f3,
       row.f4?'✓':'',
     ];
-    return `<tr>${cells.map((c,ci)=>`<td contenteditable="${ci>1?'true':'false'}" ${ci>1?`onblur="reportEdit(${rows.indexOf(row)},'${['','','f18','','f19','','f20','','f21','','f22','','f23','','f26','','f9','f17','','','','f3','f4'][ci] || ''}',this.textContent)"`:''}>${h(String(c||''))}</td>`).join('')}</tr>`;
+    return `<tr>${cells.map((c,ci)=>`<td>${h(String(c||''))}</td>`).join('')}</tr>`;
   }).join('');
   return `<h2 class="report-title">הזנות משרד החינוך — ${h(activeTrip)}</h2>
     <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>`;
@@ -1206,10 +1206,10 @@ function buildReport3(td) {
       <td>${h(row.f15||getDay(row.f13))}</td>
       <td>${h(row.f11||'')}</td>
       <td>${h(row.f12||'')}</td>
-      <td contenteditable="true" style="background:var(--warn-light)" onblur="reportEditByRow('${row.f1}','f34',this.textContent)">${h(row.f34||'')}</td>
+      <td><input type="time" value="${h(row.f34||'')}" onchange="reportEditByRow('${row.f1}','f34',this.value);this.closest('tr').querySelector('.price-cell').textContent=calcBusPriceForRow('${row.f1}')" style="border:1px solid var(--border-strong);border-radius:4px;padding:2px 6px;font-family:var(--font);font-size:12px;background:var(--warn-light)"></td>
       <td>${hours||''}</td>
-      <td contenteditable="true" onblur="reportEditByRow('${row.f1}','f29',this.textContent)">${h(row.f29||'')}</td>
-      <td contenteditable="true">${''}</td>
+      <td>${''}</td>
+      <td>${''}</td>
       <td style="font-weight:600">${price?price.toLocaleString()+' ₪':''}</td>
     </tr>`;
   }).join('');
@@ -1285,6 +1285,17 @@ function buildReport4(td) {
     <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>
     ${summaryRows?`<h3 class="report-section-title">סיכום לתשלום לפי ספק</h3>
     <table class="report-table" style="max-width:400px"><thead><tr><th>ספק</th><th>סה"כ לתשלום</th></tr></thead><tbody>${summaryRows}</tbody></table>`:''}`;
+}
+
+function calcBusPriceForRow(communityName) {
+  const td = getTD(); if(!td) return '';
+  const row = td.mainTable.find(r => r.f1 === communityName);
+  if(!row) return '';
+  const busStr = calcBuses(calcTotal(row,td));
+  const buses = parseBuses(busStr);
+  if(!buses.length) return '';
+  const price = calcBusPrice(row, td, buses[0].type);
+  return price ? price.toLocaleString() + ' ₪' : '';
 }
 
 function reportEditByRow(communityName, fieldId, value) {
