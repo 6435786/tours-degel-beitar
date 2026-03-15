@@ -36,6 +36,8 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 .undo-btn.active:hover{background:rgba(255,255,255,.3)}
 .btn-new-trip{background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4);padding:6px 13px;border-radius:var(--radius-sm);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
 .btn-new-trip:hover{background:rgba(255,255,255,.3)}
+.btn-backup{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 12px;border-radius:var(--radius-sm);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-backup:hover{background:rgba(255,255,255,.25)}
 .btn-trip-mgmt{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);width:32px;height:32px;border-radius:var(--radius-sm);cursor:pointer;font-size:15px;transition:all .2s;position:relative}
 .btn-trip-mgmt:hover{background:rgba(255,255,255,.25)}
 .trip-menu{position:absolute;top:52px;left:120px;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow-lg);z-index:500;min-width:160px;padding:6px;border:1px solid var(--border)}
@@ -256,6 +258,9 @@ tbody tr:hover .del-btn{opacity:1}
     </div>
     <div class="header-actions">
       <button class="btn-new-trip" onclick="openNewTripModal()">+ טיול חדש</button>
+      <button class="btn-backup" onclick="backupData()" title="גבה את כל הנתונים">💾 גיבוי</button>
+      <button class="btn-backup" onclick="document.getElementById('restoreInput').click()" title="שחזר נתונים מגיבוי">📂 שחזר</button>
+      <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreData(this.files[0])">
       <button class="btn-trip-mgmt" id="tripMgmtBtn" onclick="toggleTripMenu()" title="ניהול טיול פעיל">⚙️</button>
       <div class="trip-menu" id="tripMenu" style="display:none">
         <button onclick="renameTripPrompt()">✏️ שנה שם</button>
@@ -1328,6 +1333,48 @@ async function doBulkImport() {
   render();
   showToast(`יובאו ${count} רשימות ✓`);
 }
+// ── BACKUP & RESTORE ──
+function backupData() {
+  const backup = {
+    version: 3,
+    date: new Date().toISOString(),
+    trips: state.trips,
+    global: state.global,
+    activeTrip: state.activeTrip
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `גיבוי-טיולים-${new Date().toLocaleDateString('he-IL').replace(/\//g,'-')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('גיבוי הורד ✓');
+}
+
+function restoreData(file) {
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const backup = JSON.parse(e.target.result);
+      if(!backup.trips) { showToast('קובץ לא תקין','danger'); return; }
+      pushU(snap());
+      state.trips = backup.trips;
+      state.global = backup.global || {settings:{}};
+      state.activeTrip = backup.activeTrip || null;
+      activeTrip = state.activeTrip;
+      save();
+      render();
+      showToast('הנתונים שוחזרו ✓');
+    } catch(e) {
+      showToast('שגיאה בקריאת הקובץ','danger');
+    }
+  };
+  reader.readAsText(file);
+  document.getElementById('restoreInput').value = '';
+}
+
 function toggleTripMenu() {
   const m = document.getElementById('tripMenu');
   m.style.display = m.style.display === 'none' ? 'block' : 'none';
