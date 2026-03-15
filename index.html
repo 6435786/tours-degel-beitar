@@ -446,12 +446,20 @@ const DEF_CLONE_MT = {f1:true,f18:true,f19:true,f20:true,f21:true,f22:true,f23:t
 
 // ── FIREBASE CONFIG ──
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyD-qW9wRAzgGpmz5I5rfNjouJ2Gx2Z9v_4",
-  authDomain: "tours-degel-beitar.firebaseapp.com",
-  projectId: "tours-degel-beitar",
-  storageBucket: "tours-degel-beitar.firebasestorage.app",
-  messagingSenderId: "116939096274",
-  appId: "1:116939096274:web:c90c858f659272e6b36d0b"
+  apiKey: "AIzaSyAWvYdozI_PSlZwCKXv1CN1Qoj2YJOt-I0",
+  authDomain: "travel-beitar-degel.firebaseapp.com",
+  projectId: "travel-beitar-degel",
+  storageBucket: "travel-beitar-degel.firebasestorage.app",
+  messagingSenderId: "765811804557",
+  appId: "1:765811804557:web:1e75a1a716836d4eaf95c4",
+  measurementId: "G-DD1X43F6Y9"
+};
+
+const CLOUDINARY_CONFIG = {
+  cloudName: 'djahciacr',
+  apiKey: '429178795269144',
+  apiSecret: 'Sotzwz58z988GkbFNnZBRIENjR0',
+  uploadPreset: 'trips_upload'
 };
 
 // ── STATE ──
@@ -571,6 +579,8 @@ function render() {
   else if(activeTab==='main-table') renderMT(m);
   else if(activeTab==='settings') renderSettings(m);
   else if(activeTab==='reports') renderReports(m);
+  else if(activeTab==='archives') renderArchives(m);
+  else if(activeTab==='trip-folders') renderTripFolders(m);
   else m.innerHTML=`<div class="coming-soon"><div class="cs-icon">🚧</div><h2>בשלב הבנייה</h2><p>לשונית זו תהיה זמינה בשלב הבא</p></div>`;
 }
 
@@ -1383,6 +1393,282 @@ async function doBulkImport() {
   render();
   showToast(`יובאו ${count} רשימות ✓`);
 }
+// ── ARCHIVES ──
+const ARCHIVE_DEFS = [
+  { id:'archive1', name:'מאגר 1 — אישורי טיול', folder:'מאגר1', desc:'קבצים מזוהים לפי שם קהילה או מס׳ טיול' },
+  { id:'archive2', name:'מאגר 2 — מסמכי חובה', folder:'מאגר2', desc:'מסמכי חובה לכל טיול' },
+  { id:'archive3a', name:'מאגר 3 — חוזרי מנכ"ל', folder:'מאגר3/חוזרי-מנכל', desc:'חוזרי מנכ"ל לפי אטרקציות' },
+  { id:'archive3b', name:'מאגר 3 — ניהול סיכונים', folder:'מאגר3/ניהול-סיכונים', desc:'מסמכי ניהול סיכונים לפי מסלולים' },
+  { id:'archive3c', name:'מאגר 3 — מפות', folder:'מאגר3/מפות', desc:'מפות לפי מסלולים' },
+  { id:'archive4', name:'מאגר 4 — כתבי מינוי', folder:'מאגר4', desc:'כתבי מינוי מזוהים לפי שם קהילה או מס׳ טיול' },
+];
+
+let activeArchive = 'archive1';
+let archiveFiles = {}; // cache: folder -> files list
+
+async function fetchCloudinaryFiles(folder) {
+  if(archiveFiles[folder]) return archiveFiles[folder];
+  try {
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/resources/raw?type=upload&prefix=${encodeURIComponent(folder)}&max_results=500`,
+      { headers: { 'Authorization': 'Basic ' + btoa(CLOUDINARY_CONFIG.apiKey + ':' + CLOUDINARY_CONFIG.apiSecret) } }
+    );
+    const data = await res.json();
+    archiveFiles[folder] = data.resources || [];
+    return archiveFiles[folder];
+  } catch(e) { return []; }
+}
+
+function renderArchives(container) {
+  if(!isAdmin()) { container.innerHTML='<div class="no-trip"><div class="nt-icon">🔒</div><h2>גישה למנהלים בלבד</h2></div>'; return; }
+  const def = ARCHIVE_DEFS.find(d=>d.id===activeArchive);
+  const sidebarBtns = ARCHIVE_DEFS.map(d=>
+    `<button class="report-nav-btn ${d.id===activeArchive?'active':''}" onclick="activeArchive='${d.id}';archiveFiles={};render()">${d.name}</button>`
+  ).join('');
+
+  container.innerHTML = `
+    <div class="reports-tab">
+      <aside class="report-sidebar"><h3>מאגרים</h3>${sidebarBtns}</aside>
+      <div class="report-content">
+        <div class="report-card">
+          <div class="report-toolbar">
+            <div>
+              <strong>${def.name}</strong>
+              <div style="font-size:12px;color:var(--text-muted)">${def.desc}</div>
+            </div>
+            <div class="report-actions">
+              <label class="btn btn-primary btn-sm" style="cursor:pointer">
+                ⬆ העלה קבצים
+                <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="uploadFiles(this.files,'${def.folder}')">
+              </label>
+            </div>
+          </div>
+          <div class="report-body" id="archiveBody">
+            <div class="no-trip"><div class="nt-icon">⏳</div><h2>טוען קבצים...</h2></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  loadArchiveFiles(def.folder);
+}
+
+async function loadArchiveFiles(folder) {
+  const files = await fetchCloudinaryFiles(folder);
+  const body = document.getElementById('archiveBody');
+  if(!body) return;
+  if(files.length === 0) {
+    body.innerHTML = '<div class="empty-state"><div class="es-icon">📭</div><div>אין קבצים במאגר זה — העלה קבצים</div></div>';
+    return;
+  }
+  const rows = files.map(f => {
+    const name = f.public_id.split('/').pop();
+    const url = f.secure_url;
+    const isPdf = f.format === 'pdf' || url.includes('.pdf');
+    return `<tr>
+      <td>${isPdf ? '📄' : '🖼️'}</td>
+      <td><a href="${url}" target="_blank" style="color:var(--primary);text-decoration:none">${name}</a></td>
+      <td style="font-size:11px;color:var(--text-muted)">${new Date(f.created_at).toLocaleDateString('he-IL')}</td>
+      <td style="font-size:11px;color:var(--text-muted)">${Math.round((f.bytes||0)/1024)} KB</td>
+      <td>
+        <a href="${url}" target="_blank" class="btn btn-secondary btn-sm">👁 צפה</a>
+        <button class="btn btn-danger btn-sm" onclick="deleteFile('${f.public_id}','${folder}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+  body.innerHTML = `<table class="report-table">
+    <thead><tr><th>סוג</th><th>שם קובץ</th><th>תאריך</th><th>גודל</th><th>פעולות</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+async function uploadFiles(fileList, folder) {
+  if(!fileList.length) return;
+  showToast('מעלה קבצים...', 'info');
+  let uploaded = 0;
+  for(const file of fileList) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
+    formData.append('folder', folder);
+    formData.append('resource_type', 'raw');
+    try {
+      await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/raw/upload`, {
+        method: 'POST', body: formData
+      });
+      uploaded++;
+    } catch(e) { console.warn('Upload error:', e); }
+  }
+  archiveFiles = {}; // clear cache
+  showToast(`הועלו ${uploaded} קבצים ✓`);
+  render();
+}
+
+async function deleteFile(publicId, folder) {
+  if(!confirm('למחוק קובץ זה?')) return;
+  try {
+    const timestamp = Math.round(Date.now()/1000);
+    const str = `public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_CONFIG.apiSecret}`;
+    // Use destroy via signed request
+    const formData = new FormData();
+    formData.append('public_id', publicId);
+    formData.append('api_key', CLOUDINARY_CONFIG.apiKey);
+    formData.append('timestamp', timestamp);
+    await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/raw/destroy`, {
+      method: 'POST', body: formData
+    });
+    archiveFiles = {};
+    showToast('הקובץ נמחק ✓', 'info');
+    render();
+  } catch(e) { showToast('שגיאה במחיקה', 'danger'); }
+}
+
+// ── TRIP FOLDERS ──
+function renderTripFolders(container) {
+  const td = getTD();
+  if(!activeTrip || !td) {
+    container.innerHTML = `<div class="no-trip"><div class="nt-icon">🎒</div><h2>בחר טיול תחילה</h2></div>`;
+    return;
+  }
+  const rows = getActiveRows(td);
+  const tableRows = rows.map(row => {
+    const attached = row.f8 || '';
+    return `<tr>
+      <td><strong>${h(row.f1)}</strong></td>
+      <td>${h(attached)}</td>
+      <td><button class="btn btn-primary btn-sm" onclick="openTripFolder('${h(row.f1)}')">🎒 תיק טיול</button></td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="main-table-tab">
+      <div class="main-table-toolbar">
+        <h2>🎒 תיקי טיול — ${h(activeTrip)}</h2>
+        <span class="row-count">${rows.length} קהילות פעילות</span>
+      </div>
+      <div class="main-table-wrap">
+        <table>
+          <thead><tr><th>שם קהילה</th><th>קהילה מצורפת</th><th>תיק טיול</th></tr></thead>
+          <tbody>${tableRows.length ? tableRows : '<tr><td colspan="3" style="text-align:center;padding:30px;color:var(--text-muted)">אין קהילות פעילות</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+async function openTripFolder(communityName) {
+  const td = getTD(); if(!td) return;
+  const row = td.mainTable.find(r=>r.f1===communityName);
+  if(!row) return;
+
+  // Collect relevant file names from lists
+  const filesToFind = [];
+
+  // מאגר 1 — by community name or trip number
+  filesToFind.push({ archive:'מאגר1', search:[communityName, row.f3||''].filter(Boolean) });
+
+  // מאגר 2 — all files
+  filesToFind.push({ archive:'מאגר2', search:[''] });
+
+  // מאגר 3 — by routes (list10, list11) and attractions (list12)
+  const routes = [row.f18,row.f19,row.f20,row.f21,row.f22].filter(Boolean);
+  const attractions = [row.f23,row.f26].filter(Boolean);
+  routes.forEach(route => {
+    const r10 = (td.lists.list10||[]).find(r=>r[0]===route);
+    const r11 = (td.lists.list11||[]).find(r=>r[0]===route);
+    if(r10&&r10[1]) filesToFind.push({archive:'מאגר3/ניהול-סיכונים', search:[r10[1]]});
+    if(r11&&r11[1]) filesToFind.push({archive:'מאגר3/מפות', search:[r11[1]]});
+  });
+  attractions.forEach(attr => {
+    const r12 = (td.lists.list12||[]).find(r=>r[0]===attr);
+    if(r12&&r12[1]) filesToFind.push({archive:'מאגר3/חוזרי-מנכל', search:[r12[1]]});
+  });
+
+  // מאגר 4 — by community name or trip number
+  filesToFind.push({ archive:'מאגר4', search:[communityName, row.f3||''].filter(Boolean) });
+
+  // Show loading modal
+  showTripFolderModal(communityName, null);
+
+  // Fetch files
+  let allFiles = [];
+  for(const item of filesToFind) {
+    const files = await fetchCloudinaryFiles(item.archive);
+    const matched = item.search[0] === ''
+      ? files // מאגר2 — all
+      : files.filter(f => item.search.some(s => s && f.public_id.toLowerCase().includes(s.toLowerCase())));
+    matched.forEach(f => { if(!allFiles.find(x=>x.public_id===f.public_id)) allFiles.push({...f, archive:item.archive}); });
+  }
+
+  showTripFolderModal(communityName, allFiles);
+}
+
+function showTripFolderModal(communityName, files) {
+  let modal = document.getElementById('tripFolderModal');
+  if(!modal) {
+    modal = document.createElement('div');
+    modal.id = 'tripFolderModal';
+    modal.className = 'modal-overlay';
+    document.body.appendChild(modal);
+  }
+
+  const filesHtml = files === null
+    ? '<div style="text-align:center;padding:30px"><div style="font-size:40px">⏳</div><div>אוסף מסמכים...</div></div>'
+    : files.length === 0
+    ? '<div class="empty-state"><div class="es-icon">📭</div><div>לא נמצאו מסמכים רלוונטים</div></div>'
+    : `<table class="report-table">
+        <thead><tr>
+          <th><input type="checkbox" onchange="toggleAllTripFiles(this)"> הכל</th>
+          <th>שם קובץ</th><th>מאגר</th><th>פעולות</th>
+        </tr></thead>
+        <tbody>${files.map((f,i) => {
+          const name = f.public_id.split('/').pop();
+          return `<tr>
+            <td class="cell-checkbox"><input type="checkbox" class="trip-file-cb" data-url="${f.secure_url}" data-name="${name}" checked></td>
+            <td><a href="${f.secure_url}" target="_blank" style="color:var(--primary)">${name}</a></td>
+            <td style="font-size:11px;color:var(--text-muted)">${f.archive}</td>
+            <td><a href="${f.secure_url}" target="_blank" class="btn btn-secondary btn-sm">👁 פתח</a></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+      <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="printSelectedFiles()">🖨️ הדפס נבחרים</button>
+        <button class="btn btn-primary" onclick="emailSelectedFiles()">✉️ שלח במייל</button>
+      </div>`;
+
+  modal.style.display = 'flex';
+  modal.innerHTML = `<div class="modal" style="width:700px;max-height:85vh;overflow-y:auto">
+    <h3>🎒 תיק טיול — ${h(communityName)}</h3>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">סמן את המסמכים הרצויים</p>
+    ${filesHtml}
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('tripFolderModal').style.display='none'">סגור</button>
+    </div>
+  </div>`;
+}
+
+function toggleAllTripFiles(cb) {
+  document.querySelectorAll('.trip-file-cb').forEach(el => el.checked = cb.checked);
+}
+
+function printSelectedFiles() {
+  const selected = [...document.querySelectorAll('.trip-file-cb:checked')];
+  if(!selected.length) { showToast('לא נבחרו קבצים','danger'); return; }
+  selected.forEach(cb => window.open(cb.dataset.url, '_blank'));
+  showToast(`נפתחו ${selected.length} קבצים להדפסה`);
+}
+
+function emailSelectedFiles() {
+  const selected = [...document.querySelectorAll('.trip-file-cb:checked')];
+  if(!selected.length) { showToast('לא נבחרו קבצים','danger'); return; }
+  const links = selected.map(cb => `${cb.dataset.name}: ${cb.dataset.url}`).join('\n');
+  const email = prompt('כתובת מייל לשליחה:');
+  if(!email) return;
+  const subject = encodeURIComponent('תיק טיול');
+  const body = encodeURIComponent('קישורים למסמכים:\n\n' + links);
+  window.open(`mailto:${email}?subject=${subject}&body=${body}`);
+  showToast('נפתח חלון מייל ✓');
+}
+
 // ── BACKUP & RESTORE ──
 function backupData() {
   const backup = {
