@@ -1527,16 +1527,11 @@ async function uploadFiles(fileList, folder) {
 async function deleteFile(publicId, folder) {
   if(!confirm('למחוק קובץ זה?')) return;
   try {
-    const timestamp = Math.round(Date.now()/1000);
-    const str = `public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_CONFIG.apiSecret}`;
-    // Use destroy via signed request
-    const formData = new FormData();
-    formData.append('public_id', publicId);
-    formData.append('api_key', CLOUDINARY_CONFIG.apiKey);
-    formData.append('timestamp', timestamp);
-    await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/raw/destroy`, {
-      method: 'POST', body: formData
-    });
+    // Use Cloudinary Admin API with basic auth
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/resources/raw/upload?public_ids=${encodeURIComponent(publicId)}`,
+      { method: 'DELETE', headers: { 'Authorization': 'Basic ' + btoa(CLOUDINARY_CONFIG.apiKey + ':' + CLOUDINARY_CONFIG.apiSecret) } }
+    );
     archiveFiles = {};
     showToast('הקובץ נמחק ✓', 'info');
     render();
