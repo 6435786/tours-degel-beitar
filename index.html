@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>מערכת ניהול טיולים</title>
+<title>טיולים-דגל-ביתר</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -180,6 +180,38 @@ tbody tr:hover .del-btn{opacity:1}
 .toast-info{background:var(--info);color:#fff}
 .toast-warn{background:var(--warn);color:#fff}
 
+/* REPORTS */
+.reports-tab{display:flex;height:100%;overflow:hidden}
+.report-sidebar{width:200px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;padding:10px 6px}
+.report-sidebar h3{font-size:10px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.8px;padding:4px 10px 8px}
+.report-nav-btn{display:block;width:100%;padding:10px 12px;border:none;background:none;font-family:var(--font);font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border-radius:var(--radius-sm);text-align:right;transition:all .15s;margin-bottom:2px}
+.report-nav-btn:hover{background:var(--primary-light);color:var(--primary)}
+.report-nav-btn.active{background:var(--primary);color:#fff;font-weight:600}
+.report-content{flex:1;overflow:hidden;display:flex;flex-direction:column;padding:14px}
+.report-card{flex:1;overflow:hidden;display:flex;flex-direction:column;background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow)}
+.report-toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.report-actions{display:flex;gap:8px}
+.report-body{flex:1;overflow:auto;padding:16px}
+.report-title{font-size:16px;font-weight:700;margin-bottom:14px;color:var(--text)}
+.report-section-title{font-size:14px;font-weight:700;margin:20px 0 10px;color:var(--text-muted)}
+.report-table-wrap{overflow-x:auto}
+.report-table{width:100%;border-collapse:collapse;font-size:12px}
+.report-table thead th{background:var(--primary);color:#fff;padding:8px 10px;text-align:right;font-weight:600;font-size:11px;white-space:nowrap;position:sticky;top:0}
+.report-table tbody tr:nth-child(even){background:var(--surface2)}
+.report-table tbody tr:hover{background:var(--primary-light)}
+.report-table tbody td{padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.report-table tbody td[contenteditable=true]:hover{background:#fff;outline:2px solid var(--primary);border-radius:2px}
+.report-table tbody td[contenteditable=true]:focus{background:#fff;outline:2px solid var(--primary);border-radius:2px}
+
+@media print{
+  .app-header,.tab-nav,.report-sidebar,.report-toolbar{display:none!important}
+  .report-content{padding:0}
+  .report-card{box-shadow:none;border-radius:0}
+}
+
+/* BULK IMPORT */
+.bulk-file-list{display:flex;flex-direction:column;gap:6px;margin-top:12px;max-height:300px;overflow-y:auto}
+
 /* EDIT FORM MODAL */
 .edit-modal{width:780px;max-width:96vw}
 .edit-modal h3{font-size:18px;font-weight:700;margin-bottom:4px}
@@ -312,7 +344,7 @@ const LIST_DEFS = {
   list9:{name:'מסמכים כלליים',fields:['שם מסמך']},
   list10:{name:'ניהול סיכונים',fields:['שם אתר','שם קובץ']},
   list11:{name:'מפות',fields:['שם אתר','שם קובץ']},
-  list12:{name:'חוזרי מנכ"ל',fields:['שם אטרקציה','שם קובץ']},
+  list12: { name:'חוזרי מנכל', fields:['שם אטרקציה','שם קובץ'] },
 };
 const LIST_KEYS = Object.keys(LIST_DEFS);
 
@@ -480,6 +512,7 @@ function render() {
   if(activeTab==='lists') renderLists(m);
   else if(activeTab==='main-table') renderMT(m);
   else if(activeTab==='settings') renderSettings(m);
+  else if(activeTab==='reports') renderReports(m);
   else m.innerHTML=`<div class="coming-soon"><div class="cs-icon">🚧</div><h2>בשלב הבנייה</h2><p>לשונית זו תהיה זמינה בשלב הבא</p></div>`;
 }
 
@@ -620,6 +653,7 @@ function renderLists(container) {
       <div class="list-editor-header">
         <div class="list-title"><h2>רשימה ${LIST_KEYS.indexOf(activeList)+1}: ${def.name}</h2><span class="row-count">${rows.length}</span></div>
         <div class="list-actions">
+          <button class="btn btn-warn btn-sm" onclick="openBulkImport()">📦 ייבוא מרוכז</button>
           <button class="btn btn-secondary btn-sm" onclick="expL('${activeList}')">⬇ Excel</button>
           <button class="btn btn-primary btn-sm" onclick="openImp('${activeList}')">⬆ ייבוא</button>
         </div>
@@ -897,7 +931,347 @@ function saveQuickAdd() {
   showToast('נוסף לרשימה ✓');
 }
 
-// ── TRIP MANAGEMENT ──
+// ── REPORTS ──
+let activeReport = 'report1';
+
+function renderReports(container) {
+  const td = getTD();
+  if (!activeTrip || !td) {
+    container.innerHTML = `<div class="no-trip"><div class="nt-icon">📊</div><h2>בחר טיול תחילה</h2></div>`;
+    return;
+  }
+
+  const reportBtns = [
+    {id:'report1', label:'דוח טיולים כללי'},
+    {id:'report2', label:'הזנות משרד החינוך'},
+    {id:'report3', label:'אוטובוסים'},
+    {id:'report4', label:'אטרקציות'},
+  ].map(r => `<button class="report-nav-btn ${activeReport===r.id?'active':''}" onclick="activeReport='${r.id}';render()">${r.label}</button>`).join('');
+
+  let reportHtml = '';
+  if (activeReport === 'report1') reportHtml = buildReport1(td);
+  else if (activeReport === 'report2') reportHtml = buildReport2(td);
+  else if (activeReport === 'report3') reportHtml = buildReport3(td);
+  else if (activeReport === 'report4') reportHtml = buildReport4(td);
+
+  container.innerHTML = `
+    <div class="reports-tab">
+      <aside class="report-sidebar">
+        <h3>דוחות</h3>
+        ${reportBtns}
+      </aside>
+      <div class="report-content">
+        <div class="report-card">
+          <div class="report-toolbar">
+            <div></div>
+            <div class="report-actions">
+              <button class="btn btn-secondary btn-sm" onclick="printReport()">🖨️ הדפסה</button>
+              <button class="btn btn-primary btn-sm" onclick="exportReportExcel()">⬇ Excel</button>
+            </div>
+          </div>
+          <div class="report-body" id="reportBody">${reportHtml}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function getActiveRows(td) {
+  return (td.mainTable||[]).filter(r => r.f2 && !(r.f8 && r.f8!==''));
+}
+
+function buildReport1(td) {
+  const rows = getActiveRows(td);
+  if (!rows.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין קהילות פעילות</div></div>';
+  const fields = ['f1','f3','f5','f8','f9','f10','f11','f12','f15','f17','טלפון אחראי','f18','f19','f20','f21','f22','f23','f26','f29'];
+  const labels = {'f1':'שם קהילה','f3':'מס\' אישור','f5':'נרשמים','f8':'קהילה מצורפת','f9':'סה"כ','f10':'אוטובוסים','f11':'שעת יציאה','f12':'שעת חזרה','f15':'יום','f17':'אחראי טיול','טלפון אחראי':'טלפון','f18':'טיול 1','f19':'טיול 2','f20':'טיול 3','f21':'אתר 1','f22':'אתר 2','f23':'אטרקציה 1','f26':'אטרקציה 2','f29':'הערות'};
+  const hdrs = fields.map(f=>`<th>${labels[f]||f}</th>`).join('');
+  const trs = rows.map((row,ri) => {
+    const contact = getContact(row.f1, td);
+    const contactRow = (td.lists.list6||[]).find(r=>r[0]===contact);
+    const phone = contactRow ? contactRow[4]||'' : '';
+    const total = calcTotal(row,td);
+    const buses = calcBuses(total);
+    return `<tr>
+      ${fields.map(f => {
+        if(f==='טלפון אחראי') return `<td>${h(phone)}</td>`;
+        if(f==='f9') return `<td><strong>${total||''}</strong></td>`;
+        if(f==='f10') return `<td><span class="${buses==='חריג'?'badge-exception':'badge-bus'}">${buses}</span></td>`;
+        return `<td contenteditable="true" onblur="reportEdit(${ri},'${f}',this.textContent)">${h(String(row[f]||''))}</td>`;
+      }).join('')}
+    </tr>`;
+  }).join('');
+  return `<h2 class="report-title">דוח טיולים כללי — ${h(activeTrip)}</h2>
+    <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>`;
+}
+
+function buildReport2(td) {
+  const rows = getActiveRows(td);
+  if (!rows.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין קהילות פעילות</div></div>';
+  const hdrs = ['שם קהילה','קהילה נוספת','טיול 1','הזנה טיול 1','טיול 2','הזנה טיול 2','טיול 3','הזנה טיול 3','אתר 1','הזנה אתר 1','אתר 2','הזנה אתר 2','אטרקציה 1','הזנה אטרקציה 1','אטרקציה 2','הזנה אטרקציה 2','מספר משתתפים','אחראי טיול','ת.ז.','טלפון','מייל','מס\' אישור','טיול מאושר'].map(l=>`<th>${l}</th>`).join('');
+
+  function getListCode(listKey, col0val, colIdx) {
+    const listRows = td.lists[listKey]||[];
+    const found = listRows.find(r=>r[0]===col0val);
+    return found ? found[colIdx]||'' : '';
+  }
+
+  const trs = rows.map((row,ri) => {
+    const contact = getContact(row.f1,td);
+    const contactRow = (td.lists.list6||[]).find(r=>r[0]===contact);
+    const total = calcTotal(row,td);
+    const cells = [
+      row.f1, row.f8,
+      row.f18, getListCode('list2',row.f18,1),
+      row.f19, getListCode('list2',row.f19,1),
+      row.f20, getListCode('list2',row.f20,1),
+      row.f21, getListCode('list3',row.f21,1),
+      row.f22, getListCode('list3',row.f22,1),
+      row.f23, getListCode('list4',row.f23,1),
+      row.f26, getListCode('list4',row.f26,1),
+      total, contact,
+      contactRow?contactRow[3]||'':'',
+      contactRow?contactRow[4]||'':'',
+      contactRow?contactRow[5]||'':'',
+      row.f3,
+      row.f4?'✓':'',
+    ];
+    return `<tr>${cells.map((c,ci)=>`<td contenteditable="${ci>1?'true':'false'}">${h(String(c||''))}</td>`).join('')}</tr>`;
+  }).join('');
+  return `<h2 class="report-title">הזנות משרד החינוך — ${h(activeTrip)}</h2>
+    <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>`;
+}
+
+function buildReport3(td) {
+  const rows = getActiveRows(td);
+  if (!rows.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין קהילות פעילות</div></div>';
+
+  function getAddr(communityName) {
+    const r = (td.lists.list1||[]).find(r=>r[0]===communityName);
+    return r?r[1]||'':'';
+  }
+  function getListCode(listKey,val,col) {
+    const r=(td.lists[listKey]||[]).find(r=>r[0]===val);
+    return r?r[col]||'':'';
+  }
+  function calcBusPrice(row) {
+    const busType = calcBuses(calcTotal(row,td));
+    const prices = td.lists.list8||[];
+    // Find matching bus type in price list
+    const types = [{key:'מיניבוס',match:'מיניבוס 1'},{key:'מיניבוס23',match:'מיניבוס23 1'},{key:'רגיל',match:'רגיל'},{key:'אוטובוס60',match:'אוטובוס60'}];
+    const t = types.find(t=>busType.includes(t.key));
+    if(!t) return '';
+    const pr = prices.find(r=>r[0]&&r[0].includes(t.key));
+    return pr ? pr[1]||'' : '';
+  }
+
+  // Expand rows: one row per bus
+  let expandedRows = [];
+  rows.forEach(row => {
+    const total = calcTotal(row,td);
+    const buses = calcBuses(total);
+    // Count buses
+    const busCount = buses==='חריג'?1:(buses.match(/\d+/g)||[]).reduce((a,b)=>a+parseInt(b),0);
+    for(let i=0;i<Math.max(1,busCount);i++) {
+      expandedRows.push({row, busNum:i+1, busType:buses});
+    }
+  });
+
+  const hdrs = ['שם קהילה','קהילה נוספת','אתר 1','אתר 2','אתר 3','אתר 4','אתר 5','אתר 6','אתר 7','כמות משתתפים','איש קשר','טלפון','כתובת','תאריך','יום','שעת יציאה','שעת חזרה','שעת חזרה מתוקנת','הערות','שינוי בסכום','סיכום עלות'].map(l=>`<th>${l}</th>`).join('');
+
+  const trs = expandedRows.map(({row,busNum,busType},ri) => {
+    const contact = getContact(row.f1,td);
+    const contactRow = (td.lists.list6||[]).find(r=>r[0]===contact);
+    const total = calcTotal(row,td);
+    const cells = [
+      row.f1, row.f8,
+      getListCode('list2',row.f18,2), getListCode('list2',row.f19,2), getListCode('list2',row.f20,2),
+      getListCode('list3',row.f21,2), getListCode('list3',row.f22,2),
+      getListCode('list4',row.f23,2), getListCode('list4',row.f26,2),
+      total, contact,
+      contactRow?contactRow[4]||'':'',
+      getAddr(row.f1),
+      row.f13, row.f15||getDay(row.f13),
+      row.f11, row.f12,
+      '','','',''
+    ];
+    return `<tr>${cells.map((c,ci)=>`<td contenteditable="${ci>=17?'true':'false'}">${h(String(c||''))}</td>`).join('')}</tr>`;
+  }).join('');
+
+  return `<h2 class="report-title">דוח אוטובוסים — ${h(activeTrip)}</h2>
+    <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>`;
+}
+
+function buildReport4(td) {
+  const rows = getActiveRows(td);
+  if (!rows.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין קהילות פעילות</div></div>';
+
+  // Expand: one row per attraction
+  let expandedRows = [];
+  rows.forEach(row => {
+    if (row.f23) expandedRows.push({row, attrField:'f23', timeField:'f32', paxField:'f25'});
+    if (row.f26) expandedRows.push({row, attrField:'f26', timeField:'f33', paxField:'f28'});
+  });
+
+  const hdrs = ['שם קהילה','קהילה נוספת','אטרקציה','שעה','כמות משתתפים','משתתפים בפועל','מחיר','ספק'].map(l=>`<th>${l}</th>`).join('');
+
+  function calcAttrPrice(attrName, pax) {
+    const attr = (td.lists.list4||[]).find(r=>r[0]===attrName);
+    if(!attr) return '';
+    const price = parseFloat(attr[6])||0;
+    const perCount = parseFloat(attr[7])||1;
+    if(!price||!pax) return '';
+    return Math.ceil(pax/perCount)*price;
+  }
+
+  const trs = expandedRows.map(({row,attrField,timeField,paxField}) => {
+    const total = calcTotal(row,td);
+    const paxActual = parseInt(row[paxField])||0;
+    const paxUsed = paxActual||total;
+    const attrName = row[attrField]||'';
+    const attr = (td.lists.list4||[]).find(r=>r[0]===attrName);
+    const supplier = attr?attr[12]||'':'';
+    const price = calcAttrPrice(attrName, paxUsed);
+    return `<tr>
+      <td>${h(row.f1)}</td>
+      <td>${h(row.f8||'')}</td>
+      <td>${h(attrName)}</td>
+      <td>${h(row[timeField]||'')}</td>
+      <td>${total||''}</td>
+      <td>${paxActual||''}</td>
+      <td>${price||''}</td>
+      <td>${h(supplier)}</td>
+    </tr>`;
+  }).join('');
+
+  // Summary by supplier
+  const supplierTotals = {};
+  expandedRows.forEach(({row,attrField,paxField}) => {
+    const total = calcTotal(row,td);
+    const paxActual = parseInt(row[paxField])||0;
+    const paxUsed = paxActual||total;
+    const attrName = row[attrField]||'';
+    const attr = (td.lists.list4||[]).find(r=>r[0]===attrName);
+    if(!attr) return;
+    const supplier = attr[12]||'לא ידוע';
+    const price = parseFloat(calcAttrPrice(attrName,paxUsed))||0;
+    supplierTotals[supplier] = (supplierTotals[supplier]||0)+price;
+  });
+  const summaryRows = Object.entries(supplierTotals).map(([sup,total])=>
+    `<tr><td><strong>${h(sup)}</strong></td><td><strong>${total.toLocaleString()} ₪</strong></td></tr>`
+  ).join('');
+
+  return `<h2 class="report-title">דוח אטרקציות — ${h(activeTrip)}</h2>
+    <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>
+    ${summaryRows?`<h3 class="report-section-title">סיכום לתשלום לפי ספק</h3>
+    <table class="report-table" style="max-width:400px"><thead><tr><th>ספק</th><th>סה"כ לתשלום</th></tr></thead><tbody>${summaryRows}</tbody></table>`:''}`;
+}
+
+function reportEdit(rowIdx, fieldId, value) {
+  const td = getTD(); if(!td) return;
+  const activeRows = getActiveRows(td);
+  if(rowIdx >= activeRows.length) return;
+  const row = activeRows[rowIdx];
+  const mainIdx = td.mainTable.indexOf(row);
+  if(mainIdx<0) return;
+  pushU(snap());
+  td.mainTable[mainIdx][fieldId] = value;
+  save();
+}
+
+function printReport() {
+  window.print();
+}
+
+function exportReportExcel() {
+  const body = document.getElementById('reportBody');
+  if(!body) return;
+  const table = body.querySelector('table');
+  if(!table) return;
+  const ws = XLSX.utils.table_to_sheet(table);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'דוח');
+  XLSX.writeFile(wb, 'דוח.xlsx');
+  showToast('הורד ✓');
+}
+
+// ── BULK IMPORT ──
+let bulkFiles = [];
+let bulkSelected = {};
+
+function openBulkImport() {
+  bulkFiles = [];
+  bulkSelected = {};
+  document.getElementById('bulkFileInput').value = '';
+  document.getElementById('bulkFileList').innerHTML = '';
+  document.getElementById('bulkImportBtn').style.display = 'none';
+  document.getElementById('bulkModal').style.display = 'flex';
+}
+
+function handleBulkFiles(files) {
+  bulkFiles = Array.from(files);
+  bulkSelected = {};
+  const td = getTD();
+
+  // Match files to lists by name
+  const matched = [];
+  const unmatched = [];
+
+  bulkFiles.forEach(file => {
+    const fname = file.name.replace(/\.(xlsx|xls|csv)$/i,'');
+    const listKey = LIST_KEYS.find(k => LIST_DEFS[k].name === fname);
+    if(listKey) {
+      bulkSelected[listKey] = true;
+      matched.push({file, listKey, name:LIST_DEFS[listKey].name});
+    } else {
+      unmatched.push(file.name);
+    }
+  });
+
+  const matchedHtml = matched.map(m =>
+    `<label class="clone-item">
+      <input type="checkbox" id="bulk_${m.listKey}" checked onchange="bulkSelected['${m.listKey}']=this.checked">
+      <span>✓ ${m.name} ← ${m.file.name}</span>
+    </label>`
+  ).join('');
+
+  const unmatchedHtml = unmatched.length
+    ? `<div style="margin-top:10px;font-size:12px;color:var(--text-muted)">לא זוהו: ${unmatched.join(', ')}</div>`
+    : '';
+
+  document.getElementById('bulkFileList').innerHTML = matchedHtml + unmatchedHtml;
+  document.getElementById('bulkImportBtn').style.display = matched.length ? 'block' : 'none';
+}
+
+async function doBulkImport() {
+  const td = getTD(); if(!td) return;
+  let count = 0;
+  const promises = bulkFiles.map(file => new Promise(resolve => {
+    const fname = file.name.replace(/\.(xlsx|xls|csv)$/i,'');
+    const listKey = LIST_KEYS.find(k => LIST_DEFS[k].name === fname);
+    if(!listKey || !bulkSelected[listKey]) return resolve();
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result,{type:'binary'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        if(raw.length<2) return resolve();
+        const def = LIST_DEFS[listKey];
+        const newRows = raw.slice(1).filter(r=>r.some(c=>c!=='')).map(r=>def.fields.map((_,i)=>String(r[i]??'')));
+        td.lists[listKey] = newRows;
+        count++;
+      } catch(e) {}
+      resolve();
+    };
+    reader.readAsBinaryString(file);
+  }));
+  await Promise.all(promises);
+  pushU(snap());
+  save();
+  closeModal('bulkModal');
+  render();
+  showToast(`יובאו ${count} רשימות ✓`);
+}
 function toggleTripMenu() {
   const m = document.getElementById('tripMenu');
   m.style.display = m.style.display === 'none' ? 'block' : 'none';
@@ -1019,6 +1393,32 @@ initApp();
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('quickAddModal')">ביטול</button>
       <button class="btn btn-success" onclick="saveQuickAdd()">+ הוסף לרשימה</button>
+    </div>
+  </div>
+</div>
+
+<!-- BULK IMPORT MODAL -->
+<div class="modal-overlay" id="bulkModal" style="display:none">
+  <div class="modal" style="width:560px">
+    <h3>📦 ייבוא מרוכז של רשימות</h3>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
+      בחר תיקייה או מספר קבצי Excel. הקבצים יזוהו אוטומטית לפי שמם:<br>
+      <strong>שם הקובץ = שם הרשימה בדיוק</strong>
+    </p>
+    <div class="import-zone" onclick="document.getElementById('bulkFileInput').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="event.preventDefault();this.classList.remove('drag-over');handleBulkFiles(event.dataTransfer.files)">
+      <div class="iz-icon">📂</div>
+      <p>גרור קבצים או תיקייה לכאן</p>
+      <p><strong>או לחץ לבחירת קבצים מרובים</strong></p>
+    </div>
+    <input type="file" id="bulkFileInput" accept=".xlsx,.xls,.csv" multiple style="display:none"
+      onchange="handleBulkFiles(this.files)">
+    <div class="bulk-file-list" id="bulkFileList"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('bulkModal')">ביטול</button>
+      <button class="btn btn-success" id="bulkImportBtn" onclick="doBulkImport()" style="display:none">✓ ייבא רשימות נבחרות</button>
     </div>
   </div>
 </div>
