@@ -356,7 +356,7 @@ const MT_FIELDS = [
   {id:'f5', label:'נרשמים',type:'calc_participants'},
   {id:'f6', label:'מלווים',type:'number'},
   {id:'f7', label:'תיקון כמות',type:'number'},
-  {id:'f8', label:'מצורף עם',type:'select',source:'list1_col0'},
+  {id:'f8', label:'קהילה מצורפת',type:'select',source:'list1_col0'},
   {id:'f9', label:'סה"כ',type:'calc_total'},
   {id:'f10',label:'אוטובוסים',type:'calc_buses'},
   {id:'f11',label:'שעת יציאה',type:'time'},
@@ -380,11 +380,12 @@ const MT_FIELDS = [
   {id:'f27',label:'הוזמן ישירות 2',type:'checkbox'},
   {id:'f28',label:'משתתפים בפועל 2',type:'number'},
   {id:'f29',label:'הערות',type:'text'},
-  {id:'f30',label:'שעות אוטובוס בפועל',type:'text'},
+  {id:'f30',label:'שעות אוטובוס בפועל',type:'calc_hours'},
+  {id:'f34',label:'שעת חזרה בפועל',type:'time'},
   {id:'f31',label:'כביש 6',type:'select',options:['ללא','צד אחד','שני צדדים']},
 ];
 
-const CALC_TYPES = ['calc_total','calc_buses','calc_hebrew','calc_day','calc_contact','calc_participants'];
+const CALC_TYPES = ['calc_total','calc_buses','calc_hebrew','calc_day','calc_contact','calc_participants','calc_hours'];
 
 const DEF_CLONE_LISTS = {list1:true,list2:true,list3:true,list4:true,list5:true,list6:true,list7:false,list8:true,list9:true,list10:true,list11:true,list12:true};
 const DEF_CLONE_MT = {f1:true,f18:true,f19:true,f20:true,f21:true,f22:true,f23:true,f26:true};
@@ -579,7 +580,7 @@ function renderMTCell(f,row,ri,td) {
     case 'calc_hebrew': return `<td class="hebrew-date">${v?toHeb(v):''}</td>`;
     case 'calc_day': return `<td style="font-size:11px">${row.f13?getDay(row.f13):''}</td>`;
     case 'calc_contact': return `<td style="font-size:11px">${h(getContact(row.f1,td))}</td>`;
-    case 'calc_participants': { const c=countP(row.f1,td); return `<td style="text-align:center">${c||''}</td>`; }
+    case 'calc_hours': { const h2=calcHours(row); return `<td style="text-align:center">${h2||''}</td>`; }
     default: return `<td>${h(String(v||''))}</td>`;
   }
 }
@@ -749,8 +750,8 @@ function openEditRow(ri) {
       fields:['f1','f2','f3','f4','f5','f6','f7','f8','f9','f10']
     },
     {
-      title:'📅 תאריכים ושעות', icon:'',
-      fields:['f13','f14','f15','f11','f12']
+      title:'📅 תאריכים, שעות ואוטובוסים', icon:'',
+      fields:['f13','f14','f15','f11','f12','f34','f30','f10','f31','f29']
     },
     {
       title:'👤 אחראים', icon:'',
@@ -765,8 +766,8 @@ function openEditRow(ri) {
       fields:['f23','f32','f24','f25','f26','f33','f27','f28']
     },
     {
-      title:'🚌 אוטובוסים והערות', icon:'',
-      fields:['f29','f30','f31']
+      title:'🚌 הערות', icon:'',
+      fields:['f30_removed']
     }
   ];
 
@@ -851,7 +852,6 @@ function renderEditField(fdef, row, td) {
 
 function refreshCalcs() {
   const td = getTD(); if(!td||!editRowData) return;
-  // Update f13 dependent fields
   if(editRowData.f13) editRowData.f14 = editRowData.f13;
   const calcs = {
     calc_total: calcTotal(editRowData,td)||'',
@@ -859,7 +859,8 @@ function refreshCalcs() {
     calc_hebrew: editRowData.f13?toHeb(editRowData.f13):'',
     calc_day: editRowData.f13?getDay(editRowData.f13):'',
     calc_contact: getContact(editRowData.f1,td),
-    calc_participants: countP(editRowData.f1,td)||''
+    calc_participants: countP(editRowData.f1,td)||'',
+    calc_hours: calcHours(editRowData)||''
   };
   MT_FIELDS.forEach(f => {
     if(CALC_TYPES.includes(f.type)) {
@@ -978,8 +979,45 @@ function renderReports(container) {
     </div>`;
 }
 
-function getActiveRows(td) {
-  return (td.mainTable||[]).filter(r => r.f2 && !(r.f8 && r.f8!==''));
+function calcHours(row) {
+  const dep = row.f11 || '';
+  const ret = row.f34 || row.f12 || ''; // f34 = actual return, f12 = planned return
+  if (!dep || !ret) return 0;
+  try {
+    const [dh,dm] = dep.split(':').map(Number);
+    const [rh,rm] = ret.split(':').map(Number);
+    let diff = (rh*60+rm) - (dh*60+dm);
+    if (diff < 0) diff += 24*60; // next day
+    return Math.round(diff/60*10)/10; // round to 1 decimal
+  } catch(e) { return 0; }
+}
+
+function calcBusPrice(row, td, busType) {
+  const hours = calcHours(row);
+  if (!hours) return '';
+  const prices = td.lists.list8 || [];
+  // Find matching price row
+  const typeMap = {'מיניבוס':'מיניבוס','מיניבוס23':'מיניבוס23','רגיל':'רגיל','אוטובוס60':'אוטובוס60'};
+  const key = Object.keys(typeMap).find(k => busType && busType.includes(k));
+  if (!key) return '';
+  const pr = prices.find(r => r[0] && r[0].includes(key));
+  if (!pr) return '';
+  const basePrice = parseFloat(pr[1]) || 0;
+  const baseHours = parseFloat(pr[2]) || 0;
+  const extraHourPrice = parseFloat(pr[3]) || 0;
+  const road6one = parseFloat(pr[4]) || 0;
+  const road6two = parseFloat(pr[5]) || 0;
+  let total = basePrice;
+  if (hours > baseHours) total += (hours - baseHours) * extraHourPrice;
+  // Add road 6
+  if (row.f31 === 'צד אחד') total += road6one;
+  else if (row.f31 === 'שני צדדים') total += road6two;
+  return Math.round(total);
+}
+  // Get list of communities that are "attached" to another (appear in someone else's f8)
+  const attachedTo = new Set((td.mainTable||[]).map(r=>r.f8).filter(Boolean));
+  // Show: active (f2=true) AND not attached to another community
+  return (td.mainTable||[]).filter(r => r.f2 && !attachedTo.has(r.f1));
 }
 
 function buildReport1(td) {
@@ -1048,60 +1086,75 @@ function buildReport3(td) {
   const rows = getActiveRows(td);
   if (!rows.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין קהילות פעילות</div></div>';
 
-  function getAddr(communityName) {
-    const r = (td.lists.list1||[]).find(r=>r[0]===communityName);
-    return r?r[1]||'':'';
-  }
-  function getListCode(listKey,val,col) {
-    const r=(td.lists[listKey]||[]).find(r=>r[0]===val);
-    return r?r[col]||'':'';
-  }
-  function calcBusPrice(row) {
-    const busType = calcBuses(calcTotal(row,td));
-    const prices = td.lists.list8||[];
-    // Find matching bus type in price list
-    const types = [{key:'מיניבוס',match:'מיניבוס 1'},{key:'מיניבוס23',match:'מיניבוס23 1'},{key:'רגיל',match:'רגיל'},{key:'אוטובוס60',match:'אוטובוס60'}];
-    const t = types.find(t=>busType.includes(t.key));
-    if(!t) return '';
-    const pr = prices.find(r=>r[0]&&r[0].includes(t.key));
-    return pr ? pr[1]||'' : '';
+  function getAddr(name) { const r=(td.lists.list1||[]).find(r=>r[0]===name); return r?r[1]||'':''; }
+  function getLC(lk,val,col) { const r=(td.lists[lk]||[]).find(r=>r[0]===val); return r?r[col]||'':''; }
+
+  // Parse bus result into individual bus types
+  function parseBuses(busStr) {
+    if(!busStr||busStr==='חריג') return busStr?[{type:'חריג',count:1}]:[];
+    const result=[];
+    const parts = busStr.split('+').map(s=>s.trim());
+    parts.forEach(part=>{
+      const m = part.match(/^(.+?)\s+(\d+)$/);
+      if(m) { for(let i=0;i<parseInt(m[2]);i++) result.push({type:m[1].trim()}); }
+      else result.push({type:part});
+    });
+    return result;
   }
 
-  // Expand rows: one row per bus
-  let expandedRows = [];
-  rows.forEach(row => {
-    const total = calcTotal(row,td);
-    const buses = calcBuses(total);
-    // Count buses
-    const busCount = buses==='חריג'?1:(buses.match(/\d+/g)||[]).reduce((a,b)=>a+parseInt(b),0);
-    for(let i=0;i<Math.max(1,busCount);i++) {
-      expandedRows.push({row, busNum:i+1, busType:buses});
-    }
+  // Expand rows: one per bus
+  let expandedRows=[];
+  rows.forEach(row=>{
+    const total=calcTotal(row,td);
+    const busStr=calcBuses(total);
+    const buses=parseBuses(busStr);
+    const totalBuses=buses.length;
+    buses.forEach((bus,i)=>{
+      expandedRows.push({row, bus, busNum:i+1, totalBuses});
+    });
   });
 
-  const hdrs = ['שם קהילה','קהילה נוספת','אתר 1','אתר 2','אתר 3','אתר 4','אתר 5','אתר 6','אתר 7','כמות משתתפים','איש קשר','טלפון','כתובת','תאריך','יום','שעת יציאה','שעת חזרה','שעת חזרה מתוקנת','הערות','שינוי בסכום','סיכום עלות'].map(l=>`<th>${l}</th>`).join('');
+  const hdrs=['שם קהילה','סוג רכב','אתר 1','אתר 2','אתר 3','אתר 4','אתר 5','אתר 6','אתר 7','כמות משתתפים','איש קשר','טלפון','כתובת','תאריך','יום','שעת יציאה','שעת חזרה','שעת חזרה בפועל','שעות','שינויים והערות','שינוי בסכום','סיכום עלות'].map(l=>`<th>${l}</th>`).join('');
 
-  const trs = expandedRows.map(({row,busNum,busType},ri) => {
-    const contact = getContact(row.f1,td);
-    const contactRow = (td.lists.list6||[]).find(r=>r[0]===contact);
-    const total = calcTotal(row,td);
-    const cells = [
-      row.f1, row.f8,
-      getListCode('list2',row.f18,2), getListCode('list2',row.f19,2), getListCode('list2',row.f20,2),
-      getListCode('list3',row.f21,2), getListCode('list3',row.f22,2),
-      getListCode('list4',row.f23,2), getListCode('list4',row.f26,2),
-      total, contact,
-      contactRow?contactRow[4]||'':'',
-      getAddr(row.f1),
-      row.f13, row.f15||getDay(row.f13),
-      row.f11, row.f12,
-      '','','',''
-    ];
-    return `<tr>${cells.map((c,ci)=>`<td contenteditable="${ci>=17?'true':'false'}">${h(String(c||''))}</td>`).join('')}</tr>`;
+  const trs=expandedRows.map(({row,bus,busNum,totalBuses})=>{
+    const contact=getContact(row.f1,td);
+    const contactRow=(td.lists.list6||[]).find(r=>r[0]===contact);
+    const total=calcTotal(row,td);
+    const hours=calcHours(row);
+    const price=calcBusPrice(row,td,bus.type);
+    const communityLabel = totalBuses>1 ? `${row.f1} ${busNum}/${totalBuses}` : row.f1;
+    return `<tr>
+      <td>${h(communityLabel)}</td>
+      <td><span class="badge-bus">${h(bus.type)}</span></td>
+      <td>${h(getLC('list2',row.f18,2))}</td>
+      <td>${h(getLC('list2',row.f19,2))}</td>
+      <td>${h(getLC('list2',row.f20,2))}</td>
+      <td>${h(getLC('list3',row.f21,2))}</td>
+      <td>${h(getLC('list3',row.f22,2))}</td>
+      <td>${h(getLC('list4',row.f23,2))}</td>
+      <td>${h(getLC('list4',row.f26,2))}</td>
+      <td style="text-align:center">${total||''}</td>
+      <td>${h(contact)}</td>
+      <td>${h(contactRow?contactRow[4]||'':'')}</td>
+      <td>${h(getAddr(row.f1))}</td>
+      <td>${h(row.f13||'')}</td>
+      <td>${h(row.f15||getDay(row.f13))}</td>
+      <td>${h(row.f11||'')}</td>
+      <td>${h(row.f12||'')}</td>
+      <td contenteditable="true" style="background:var(--warn-light)">${h(row.f34||'')}</td>
+      <td style="text-align:center">${hours||''}</td>
+      <td contenteditable="true">${''}</td>
+      <td contenteditable="true">${''}</td>
+      <td style="font-weight:600">${price?price.toLocaleString()+' ₪':''}</td>
+    </tr>`;
   }).join('');
 
+  // Total
+  const grandTotal = expandedRows.reduce((sum,{row,bus})=>sum+(calcBusPrice(row,td,bus.type)||0),0);
+
   return `<h2 class="report-title">דוח אוטובוסים — ${h(activeTrip)}</h2>
-    <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>`;
+    <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>
+    <div style="margin-top:14px;text-align:left;font-size:15px;font-weight:700;color:var(--primary)">סה"כ עלות אוטובוסים: ${grandTotal.toLocaleString()} ₪</div>`;
 }
 
 function buildReport4(td) {
