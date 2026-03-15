@@ -1732,11 +1732,33 @@ function restoreData(file) {
 }
 
 // ── AUTH & PERMISSIONS ──
-const USERS = {
+// USERS loaded from Firestore - default hardcoded as fallback
+let USERS = {
   '6435786@gmail.com': { role:'admin', name:'שלמה' },
   '41500@gmail.com':   { role:'admin', name:'מנהל נוסף' },
   '7697539@gmail.com': { role:'viewer', name:'צופה' },
 };
+
+async function loadUsers() {
+  if(!db) return;
+  try {
+    const doc = await db.collection('appData').doc('users').get();
+    if(doc.exists && doc.data().users) {
+      USERS = doc.data().users;
+    } else {
+      // First time - save defaults to Firestore
+      await db.collection('appData').doc('users').set({ users: USERS });
+    }
+  } catch(e) { console.warn('loadUsers error:', e); }
+}
+
+async function saveUsers() {
+  if(!db) return;
+  try {
+    await db.collection('appData').doc('users').set({ users: USERS });
+    showToast('המשתמשים נשמרו ✓');
+  } catch(e) { showToast('שגיאה בשמירה','danger'); }
+}
 
 let currentUser = null;
 let currentRole = null;
@@ -1787,23 +1809,70 @@ function lockTabsForViewer() {
 
 // ── USERS MANAGEMENT (in settings) ──
 function renderUsersSection() {
-  const userList = Object.entries(USERS);
-  const rows = userList.map(([email, u]) => `
+  const rows = Object.entries(USERS).map(([email, u]) => `
     <tr>
-      <td>${u.name}</td>
-      <td>${email}</td>
-      <td><span class="role-badge-${u.role === 'admin' ? 'admin' : 'viewer'}">${u.role === 'admin' ? 'מנהל' : 'צופה'}</span></td>
-      <td style="color:var(--text-muted);font-size:11px">${onlineUsers[email] ? '<span class="online-dot"></span> מחובר' : ''}</td>
+      <td><input class="field-input" value="${h(u.name)}" onchange="updateUserField('${email}','name',this.value)" style="width:120px;padding:4px 8px;font-size:12px"></td>
+      <td style="font-size:12px;color:var(--text-muted)">${h(email)}</td>
+      <td>
+        <select onchange="updateUserField('${email}','role',this.value)" style="border:1px solid var(--border-strong);border-radius:4px;padding:4px 8px;font-size:12px;font-family:var(--font)">
+          <option value="admin" ${u.role==='admin'?'selected':''}>👑 מנהל</option>
+          <option value="viewer" ${u.role==='viewer'?'selected':''}>👁️ צופה</option>
+        </select>
+      </td>
+      <td>${onlineUsers[email]?'<span class="online-dot"></span> מחובר':''}</td>
+      <td>${email === currentUser?.email ? '<span style="font-size:11px;color:var(--text-muted)">אתה</span>' :
+        `<button class="btn btn-danger btn-sm" onclick="removeUser('${email}')">הסר</button>`}
+      </td>
     </tr>`).join('');
+
   return `
     <div class="settings-card">
-      <h4>👥 ניהול משתמשים</h4>
-      <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">לשינוי הרשאות פנה למפתח המערכת</p>
+      <h4 style="display:flex;align-items:center;justify-content:space-between">
+        👥 ניהול משתמשים
+        <button class="btn btn-primary btn-sm" onclick="openAddUserModal()">+ הוסף משתמש</button>
+      </h4>
       <table class="users-table">
-        <thead><tr><th>שם</th><th>אימייל</th><th>הרשאה</th><th>סטטוס</th></tr></thead>
+        <thead><tr><th>שם</th><th>אימייל</th><th>הרשאה</th><th>סטטוס</th><th>פעולות</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      <div style="margin-top:12px;display:flex;justify-content:flex-end">
+        <button class="btn btn-success btn-sm" onclick="saveUsers()">💾 שמור שינויים</button>
+      </div>
     </div>`;
+}
+
+function updateUserField(email, field, value) {
+  if(USERS[email]) USERS[email][field] = value;
+}
+
+function removeUser(email) {
+  if(email === currentUser?.email) { showToast('לא ניתן להסיר את עצמך','danger'); return; }
+  if(!confirm(`להסיר את ${USERS[email]?.name || email}?`)) return;
+  delete USERS[email];
+  saveUsers();
+  renderCurrentTab();
+}
+
+function openAddUserModal() {
+  document.getElementById('addUserModal').style.display = 'flex';
+  document.getElementById('newUserEmail').value = '';
+  document.getElementById('newUserName').value = '';
+  document.getElementById('newUserRole').value = 'viewer';
+}
+
+function addUser() {
+  const email = document.getElementById('newUserEmail').value.trim().toLowerCase();
+  const name = document.getElementById('newUserName').value.trim();
+  const role = document.getElementById('newUserRole').value;
+  if(!email || !name) { showToast('נא למלא אימייל ושם','danger'); return; }
+  if(!email.includes('@')) { showToast('אימייל לא תקין','danger'); return; }
+  if(USERS[email]) { showToast('משתמש זה כבר קיים','danger'); return; }
+  USERS[email] = { role, name };
+  saveUsers();
+  closeModal('addUserModal');
+  renderCurrentTab();
+  showToast('המשתמש נוסף ✓');
+}
 }
 
 let onlineUsers = {};
@@ -1879,6 +1948,7 @@ async function initApp() {
     db = firebase.firestore();
     auth = firebase.auth();
     storage = firebase.storage();
+    await loadUsers();
   } catch(e) {
     console.warn('Firebase init error:', e);
   }
@@ -1999,6 +2069,32 @@ initApp();
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('bulkModal')">ביטול</button>
       <button class="btn btn-success" id="bulkImportBtn" onclick="doBulkImport()" style="display:none">✓ ייבא רשימות נבחרות</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD USER MODAL -->
+<div class="modal-overlay" id="addUserModal" style="display:none">
+  <div class="modal" style="width:420px">
+    <h3>+ הוספת משתמש</h3>
+    <div class="form-group">
+      <label>אימייל Gmail</label>
+      <input class="form-control" id="newUserEmail" placeholder="example@gmail.com" dir="ltr">
+    </div>
+    <div class="form-group">
+      <label>שם תצוגה</label>
+      <input class="form-control" id="newUserName" placeholder="שם המשתמש" dir="rtl">
+    </div>
+    <div class="form-group">
+      <label>הרשאה</label>
+      <select class="form-control" id="newUserRole">
+        <option value="admin">👑 מנהל — גישה מלאה</option>
+        <option value="viewer">👁️ צופה — דוחות בלבד</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addUserModal')">ביטול</button>
+      <button class="btn btn-success" onclick="addUser()">+ הוסף</button>
     </div>
   </div>
 </div>
