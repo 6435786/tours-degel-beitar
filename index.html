@@ -7,6 +7,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -38,6 +40,31 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 .btn-new-trip:hover{background:rgba(255,255,255,.3)}
 .btn-backup{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 12px;border-radius:var(--radius-sm);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap}
 .btn-backup:hover{background:rgba(255,255,255,.25)}
+
+/* AUTH */
+.auth-screen{position:fixed;inset:0;background:var(--primary);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:20px}
+.auth-card{background:#fff;border-radius:var(--radius-lg);padding:40px;text-align:center;width:340px;box-shadow:var(--shadow-lg)}
+.auth-card h1{font-size:22px;font-weight:800;color:var(--primary);margin-bottom:6px}
+.auth-card p{font-size:14px;color:var(--text-muted);margin-bottom:24px}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;border:2px solid var(--border-strong);border-radius:var(--radius);background:#fff;font-family:var(--font);font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;color:var(--text)}
+.btn-google:hover{background:var(--surface2);border-color:var(--primary)}
+.btn-google img{width:20px;height:20px}
+.auth-error{color:var(--danger);font-size:13px;margin-top:10px}
+.user-info{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:4px 10px 4px 4px;border-radius:30px}
+.user-avatar{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.5)}
+.user-name{font-size:12px;font-weight:600;color:#fff;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-role{font-size:10px;color:rgba(255,255,255,.7)}
+.btn-signout{background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:12px;padding:2px 6px;border-radius:4px}
+.btn-signout:hover{color:#fff;background:rgba(255,255,255,.1)}
+.role-badge-admin{background:var(--warn-light);color:var(--warn);font-size:10px;padding:1px 7px;border-radius:10px;font-weight:700}
+.role-badge-viewer{background:var(--info-light);color:var(--info);font-size:10px;padding:1px 7px;border-radius:10px;font-weight:700}
+.locked-overlay{position:absolute;inset:0;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;font-size:16px;color:var(--text-muted);border-radius:var(--radius-lg);z-index:10}
+
+/* USERS MANAGEMENT */
+.users-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:14px}
+.users-table th{background:var(--surface2);padding:8px 12px;text-align:right;font-weight:600;font-size:11px;color:var(--text-muted);border-bottom:2px solid var(--border)}
+.users-table td{padding:8px 12px;border-bottom:1px solid var(--border)}
+.online-dot{width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;margin-left:4px}
 .btn-trip-mgmt{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);width:32px;height:32px;border-radius:var(--radius-sm);cursor:pointer;font-size:15px;transition:all .2s;position:relative}
 .btn-trip-mgmt:hover{background:rgba(255,255,255,.25)}
 .trip-menu{position:absolute;top:52px;left:120px;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow-lg);z-index:500;min-width:160px;padding:6px;border:1px solid var(--border)}
@@ -247,7 +274,21 @@ tbody tr:hover .del-btn{opacity:1}
 </style>
 </head>
 <body>
-<div class="app">
+<!-- AUTH SCREEN -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div style="font-size:48px;margin-bottom:10px">🗺️</div>
+    <h1>טיולים דגל ביתר</h1>
+    <p>מערכת ניהול טיולים — כניסה נדרשת</p>
+    <button class="btn-google" onclick="signInWithGoogle()">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+      כניסה עם Google
+    </button>
+    <div id="authError" class="auth-error"></div>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none">
   <header class="app-header">
     <div class="brand">🗺️ ניהול טיולים</div>
     <div class="trip-selector">
@@ -268,6 +309,14 @@ tbody tr:hover .del-btn{opacity:1}
         <button onclick="deleteTripPrompt()" class="danger-item">🗑️ מחק</button>
       </div>
       <button class="undo-btn" id="undoBtn" onclick="doUndo()" disabled>↩ בטל שינוי</button>
+      <div class="user-info" id="userInfo" style="display:none">
+        <img class="user-avatar" id="userAvatar" src="" alt="">
+        <div>
+          <div class="user-name" id="userName"></div>
+          <div class="user-role" id="userRoleDisplay"></div>
+        </div>
+        <button class="btn-signout" onclick="signOut()" title="התנתק">✕</button>
+      </div>
     </div>
   </header>
   <nav class="tab-nav">
@@ -691,6 +740,7 @@ function expL(lk){
 
 // ── SETTINGS ──
 function renderSettings(container) {
+  if(!isAdmin()) { container.innerHTML='<div class="no-trip"><div class="nt-icon">🔒</div><h2>גישה למנהלים בלבד</h2></div>'; return; }
   const cl=state.global.settings.cloneLists||DEF_CLONE_LISTS;
   const cm=state.global.settings.cloneMTFields||DEF_CLONE_MT;
   const lg=LIST_KEYS.map(k=>`<label class="clone-item"><input type="checkbox" id="s_cl_${k}" ${cl[k]!==false?'checked':''} onchange="saveSett()"><span>${LIST_DEFS[k].name}</span></label>`).join('');
@@ -1375,6 +1425,103 @@ function restoreData(file) {
   document.getElementById('restoreInput').value = '';
 }
 
+// ── AUTH & PERMISSIONS ──
+const USERS = {
+  '6435786@gmail.com': { role:'admin', name:'שלמה' },
+  '41500@gmail.com':   { role:'admin', name:'מנהל נוסף' },
+  '7697539@gmail.com': { role:'viewer', name:'צופה' },
+};
+
+let currentUser = null;
+let currentRole = null;
+let auth = null;
+let storage = null;
+
+function signInWithGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(e => {
+    document.getElementById('authError').textContent = 'שגיאה בכניסה: ' + e.message;
+  });
+}
+
+function signOut() {
+  if(confirm('להתנתק?')) auth.signOut();
+}
+
+function isAdmin() { return currentRole === 'admin'; }
+
+function updateUserUI() {
+  if(!currentUser) return;
+  const info = document.getElementById('userInfo');
+  const avatar = document.getElementById('userAvatar');
+  const name = document.getElementById('userName');
+  const role = document.getElementById('userRoleDisplay');
+  info.style.display = 'flex';
+  avatar.src = currentUser.photoURL || '';
+  name.textContent = currentUser.displayName || currentUser.email;
+  role.textContent = currentRole === 'admin' ? '👑 מנהל' : '👁️ צופה';
+}
+
+function lockTabsForViewer() {
+  if(isAdmin()) return;
+  // Viewer can only see reports
+  document.querySelectorAll('.tab-btn').forEach((btn,i) => {
+    const tabs = ['main-table','reports','archives','lists','contacts','trip-folders','settings'];
+    if(tabs[i] !== 'reports') {
+      btn.style.opacity = '0.4';
+      btn.style.pointerEvents = 'none';
+    }
+  });
+  // Hide edit buttons
+  document.querySelectorAll('.btn-new-trip, .btn-trip-mgmt, .btn-backup, #undoBtn').forEach(el => {
+    el.style.display = 'none';
+  });
+  if(activeTab !== 'reports') { activeTab = 'reports'; render(); }
+}
+
+// ── USERS MANAGEMENT (in settings) ──
+function renderUsersSection() {
+  const userList = Object.entries(USERS);
+  const rows = userList.map(([email, u]) => `
+    <tr>
+      <td>${u.name}</td>
+      <td>${email}</td>
+      <td><span class="role-badge-${u.role === 'admin' ? 'admin' : 'viewer'}">${u.role === 'admin' ? 'מנהל' : 'צופה'}</span></td>
+      <td style="color:var(--text-muted);font-size:11px">${onlineUsers[email] ? '<span class="online-dot"></span> מחובר' : ''}</td>
+    </tr>`).join('');
+  return `
+    <div class="settings-card">
+      <h4>👥 ניהול משתמשים</h4>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">לשינוי הרשאות פנה למפתח המערכת</p>
+      <table class="users-table">
+        <thead><tr><th>שם</th><th>אימייל</th><th>הרשאה</th><th>סטטוס</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+let onlineUsers = {};
+
+async function updatePresence() {
+  if(!db || !currentUser) return;
+  try {
+    await db.collection('presence').doc(currentUser.email).set({
+      email: currentUser.email,
+      name: currentUser.displayName,
+      lastSeen: new Date().toISOString(),
+      online: true
+    });
+    // Load all online users
+    const snap = await db.collection('presence').get();
+    onlineUsers = {};
+    const fiveMinAgo = new Date(Date.now() - 5*60*1000).toISOString();
+    snap.forEach(doc => {
+      const d = doc.data();
+      if(d.lastSeen > fiveMinAgo) onlineUsers[d.email] = d;
+    });
+  } catch(e) {}
+}
+
 function toggleTripMenu() {
   const m = document.getElementById('tripMenu');
   m.style.display = m.style.display === 'none' ? 'block' : 'none';
@@ -1421,55 +1568,79 @@ function deleteTripPrompt() {
 
 // ── INIT ──
 async function initApp() {
-  // Show loading
-  document.getElementById('appMain').innerHTML = '<div class="no-trip"><div class="nt-icon">⏳</div><h2>טוען נתונים...</h2></div>';
-
   try {
-    // Initialize Firebase
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.firestore();
-
-    // Try to load from Firestore
-    const loaded = await loadFromFirestore();
-
-    if (!loaded) {
-      // Fallback: try localStorage (migration from old version)
-      try {
-        const old = localStorage.getItem('trips_app_v2');
-        if (old) {
-          const p = JSON.parse(old);
-          const lists = p.lists || {};
-          LIST_KEYS.forEach(k => { if(!lists[k]) lists[k]=[]; });
-          state.trips = { 'טיול ראשון': { lists, mainTable:[] } };
-          state.activeTrip = 'טיול ראשון';
-          activeTrip = 'טיול ראשון';
-          await saveToFirestore();
-          showToast('הנתונים הועברו לענן ✓');
-        } else {
-          const r = localStorage.getItem('trips_v3');
-          if (r) {
-            const p = JSON.parse(r);
-            state.trips = p.trips || {};
-            state.global = p.global || {settings:{}};
-            state.activeTrip = p.activeTrip || null;
-            activeTrip = state.activeTrip;
-            await saveToFirestore();
-            showToast('הנתונים הועברו לענן ✓');
-          }
-        }
-      } catch(e) {}
-    }
+    auth = firebase.auth();
+    storage = firebase.storage();
   } catch(e) {
     console.warn('Firebase init error:', e);
-    // Fallback to localStorage only
-    try {
-      const r = localStorage.getItem('trips_v3');
-      if (r) { const p=JSON.parse(r); state.trips=p.trips||{}; state.global=p.global||{settings:{}}; state.activeTrip=p.activeTrip||null; activeTrip=state.activeTrip; }
-    } catch(e2) {}
   }
 
-  updateTripSel();
-  render();
+  // Listen for auth state
+  if(auth) {
+    auth.onAuthStateChanged(async user => {
+      if(user) {
+        const email = user.email.toLowerCase();
+        const userData = USERS[email];
+        if(!userData) {
+          // Not authorized
+          document.getElementById('authError').textContent = `האימייל ${email} אינו מורשה למערכת`;
+          auth.signOut();
+          return;
+        }
+        currentUser = user;
+        currentRole = userData.role;
+
+        // Show main app
+        document.getElementById('authScreen').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'flex';
+
+        // Update UI
+        updateUserUI();
+
+        // Load data
+        document.getElementById('appMain').innerHTML = '<div class="no-trip"><div class="nt-icon">⏳</div><h2>טוען נתונים...</h2></div>';
+        const loaded = await loadFromFirestore();
+        if(!loaded) {
+          try {
+            const r = localStorage.getItem('trips_v3');
+            if(r) {
+              const p = JSON.parse(r);
+              state.trips = p.trips||{}; state.global = p.global||{settings:{}}; state.activeTrip = p.activeTrip||null; activeTrip = state.activeTrip;
+              await saveToFirestore();
+              showToast('הנתונים הועברו לענן ✓');
+            }
+          } catch(e) {}
+        }
+
+        updateTripSel();
+        render();
+        lockTabsForViewer();
+
+        // Update presence every 2 minutes
+        updatePresence();
+        setInterval(updatePresence, 120000);
+
+      } else {
+        // Not signed in
+        currentUser = null;
+        currentRole = null;
+        document.getElementById('authScreen').style.display = 'flex';
+        document.getElementById('mainApp').style.display = 'none';
+      }
+    });
+  } else {
+    // Fallback without auth
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'flex';
+    currentRole = 'admin';
+    try {
+      const r = localStorage.getItem('trips_v3');
+      if(r) { const p=JSON.parse(r); state.trips=p.trips||{}; state.global=p.global||{settings:{}}; state.activeTrip=p.activeTrip||null; activeTrip=state.activeTrip; }
+    } catch(e) {}
+    updateTripSel(); render();
+  }
 }
 
 initApp();
