@@ -1427,16 +1427,20 @@ let activeArchive = 'archive1';
 let archiveFiles = {}; // cache: folder -> files list
 
 async function fetchCloudinaryFiles(folder) {
-  if(archiveFiles[folder]) return archiveFiles[folder];
+  // Store file list in Firestore instead of querying Cloudinary directly (CORS issues)
+  if(archiveFiles[folder] !== undefined) return archiveFiles[folder];
   try {
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/resources/raw?type=upload&prefix=${encodeURIComponent(folder)}&max_results=500`,
-      { headers: { 'Authorization': 'Basic ' + btoa(CLOUDINARY_CONFIG.apiKey + ':' + CLOUDINARY_CONFIG.apiSecret) } }
-    );
-    const data = await res.json();
-    archiveFiles[folder] = data.resources || [];
-    return archiveFiles[folder];
-  } catch(e) { return []; }
+    const doc = await db.collection('archives').doc(folder.replace(/\//g,'_')).get();
+    archiveFiles[folder] = doc.exists ? (doc.data().files || []) : [];
+  } catch(e) { archiveFiles[folder] = []; }
+  return archiveFiles[folder];
+}
+
+async function saveArchiveFiles(folder, files) {
+  try {
+    await db.collection('archives').doc(folder.replace(/\//g,'_')).set({ files });
+    archiveFiles[folder] = files;
+  } catch(e) { console.warn('saveArchiveFiles error:', e); }
 }
 
 function renderArchives(container) {
@@ -1506,6 +1510,9 @@ async function uploadFiles(fileList, folder) {
   if(!fileList.length) return;
   showToast('מעלה קבצים...', 'info');
   let uploaded = 0;
+  const existingFiles = await fetchCloudinaryFiles(folder);
+  const newFiles = [...existingFiles];
+
   for(const file of fileList) {
     const formData = new FormData();
     formData.append('file', file);
@@ -1513,28 +1520,43 @@ async function uploadFiles(fileList, folder) {
     formData.append('folder', folder);
     formData.append('resource_type', 'raw');
     try {
-      await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/raw/upload`, {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/raw/upload`, {
         method: 'POST', body: formData
       });
-      uploaded++;
+      const data = await res.json();
+      if(data.secure_url) {
+        newFiles.push({
+          public_id: data.public_id,
+          secure_url: data.secure_url,
+          format: data.format || 'pdf',
+          bytes: data.bytes || 0,
+          created_at: data.created_at || new Date().toISOString(),
+          original_filename: file.name
+        });
+        uploaded++;
+      }
     } catch(e) { console.warn('Upload error:', e); }
   }
-  archiveFiles = {}; // clear cache
+
+  await saveArchiveFiles(folder, newFiles);
+  archiveFiles[folder] = newFiles;
   showToast(`הועלו ${uploaded} קבצים ✓`);
-  render();
+  loadArchiveFiles(folder);
 }
 
 async function deleteFile(publicId, folder) {
   if(!confirm('למחוק קובץ זה?')) return;
   try {
-    // Use Cloudinary Admin API with basic auth
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/resources/raw/upload?public_ids=${encodeURIComponent(publicId)}`,
+    // Remove from Firestore list
+    const files = await fetchCloudinaryFiles(folder);
+    const newFiles = files.filter(f => f.public_id !== publicId);
+    await saveArchiveFiles(folder, newFiles);
+    // Try to delete from Cloudinary too (may fail due to CORS but that's ok)
+    fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/resources/raw/upload?public_ids=${encodeURIComponent(publicId)}`,
       { method: 'DELETE', headers: { 'Authorization': 'Basic ' + btoa(CLOUDINARY_CONFIG.apiKey + ':' + CLOUDINARY_CONFIG.apiSecret) } }
-    );
-    archiveFiles = {};
+    ).catch(()=>{});
     showToast('הקובץ נמחק ✓', 'info');
-    render();
+    loadArchiveFiles(folder);
   } catch(e) { showToast('שגיאה במחיקה', 'danger'); }
 }
 
