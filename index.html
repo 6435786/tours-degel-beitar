@@ -655,7 +655,19 @@ document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='z')
 
 function updateTripSel() {
   const s=document.getElementById('tripSelect');
-  s.innerHTML='<option value="">— בחר טיול —</option>'+Object.keys(state.trips).map(t=>`<option value="${h(t)}" ${t===activeTrip?'selected':''}>${h(t)}</option>`).join('');
+  if(!s) return;
+  const trips = Object.keys(state.trips);
+  s.innerHTML='<option value="">— בחר טיול —</option>'+trips.map(t=>`<option value="${h(t)}" ${t===activeTrip?'selected':''}>${h(t)}</option>`).join('');
+  // Auto-select: if activeTrip is set and valid, select it
+  if(activeTrip && state.trips[activeTrip]) {
+    s.value = activeTrip;
+  }
+  // If only one trip exists and none selected, auto-select it
+  else if(trips.length === 1 && !activeTrip) {
+    activeTrip = trips[0];
+    s.value = activeTrip;
+    state.activeTrip = activeTrip;
+  }
 }
 function selectTrip(n) { activeTrip=n||null; save(); render(); }
 
