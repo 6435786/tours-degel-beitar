@@ -657,16 +657,17 @@ function updateTripSel() {
   const s=document.getElementById('tripSelect');
   if(!s) return;
   const trips = Object.keys(state.trips);
-  s.innerHTML='<option value="">— בחר טיול —</option>'+trips.map(t=>`<option value="${h(t)}" ${t===activeTrip?'selected':''}>${h(t)}</option>`).join('');
-  // Auto-select: if activeTrip is set and valid, select it
+  s.innerHTML='<option value="">— בחר טיול —</option>'+trips.map(t=>`<option value="${h(t)}">${h(t)}</option>`).join('');
+  // Set active trip
   if(activeTrip && state.trips[activeTrip]) {
     s.value = activeTrip;
-  }
-  // If only one trip exists and none selected, auto-select it
-  else if(trips.length === 1 && !activeTrip) {
+  } else if(trips.length === 1) {
     activeTrip = trips[0];
-    s.value = activeTrip;
     state.activeTrip = activeTrip;
+    s.value = activeTrip;
+  } else if(state.activeTrip && state.trips[state.activeTrip]) {
+    activeTrip = state.activeTrip;
+    s.value = activeTrip;
   }
 }
 function selectTrip(n) { activeTrip=n||null; save(); render(); }
@@ -2243,9 +2244,12 @@ async function initApp() {
           } catch(e) {}
         }
 
-        updateTripSel();
-        render();
-        lockTabsForViewer();
+        // Small delay to ensure DOM is ready
+        setTimeout(() => {
+          updateTripSel();
+          render();
+          lockTabsForViewer();
+        }, 100);
 
         // Update presence every 2 minutes
         updatePresence();
