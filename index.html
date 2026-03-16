@@ -637,9 +637,19 @@ async function loadFromFirestore() {
       const parsed = JSON.parse(raw.data || '{}');
       state.trips = parsed.trips || {};
       state.global = parsed.global || {settings:{}};
-      state.activeTrip = parsed.activeTrip || null;
+      // Try Firestore activeTrip first, then localStorage backup
+      const lastActive = localStorage.getItem('lastActiveTrip');
+      const firestoreActive = parsed.activeTrip || null;
+      if(firestoreActive && state.trips[firestoreActive]) {
+        state.activeTrip = firestoreActive;
+      } else if(lastActive && state.trips[lastActive]) {
+        state.activeTrip = lastActive;
+      } else {
+        state.activeTrip = Object.keys(state.trips)[0] || null;
+      }
       activeTrip = state.activeTrip;
       localStorage.setItem('trips_v3', JSON.stringify(state));
+      localStorage.setItem('lastActiveTrip', activeTrip||'');
       return true;
     }
   } catch(e) {
@@ -674,7 +684,8 @@ function selectTrip(n) {
   activeTrip=n||null; 
   state.activeTrip=activeTrip;
   localStorage.setItem('trips_v3', JSON.stringify(state));
-  saveToFirestore(); // Save immediately, not debounced
+  localStorage.setItem('lastActiveTrip', activeTrip||'');
+  saveToFirestore();
   updateUndoBtn(); updateTripSel();
   render(); 
 }
