@@ -238,6 +238,101 @@ tbody tr:hover .del-btn{opacity:1}
   .report-card{box-shadow:none;border-radius:0}
 }
 
+/* ═══ MOBILE RESPONSIVE ═══ */
+@media (max-width: 768px) {
+  /* Hide desktop tab nav, show mobile bottom nav */
+  .tab-nav { display: none; }
+  .app-main { padding-bottom: 65px; }
+
+  /* Mobile bottom navigation */
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+    box-shadow: 0 -2px 10px rgba(0,0,0,.08);
+  }
+  .mobile-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 4px;
+    border: none;
+    background: none;
+    font-family: var(--font);
+    font-size: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+    gap: 3px;
+    transition: all .15s;
+  }
+  .mobile-nav-btn .nav-icon { font-size: 20px; }
+  .mobile-nav-btn.active { color: var(--primary); }
+  .mobile-nav-btn.active .nav-icon { transform: scale(1.1); }
+
+  /* Header mobile */
+  .app-header { padding: 0 12px; height: 54px; }
+  .brand { font-size: 14px; }
+  .trip-selector label { display: none; }
+  .trip-select { min-width: 120px; font-size: 12px; }
+  .btn-backup { display: none; }
+
+  /* Lists tab mobile */
+  .lists-tab { flex-direction: column; }
+  .lists-sidebar { display: none; }
+  .lists-content { padding: 10px; }
+
+  /* Main table mobile - card view */
+  .main-table-tab { padding: 10px; }
+  .main-table-wrap { overflow-x: auto; }
+  .main-table-wrap table { font-size: 11px; }
+  .main-table-wrap thead th { padding: 6px 7px; font-size: 10px; }
+  .main-table-wrap tbody td { padding: 4px 6px; }
+
+  /* Reports mobile */
+  .reports-tab { flex-direction: column; }
+  .report-sidebar { display: none; }
+  .report-content { padding: 10px; }
+  .report-body { padding: 10px; }
+  .report-table { font-size: 11px; }
+  .report-table thead th { padding: 6px 8px; font-size: 10px; }
+  .report-table tbody td { padding: 5px 7px; }
+
+  /* Modal mobile - full screen */
+  .modal-overlay { align-items: flex-end; }
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 90vh;
+    padding: 20px 16px;
+  }
+  .edit-modal { max-height: 95vh; }
+  .form-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Auth screen mobile */
+  .auth-card { width: 90vw; padding: 28px 20px; }
+
+  /* Archive mobile */
+  .report-sidebar { width: 100%; }
+  
+  /* Settings mobile */
+  .clone-grid { grid-template-columns: 1fr; }
+  .settings-page { padding: 10px; }
+}
+
+/* Mobile report selector */
+.mobile-report-sel { display: none; width: 100%; padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: var(--font); font-size: 13px; font-weight: 600; background: var(--surface); margin-bottom: 10px; cursor: pointer; }
+@media (max-width: 768px) {
+  .mobile-report-sel { display: block; }
+  .report-sidebar { display: none !important; }
+  .mobile-nav { display: flex; }
+}
+
 /* BULK IMPORT */
 .bulk-file-list{display:flex;flex-direction:column;gap:6px;margin-top:12px;max-height:300px;overflow-y:auto}
 
@@ -329,6 +424,34 @@ tbody tr:hover .del-btn{opacity:1}
     <button class="tab-btn" onclick="switchTab('settings')">⚙️ הגדרות</button>
   </nav>
   <main class="app-main" id="appMain"></main>
+
+  <!-- MOBILE BOTTOM NAV -->
+  <nav class="mobile-nav" id="mobileNav">
+    <button class="mobile-nav-btn active" onclick="switchTab('main-table')" id="mnav-main-table">
+      <span class="nav-icon">📋</span>
+      <span>טבלה</span>
+    </button>
+    <button class="mobile-nav-btn" onclick="switchTab('reports')" id="mnav-reports">
+      <span class="nav-icon">📊</span>
+      <span>דוחות</span>
+    </button>
+    <button class="mobile-nav-btn" onclick="switchTab('archives')" id="mnav-archives">
+      <span class="nav-icon">🗂️</span>
+      <span>מאגרים</span>
+    </button>
+    <button class="mobile-nav-btn" onclick="switchTab('lists')" id="mnav-lists">
+      <span class="nav-icon">📝</span>
+      <span>רשימות</span>
+    </button>
+    <button class="mobile-nav-btn" onclick="switchTab('trip-folders')" id="mnav-trip-folders">
+      <span class="nav-icon">🎒</span>
+      <span>תיקי טיול</span>
+    </button>
+    <button class="mobile-nav-btn" onclick="switchTab('settings')" id="mnav-settings">
+      <span class="nav-icon">⚙️</span>
+      <span>הגדרות</span>
+    </button>
+  </nav>
 </div>
 
 <!-- NEW TRIP MODAL -->
@@ -570,7 +693,11 @@ function createTrip() {
 // ── TABS ──
 function switchTab(t) {
   activeTab=t;
-  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['main-table','reports','archives','lists','contacts','trip-folders','settings'][i]===t));
+  const tabs=['main-table','reports','archives','lists','contacts','trip-folders','settings'];
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));
+  document.querySelectorAll('.mobile-nav-btn').forEach(b=>b.classList.remove('active'));
+  const mb=document.getElementById('mnav-'+t);
+  if(mb) mb.classList.add('active');
   render();
 }
 function render() {
@@ -719,7 +846,12 @@ function renderLists(container) {
     <aside class="lists-sidebar"><h3>רשימות</h3>${sb}</aside>
     <div class="lists-content"><div class="list-editor">
       <div class="list-editor-header">
-        <div class="list-title"><h2>רשימה ${LIST_KEYS.indexOf(activeList)+1}: ${def.name}</h2><span class="row-count">${rows.length}</span></div>
+        <div class="list-title">
+          <select class="mobile-list-sel" onchange="selList(this.value)" style="display:none;border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:6px 10px;font-family:var(--font);font-size:13px;font-weight:600;background:var(--surface);cursor:pointer">
+            ${LIST_KEYS.map((k,i)=>`<option value="${k}" ${k===activeList?'selected':''}>${i+1}. ${LIST_DEFS[k].name}</option>`).join('')}
+          </select>
+          <h2 class="list-title-text">רשימה ${LIST_KEYS.indexOf(activeList)+1}: ${def.name}</h2><span class="row-count">${rows.length}</span>
+        </div>
         <div class="list-actions">
           <button class="btn btn-warn btn-sm" onclick="openBulkImport()">📦 ייבוא מרוכז</button>
           <button class="btn btn-secondary btn-sm" onclick="expL('${activeList}')">⬇ Excel</button>
@@ -728,7 +860,13 @@ function renderLists(container) {
       </div>
       <div class="table-wrap"><table><thead><tr><th class="col-num">#</th>${hdrs}</tr></thead><tbody>${tbdy}</tbody></table></div>
       <div class="add-row-form"><h4>+ הוספת שורה</h4><div class="add-row-fields">${adds}<button class="btn btn-success" onclick="addLR('${activeList}')" style="align-self:flex-end">+ הוסף</button></div></div>
-    </div></div></div>`;
+    </div></div></div>
+  <script>
+    if(window.innerWidth<=768){
+      document.querySelector('.mobile-list-sel').style.display='block';
+      document.querySelector('.list-title-text').style.display='none';
+    }
+  </script>`;
 }
 function selList(k){activeList=k;render();}
 function setLC(lk,ri,ci,v){const td=getTD();if(!td)return;pushU(snap());td.lists[lk][ri][ci]=v;save();}
@@ -1032,7 +1170,11 @@ function renderReports(container) {
       <div class="report-content">
         <div class="report-card">
           <div class="report-toolbar">
-            <div></div>
+            <div>
+              <select class="mobile-report-sel" onchange="activeReport=this.value;render()">
+                ${[{id:'report1',label:'דוח טיולים כללי'},{id:'report2',label:'הזנות משרד החינוך'},{id:'report3',label:'אוטובוסים'},{id:'report4',label:'אטרקציות'}].map(r=>`<option value="${r.id}" ${activeReport===r.id?'selected':''}>${r.label}</option>`).join('')}
+              </select>
+            </div>
             <div class="report-actions">
               <button class="btn btn-secondary btn-sm" onclick="printReport()">🖨️ הדפסה</button>
               <button class="btn btn-primary btn-sm" onclick="exportReportExcel()">⬇ Excel</button>
