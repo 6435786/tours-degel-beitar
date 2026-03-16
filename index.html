@@ -1503,8 +1503,8 @@ async function loadArchiveFiles(folder) {
       <td style="font-size:11px;color:var(--text-muted)">${new Date(f.created_at).toLocaleDateString('he-IL')}</td>
       <td style="font-size:11px;color:var(--text-muted)">${Math.round((f.bytes||0)/1024)} KB</td>
       <td style="display:flex;gap:4px">
-        <a href="${viewUrl}" target="_blank" class="btn btn-secondary btn-sm">👁 צפה</a>
-        <a href="${dlUrl}" download="${h(name)}" class="btn btn-secondary btn-sm">⬇</a>
+        <a href="${f.secure_url}" target="_blank" class="btn btn-secondary btn-sm">👁 צפה</a>
+        <a href="${f.secure_url}" target="_blank" download="${h(name)}" class="btn btn-secondary btn-sm">⬇ הורד</a>
         <button class="btn btn-danger btn-sm" onclick="deleteFile('${f.public_id}','${folder}')">🗑</button>
       </td>
     </tr>`;
