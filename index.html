@@ -670,7 +670,14 @@ function updateTripSel() {
     s.value = activeTrip;
   }
 }
-function selectTrip(n) { activeTrip=n||null; save(); render(); }
+function selectTrip(n) { 
+  activeTrip=n||null; 
+  state.activeTrip=activeTrip;
+  localStorage.setItem('trips_v3', JSON.stringify(state));
+  saveToFirestore(); // Save immediately, not debounced
+  updateUndoBtn(); updateTripSel();
+  render(); 
+}
 
 // ── NEW TRIP ──
 function openNewTripModal() {
