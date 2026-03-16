@@ -869,7 +869,6 @@ function renderLists(container) {
     if(title) title.style.display='none';
   }
 }
-}
 function selList(k){activeList=k;render();}
 function setLC(lk,ri,ci,v){const td=getTD();if(!td)return;pushU(snap());td.lists[lk][ri][ci]=v;save();}
 function delLR(lk,ri){const td=getTD();if(!td)return;pushU(snap());td.lists[lk].splice(ri,1);save();render();showToast('נמחק','info');}
