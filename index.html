@@ -106,6 +106,11 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 .list-title{display:flex;align-items:center;gap:8px}
 .list-title h2{font-size:15px;font-weight:700}
 .row-count{background:var(--primary-light);color:var(--primary);font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px}
+.status-counters{display:flex;gap:6px;flex-wrap:wrap}
+.counter-badge{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
+.main-table-wrap table thead th{position:sticky;top:0;z-index:2;background:var(--primary);vertical-align:top;padding:6px 8px}
+.main-table-wrap table tbody tr:hover{background:var(--primary-light)!important}
+.main-table-wrap table tbody tr:nth-child(even){background:var(--surface2)}
 .list-actions{display:flex;gap:6px}
 .table-wrap{flex:1;overflow:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
@@ -712,34 +717,99 @@ function render() {
 }
 
 // ── MAIN TABLE ──
+// Short view columns
+const MT_SHORT_COLS = ['f1','f2','f4','f13','f15','f9','f10','f11','f12','f18','f21','f23'];
+let mtShowAll = false;
+let mtSort = {col: null, dir: 1};
+let mtFilter = {};
+
 function renderMT(container) {
   const td=getTD();
   if(!activeTrip||!td){container.innerHTML=`<div class="no-trip"><div class="nt-icon">🗺️</div><h2>בחר טיול או צור טיול חדש</h2><p>לחץ על "+ טיול חדש" בראש המסך</p><button class="btn btn-primary" onclick="openNewTripModal()" style="margin-top:8px">+ טיול חדש</button></div>`;return;}
   syncMTRows(td);
-  const rows=td.mainTable||[];
+  let rows=td.mainTable||[];
+
+  // Apply text filter
   const fv=(document.getElementById('mtFilter')||{}).value||'';
-  const vis=rows.filter(r=>!fv||MT_FIELDS.some(f=>String(r[f.id]||'').includes(fv)));
-  const hdrs=MT_FIELDS.map(f=>`<th>${f.label}</th>`).join('');
-  const tbdy=vis.length===0
-    ?`<tr><td colspan="${MT_FIELDS.length+1}" style="text-align:center;padding:28px;color:var(--text-muted)">אין שורות — הוסף קהילות ברשימה 1</td></tr>`
-    :vis.map(row=>{
-        const ri=rows.indexOf(row);
-        const act=row.f2===true, mrg=row.f8&&row.f8!=='';
-        return `<tr style="${!act?'opacity:.5':''}${mrg?';background:var(--warn-light)':''}">
-          <td class="col-num" style="white-space:nowrap">
-            <button class="btn btn-primary btn-icon btn-sm" onclick="openEditRow(${ri})" title="ערוך שורה" style="margin-bottom:2px">✏️</button>
+  if(fv) rows=rows.filter(r=>MT_FIELDS.some(f=>String(r[f.id]||'').includes(fv)));
+
+  // Apply column filters
+  Object.entries(mtFilter).forEach(([fid,val])=>{
+    if(val) rows=rows.filter(r=>String(r[fid]||'').toLowerCase().includes(val.toLowerCase()));
+  });
+
+  // Apply sort
+  if(mtSort.col) {
+    rows=[...rows].sort((a,b)=>{
+      const av=String(a[mtSort.col]||''), bv=String(b[mtSort.col]||'');
+      return av.localeCompare(bv,'he')*mtSort.dir;
+    });
+  }
+
+  const visFields = mtShowAll ? MT_FIELDS : MT_FIELDS.filter(f=>MT_SHORT_COLS.includes(f.id));
+  const activeCount = (td.mainTable||[]).filter(r=>r.f2).length;
+  const approvedCount = (td.mainTable||[]).filter(r=>r.f4).length;
+
+  const hdrs = visFields.map(f=>{
+    const sortIcon = mtSort.col===f.id ? (mtSort.dir===1?'↑':'↓') : '';
+    return `<th onclick="mtSortBy('${f.id}')" style="cursor:pointer;white-space:nowrap;min-width:${getColWidth(f)}px">
+      ${f.label} ${sortIcon}
+      <div><input class="col-filter" placeholder="סנן..." value="${h(mtFilter[f.id]||'')}" onclick="event.stopPropagation()" oninput="mtFilter['${f.id}']=this.value;render()" style="width:100%;padding:2px 4px;font-size:10px;border:1px solid var(--border);border-radius:3px;margin-top:3px;font-family:var(--font)"></div>
+    </th>`;
+  }).join('');
+
+  const tbdy = rows.length===0
+    ?`<tr><td colspan="${visFields.length+1}" style="text-align:center;padding:28px;color:var(--text-muted)">אין שורות</td></tr>`
+    :rows.map(row=>{
+        const ri=(td.mainTable||[]).indexOf(row);
+        const act=row.f2===true, approved=row.f4===true, mrg=row.f8&&row.f8!=='';
+        const statusColor = !act?'#aaa':approved?'var(--success)':'var(--warn)';
+        return `<tr style="${!act?'opacity:.55':''}${mrg?';background:#fffbf0':''}">
+          <td class="col-num" style="white-space:nowrap;padding:4px 6px">
+            <div style="width:3px;height:32px;background:${statusColor};border-radius:2px;display:inline-block;vertical-align:middle;margin-left:4px"></div>
+            <button class="btn btn-primary btn-icon btn-sm" onclick="openEditRow(${ri})" title="ערוך שורה">✏️</button>
             <div style="font-size:10px;color:var(--text-light);margin-top:1px">${ri+1}</div>
-          </td>${MT_FIELDS.map(f=>renderMTCell(f,row,ri,td)).join('')}</tr>`;
+          </td>${visFields.map(f=>renderMTCell(f,row,ri,td)).join('')}</tr>`;
       }).join('');
+
   container.innerHTML=`<div class="main-table-tab">
     <div class="main-table-toolbar">
-      <h2>📋 טבלה ראשית — ${h(activeTrip)}</h2>
-      <span class="row-count">${rows.filter(r=>r.f2).length} פעילים / ${rows.length}</span>
-      <input class="filter-input" id="mtFilter" placeholder="🔍 סינון..." dir="rtl" value="${h(fv)}" oninput="render()">
-      <button class="btn btn-secondary btn-sm" onclick="addMTRow()">+ שורה ידנית</button>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <h2 style="margin:0">📋 ${h(activeTrip)}</h2>
+        <div class="status-counters">
+          <span class="counter-badge" style="background:var(--success-light);color:var(--success)">✅ ${approvedCount} מאושרים</span>
+          <span class="counter-badge" style="background:var(--primary-light);color:var(--primary)">🟢 ${activeCount} פעילים</span>
+          <span class="counter-badge" style="background:var(--surface2);color:var(--text-muted)">📋 ${(td.mainTable||[]).length} סה"כ</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input class="filter-input" id="mtFilter" placeholder="🔍 חיפוש כללי..." dir="rtl" value="${h(fv)}" oninput="render()">
+        <button class="btn btn-sm ${mtShowAll?'btn-primary':'btn-secondary'}" onclick="mtShowAll=!mtShowAll;render()">
+          ${mtShowAll?'📌 תצוגה מקוצרת':'📊 הצג הכל'}
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="mtFilter={};mtSort={col:null,dir:1};render()">🔄 אפס</button>
+        <button class="btn btn-secondary btn-sm" onclick="addMTRow()">+ שורה</button>
+      </div>
     </div>
     <div class="main-table-wrap"><table><thead><tr><th class="col-num">#</th>${hdrs}</tr></thead><tbody>${tbdy}</tbody></table></div>
   </div>`;
+}
+
+function getColWidth(f) {
+  const widths = {
+    'f1':140,'f2':50,'f3':90,'f4':50,'f5':70,'f6':60,'f7':60,'f8':130,
+    'f9':70,'f10':110,'f11':75,'f12':75,'f13':100,'f14':90,'f15':60,
+    'f16':120,'f17':120,'f18':130,'f19':130,'f20':130,'f21':130,'f22':130,
+    'f23':130,'f24':50,'f25':70,'f26':130,'f27':50,'f28':70,'f29':120,
+    'f30':70,'f31':80,'f32':75,'f33':75,'f34':75
+  };
+  return widths[f.id]||100;
+}
+
+function mtSortBy(col) {
+  if(mtSort.col===col) mtSort.dir*=-1;
+  else mtSort={col,dir:1};
+  render();
 }
 
 function syncMTRows(td) {
