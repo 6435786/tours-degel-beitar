@@ -860,13 +860,15 @@ function renderLists(container) {
       </div>
       <div class="table-wrap"><table><thead><tr><th class="col-num">#</th>${hdrs}</tr></thead><tbody>${tbdy}</tbody></table></div>
       <div class="add-row-form"><h4>+ הוספת שורה</h4><div class="add-row-fields">${adds}<button class="btn btn-success" onclick="addLR('${activeList}')" style="align-self:flex-end">+ הוסף</button></div></div>
-    </div></div></div>
-  <script>
-    if(window.innerWidth<=768){
-      document.querySelector('.mobile-list-sel').style.display='block';
-      document.querySelector('.list-title-text').style.display='none';
-    }
-  </script>`;
+    </div></div></div>`;
+  // Mobile: show dropdown, hide title
+  if(window.innerWidth<=768){
+    const sel = container.querySelector('.mobile-list-sel');
+    const title = container.querySelector('.list-title-text');
+    if(sel) sel.style.display='block';
+    if(title) title.style.display='none';
+  }
+}
 }
 function selList(k){activeList=k;render();}
 function setLC(lk,ri,ci,v){const td=getTD();if(!td)return;pushU(snap());td.lists[lk][ri][ci]=v;save();}
@@ -1348,7 +1350,7 @@ function buildReport3(td) {
       <td>${h(row.f15||getDay(row.f13))}</td>
       <td>${h(row.f11||'')}</td>
       <td>${h(row.f12||'')}</td>
-      <td><input type="time" value="${h(row.f34||'')}" onchange="reportEditByRow('${row.f1}','f34',this.value);this.closest('tr').querySelector('.price-cell').textContent=calcBusPriceForRow('${row.f1}')" style="border:1px solid var(--border-strong);border-radius:4px;padding:2px 6px;font-family:var(--font);font-size:12px;background:var(--warn-light)"></td>
+      <td><input type="time" value="${row.f34&&row.f34.match(/^\d{2}:\d{2}/)?row.f34.slice(0,5):''}" onchange="reportEditByRow('${row.f1}','f34',this.value)" style="border:1px solid var(--border-strong);border-radius:4px;padding:2px 6px;font-family:var(--font);font-size:12px;background:var(--warn-light)"></td>
       <td>${hours||''}</td>
       <td>${''}</td>
       <td>${''}</td>
