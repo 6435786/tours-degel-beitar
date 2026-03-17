@@ -1749,7 +1749,9 @@ async function loadArchiveFiles(folder) {
     return;
   }
   const rows = files.map(f => {
-    const name = (f.original_filename || f.public_id.split('/').pop());
+    let name = (f.original_filename || f.public_id.split('/').pop());
+    // Ensure .pdf extension
+    if(!name.toLowerCase().endsWith('.pdf') && (f.format==='pdf'||f.secure_url.includes('.pdf'))) name += '.pdf';
     const rawUrl = f.secure_url;
     // Convert to viewable URL - add fl_attachment flag
     const viewUrl = rawUrl.replace('/raw/upload/', '/raw/upload/fl_attachment:false/');
