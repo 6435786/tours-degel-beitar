@@ -2004,43 +2004,73 @@ function pickEmail(contacts) {
       document.body.appendChild(modal);
     }
 
-    const contactRows = contacts.map((r,i) => `
-      <label class="clone-item" style="padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:4px;cursor:pointer">
-        <input type="checkbox" class="email-pick-cb" value="${r[5]||''}">
-        <span><strong>${r[0]||''}</strong> <span style="color:var(--text-muted);font-size:12px">${r[5]||''}</span></span>
-      </label>`).join('');
+    const renderContacts = (filter='') => {
+      const filtered = contacts.filter(r => 
+        !filter || (r[0]||'').includes(filter) || (r[5]||'').includes(filter)
+      );
+      return filtered.map(r => `
+        <label class="email-contact-row" onclick="toggleEmailContact(this)" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;border:1px solid var(--border)">
+          <input type="checkbox" class="email-pick-cb" value="${r[5]||''}" style="width:16px;height:16px;cursor:pointer">
+          <span style="flex:1">
+            <strong>${h(r[0]||'')}</strong>
+            <span style="color:var(--text-muted);font-size:12px;margin-right:8px">${h(r[5]||'')}</span>
+          </span>
+        </label>`).join('') || '<div style="color:var(--text-muted);padding:10px;text-align:center">לא נמצאו תוצאות</div>';
+    };
 
     modal.style.display = 'flex';
-    modal.innerHTML = `<div class="modal" style="width:480px">
+    modal.innerHTML = `<div class="modal" style="width:500px">
       <h3>✉️ שליחת מייל</h3>
       ${contacts.length ? `
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">בחר מרשימת אנשי קשר:</p>
-        <div style="max-height:220px;overflow-y:auto;margin-bottom:12px">
-          ${contactRows}
-        </div>
-        <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:8px">
-          <p style="font-size:13px;color:var(--text-muted);margin-bottom:6px">או הזן מייל ידנית:</p>
-        </div>` : 
-        `<p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">הזן כתובת מייל:</p>`
-      }
-      <input type="email" id="emailManualInput" class="form-control" placeholder="example@gmail.com" dir="ltr">
+        <input type="text" id="emailSearchInput" class="form-control" placeholder="🔍 חיפוש לפי שם או מייל..." dir="rtl" 
+          oninput="document.getElementById('emailContactList').innerHTML=renderContactsFilter(this.value)"
+          style="margin-bottom:10px">
+        <div id="emailContactList" style="max-height:240px;overflow-y:auto;margin-bottom:12px">
+          ${renderContacts()}
+        </div>` : ''}
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:8px">
+        <label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px">הזן מייל ידנית (אפשר כמה, מופרדים בפסיק):</label>
+        <input type="text" id="emailManualInput" class="form-control" placeholder="email@example.com, email2@example.com" dir="ltr">
+      </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="document.getElementById('emailPickerModal').style.display='none';window._emailPickResolve(null)">ביטול</button>
         <button class="btn btn-primary" onclick="
-          const cbs = [...document.querySelectorAll('.email-pick-cb:checked')].map(c=>c.value);
-          const manual = document.getElementById('emailManualInput').value.trim();
-          const all = [...cbs, ...(manual?[manual]:[])];
+          const cbs=[...document.querySelectorAll('.email-pick-cb:checked')].map(c=>c.value).filter(Boolean);
+          const manual=document.getElementById('emailManualInput').value.trim();
+          const all=[...cbs,...(manual?manual.split(',').map(e=>e.trim()).filter(Boolean):[])];
           document.getElementById('emailPickerModal').style.display='none';
-          window._emailPickResolve(all.join(',') || null);
-        ">✉️ שלח</button>
+          window._emailPickResolve(all.length?all.join(','):null);
+        ">✉️ שלח לנבחרים</button>
       </div>
     </div>`;
 
+    // Store contacts for search
+    window._emailContacts = contacts;
     window._emailPickResolve = resolve;
-
-    // Cancel on backdrop click
     modal.onclick = e => { if(e.target===modal){ modal.style.display='none'; resolve(null); } };
   });
+}
+
+function toggleEmailContact(label) {
+  const cb = label.querySelector('input[type=checkbox]');
+  cb.checked = !cb.checked;
+  label.style.background = cb.checked ? 'var(--primary-light)' : '';
+  label.style.borderColor = cb.checked ? 'var(--primary)' : 'var(--border)';
+}
+
+function renderContactsFilter(filter) {
+  const contacts = window._emailContacts || [];
+  const filtered = contacts.filter(r => 
+    !filter || (r[0]||'').includes(filter) || (r[5]||'').includes(filter)
+  );
+  return filtered.map(r => `
+    <label class="email-contact-row" onclick="toggleEmailContact(this)" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;border:1px solid var(--border)">
+      <input type="checkbox" class="email-pick-cb" value="${h(r[5]||'')}" style="width:16px;height:16px;cursor:pointer">
+      <span style="flex:1">
+        <strong>${h(r[0]||'')}</strong>
+        <span style="color:var(--text-muted);font-size:12px;margin-right:8px">${h(r[5]||'')}</span>
+      </span>
+    </label>`).join('') || '<div style="color:var(--text-muted);padding:10px;text-align:center">לא נמצאו תוצאות</div>';
 }
 
 async function emailSelectedFiles() {
