@@ -2025,7 +2025,7 @@ function pickEmail(contacts) {
       }
       <input type="email" id="emailManualInput" class="form-control" placeholder="example@gmail.com" dir="ltr">
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="document.getElementById('emailPickerModal').style.display='none';${resolve.toString().includes('resolve') ? '' ''}">ביטול</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('emailPickerModal').style.display='none';window._emailPickResolve(null)">ביטול</button>
         <button class="btn btn-primary" onclick="
           const cbs = [...document.querySelectorAll('.email-pick-cb:checked')].map(c=>c.value);
           const manual = document.getElementById('emailManualInput').value.trim();
