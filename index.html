@@ -1992,16 +1992,29 @@ function printSelectedFiles() {
   showToast(`נפתחו ${selected.length} קבצים להדפסה`);
 }
 
-function emailSelectedFiles() {
+async function emailSelectedFiles() {
   const selected = [...document.querySelectorAll('.trip-file-cb:checked')];
   if(!selected.length) { showToast('לא נבחרו קבצים','danger'); return; }
-  const links = selected.map(cb => `${cb.dataset.name}: ${cb.dataset.url}`).join('\n');
-  const email = prompt('כתובת מייל לשליחה:');
-  if(!email) return;
-  const subject = encodeURIComponent('תיק טיול');
-  const body = encodeURIComponent('קישורים למסמכים:\n\n' + links);
-  window.open(`mailto:${email}?subject=${subject}&body=${body}`);
-  showToast('נפתח חלון מייל ✓');
+
+  const to = prompt('כתובת מייל לשליחה:');
+  if(!to) return;
+
+  const links = selected.map(cb => `• ${cb.dataset.name}\n  ${cb.dataset.url}`).join('\n\n');
+  const subject = 'תיק טיול — מסמכים';
+  const text = `שלום,\n\nמצורפים קישורים למסמכי תיק הטיול:\n\n${links}\n\nבברכה,\nמערכת טיולים דגל ביתר`;
+
+  try {
+    showToast('שולח מייל...', 'info');
+    const res = await fetch(ZIP_WORKER_URL + '/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject, text })
+    });
+    if(!res.ok) throw new Error('שגיאה בשרת');
+    showToast('המייל נשלח בהצלחה ✓');
+  } catch(e) {
+    showToast('שגיאה בשליחת המייל: ' + e.message, 'danger');
+  }
 }
 
 // ── BACKUP & RESTORE ──
