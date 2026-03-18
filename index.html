@@ -341,7 +341,9 @@ tbody tr:hover .del-btn{opacity:1}
 }
 
 /* BULK IMPORT */
-.bulk-file-list{display:flex;flex-direction:column;gap:6px;margin-top:12px;max-height:300px;overflow-y:auto}
+.contact-pick-item{padding:8px 12px;border-radius:var(--radius-sm);cursor:pointer;transition:background .15s;border:2px solid transparent}
+.contact-pick-item:hover{background:var(--primary-light)}
+.contact-pick-item.selected{border-color:var(--primary);background:var(--primary-light)}
 
 /* EDIT FORM MODAL */
 .edit-modal{width:780px;max-width:96vw}
@@ -1992,11 +1994,65 @@ function printSelectedFiles() {
   showToast(`נפתחו ${selected.length} קבצים להדפסה`);
 }
 
+function pickEmail(contacts) {
+  return new Promise(resolve => {
+    let modal = document.getElementById('emailPickerModal');
+    if(!modal) {
+      modal = document.createElement('div');
+      modal.id = 'emailPickerModal';
+      modal.className = 'modal-overlay';
+      document.body.appendChild(modal);
+    }
+
+    const contactRows = contacts.map((r,i) => `
+      <label class="clone-item" style="padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:4px;cursor:pointer">
+        <input type="checkbox" class="email-pick-cb" value="${r[5]||''}">
+        <span><strong>${r[0]||''}</strong> <span style="color:var(--text-muted);font-size:12px">${r[5]||''}</span></span>
+      </label>`).join('');
+
+    modal.style.display = 'flex';
+    modal.innerHTML = `<div class="modal" style="width:480px">
+      <h3>✉️ שליחת מייל</h3>
+      ${contacts.length ? `
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">בחר מרשימת אנשי קשר:</p>
+        <div style="max-height:220px;overflow-y:auto;margin-bottom:12px">
+          ${contactRows}
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:8px">
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:6px">או הזן מייל ידנית:</p>
+        </div>` : 
+        `<p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">הזן כתובת מייל:</p>`
+      }
+      <input type="email" id="emailManualInput" class="form-control" placeholder="example@gmail.com" dir="ltr">
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="document.getElementById('emailPickerModal').style.display='none';${resolve.toString().includes('resolve') ? '' ''}">ביטול</button>
+        <button class="btn btn-primary" onclick="
+          const cbs = [...document.querySelectorAll('.email-pick-cb:checked')].map(c=>c.value);
+          const manual = document.getElementById('emailManualInput').value.trim();
+          const all = [...cbs, ...(manual?[manual]:[])];
+          document.getElementById('emailPickerModal').style.display='none';
+          window._emailPickResolve(all.join(',') || null);
+        ">✉️ שלח</button>
+      </div>
+    </div>`;
+
+    window._emailPickResolve = resolve;
+
+    // Cancel on backdrop click
+    modal.onclick = e => { if(e.target===modal){ modal.style.display='none'; resolve(null); } };
+  });
+}
+
 async function emailSelectedFiles() {
   const selected = [...document.querySelectorAll('.trip-file-cb:checked')];
   if(!selected.length) { showToast('לא נבחרו קבצים','danger'); return; }
 
-  const to = prompt('כתובת מייל לשליחה:');
+  // Build contact list from list6
+  const td = getTD();
+  const contacts = (td?.lists?.list6 || []).filter(r => r[5]); // has email
+  
+  // Show contact picker
+  const to = await pickEmail(contacts);
   if(!to) return;
 
   const links = selected.map(cb => `• ${cb.dataset.name}\n  ${cb.dataset.url}`).join('\n\n');
@@ -2011,10 +2067,47 @@ async function emailSelectedFiles() {
       body: JSON.stringify({ to, subject, text })
     });
     if(!res.ok) throw new Error('שגיאה בשרת');
-    showToast('המייל נשלח בהצלחה ✓');
+    showToast('המייל נשלח ל-' + to + ' ✓');
   } catch(e) {
     showToast('שגיאה בשליחת המייל: ' + e.message, 'danger');
   }
+}
+
+function pickEmail(contacts) {
+  return new Promise(resolve => {
+    const contactRows = contacts.map((r,i) => `
+      <div class="contact-pick-item" onclick="pickEmailSelect('${r[5]}',this)" data-email="${r[5]}">
+        <div style="font-weight:600">${h(r[1]||'')} ${h(r[2]||'')}</div>
+        <div style="font-size:12px;color:var(--text-muted)">${h(r[5])} ${r[7]?'— '+h(r[7]):''}</div>
+      </div>`).join('');
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'emailPickModal';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+      <div class="modal" style="width:480px">
+        <h3>✉️ שליחת מייל</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px">בחר איש קשר או הזן מייל ידנית</p>
+        <input class="form-control" id="manualEmail" placeholder="הזן מייל ידנית..." dir="ltr" style="margin-bottom:12px">
+        ${contacts.length ? `<div style="max-height:250px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);padding:6px">${contactRows}</div>` : '<p style="color:var(--text-muted);text-align:center">אין אנשי קשר עם מייל ברשימה 6</p>'}
+        <div class="modal-footer" style="margin-top:14px">
+          <button class="btn btn-secondary" onclick="document.getElementById('emailPickModal').remove();window._emailResolve(null)">ביטול</button>
+          <button class="btn btn-primary" onclick="window._emailResolve(document.getElementById('manualEmail').value||window._selectedEmail);document.getElementById('emailPickModal').remove()">שלח ✉️</button>
+        </div>
+      </div>`;
+    
+    window._emailResolve = resolve;
+    window._selectedEmail = null;
+    document.body.appendChild(modal);
+  });
+}
+
+function pickEmailSelect(email, el) {
+  window._selectedEmail = email;
+  document.querySelectorAll('.contact-pick-item').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('manualEmail').value = email;
 }
 
 // ── BACKUP & RESTORE ──
