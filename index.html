@@ -2103,43 +2103,6 @@ async function emailSelectedFiles() {
   }
 }
 
-function pickEmail(contacts) {
-  return new Promise(resolve => {
-    const contactRows = contacts.map((r,i) => `
-      <div class="contact-pick-item" onclick="pickEmailSelect('${r[5]}',this)" data-email="${r[5]}">
-        <div style="font-weight:600">${h(r[1]||'')} ${h(r[2]||'')}</div>
-        <div style="font-size:12px;color:var(--text-muted)">${h(r[5])} ${r[7]?'— '+h(r[7]):''}</div>
-      </div>`).join('');
-
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.id = 'emailPickModal';
-    modal.style.display = 'flex';
-    modal.innerHTML = `
-      <div class="modal" style="width:480px">
-        <h3>✉️ שליחת מייל</h3>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px">בחר איש קשר או הזן מייל ידנית</p>
-        <input class="form-control" id="manualEmail" placeholder="הזן מייל ידנית..." dir="ltr" style="margin-bottom:12px">
-        ${contacts.length ? `<div style="max-height:250px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);padding:6px">${contactRows}</div>` : '<p style="color:var(--text-muted);text-align:center">אין אנשי קשר עם מייל ברשימה 6</p>'}
-        <div class="modal-footer" style="margin-top:14px">
-          <button class="btn btn-secondary" onclick="document.getElementById('emailPickModal').remove();window._emailResolve(null)">ביטול</button>
-          <button class="btn btn-primary" onclick="window._emailResolve(document.getElementById('manualEmail').value||window._selectedEmail);document.getElementById('emailPickModal').remove()">שלח ✉️</button>
-        </div>
-      </div>`;
-    
-    window._emailResolve = resolve;
-    window._selectedEmail = null;
-    document.body.appendChild(modal);
-  });
-}
-
-function pickEmailSelect(email, el) {
-  window._selectedEmail = email;
-  document.querySelectorAll('.contact-pick-item').forEach(e => e.classList.remove('selected'));
-  el.classList.add('selected');
-  document.getElementById('manualEmail').value = email;
-}
-
 // ── BACKUP & RESTORE ──
 function backupData() {
   const backup = {
