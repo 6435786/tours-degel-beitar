@@ -282,32 +282,72 @@ tbody tr:hover .del-btn{opacity:1}
   .mobile-nav-btn.active .nav-icon { transform: scale(1.1); }
 
   /* Header mobile */
-  .app-header { padding: 0 12px; height: 54px; }
-  .brand { font-size: 14px; }
+  .app-header { padding: 0 10px; height: 54px; gap: 8px; }
+  .brand { font-size: 13px; }
   .trip-selector label { display: none; }
-  .trip-select { min-width: 120px; font-size: 12px; }
+  .trip-select { min-width: 100px; font-size: 12px; }
   .btn-backup { display: none; }
+  .undo-btn { display: none; }
+  .btn-trip-mgmt { width: 28px; height: 28px; font-size: 13px; }
 
-  /* Lists tab mobile */
-  .lists-tab { flex-direction: column; }
+  /* ── MAIN TABLE mobile ── */
+  .main-table-tab { padding: 6px; gap: 6px; }
+  .main-table-toolbar {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .main-table-toolbar > div:first-child {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+  }
+  .main-table-toolbar > div:last-child {
+    flex-wrap: wrap;
+    gap: 5px;
+    width: 100%;
+  }
+  .main-table-toolbar h2 { font-size: 13px; }
+  .status-counters { gap: 4px; }
+  .counter-badge { font-size: 10px; padding: 2px 6px; }
+  .filter-input { flex: 1; min-width: 0; font-size: 12px; }
+  /* ── CRITICAL: horizontal scroll for wide table ── */
+  .main-table-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .main-table-wrap table { font-size: 11px; min-width: max-content; }
+  .main-table-wrap thead th { padding: 5px 6px; font-size: 10px; }
+  .main-table-wrap tbody td { padding: 3px 5px; }
+
+  /* ── LISTS tab mobile ── */
+  .lists-tab { flex-direction: column; height: 100%; }
   .lists-sidebar { display: none; }
-  .lists-content { padding: 10px; }
+  .lists-content { padding: 6px; flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .list-editor { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .list-editor-header { padding: 8px 10px; flex-wrap: wrap; gap: 6px; }
+  .list-actions { flex-wrap: wrap; gap: 4px; }
+  /* ── CRITICAL: list table scroll ── */
+  .table-wrap {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table-wrap table { min-width: max-content; }
+  .add-row-form { flex-shrink: 0; }
+  .add-row-fields { flex-wrap: wrap; }
 
-  /* Main table mobile - card view */
-  .main-table-tab { padding: 10px; }
-  .main-table-wrap { overflow-x: auto; }
-  .main-table-wrap table { font-size: 11px; }
-  .main-table-wrap thead th { padding: 6px 7px; font-size: 10px; }
-  .main-table-wrap tbody td { padding: 4px 6px; }
-
-  /* Reports mobile */
+  /* ── REPORTS mobile ── */
   .reports-tab { flex-direction: column; }
   .report-sidebar { display: none; }
-  .report-content { padding: 10px; }
-  .report-body { padding: 10px; }
+  .report-content { padding: 8px; }
+  .report-body { padding: 8px; }
   .report-table { font-size: 11px; }
   .report-table thead th { padding: 6px 8px; font-size: 10px; }
   .report-table tbody td { padding: 5px 7px; }
+  .report-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
   /* Modal mobile - full screen */
   .modal-overlay { align-items: flex-end; }
@@ -324,18 +364,17 @@ tbody tr:hover .del-btn{opacity:1}
   /* Auth screen mobile */
   .auth-card { width: 90vw; padding: 28px 20px; }
 
-  /* Archive mobile */
-  .report-sidebar { width: 100%; }
-  
   /* Settings mobile */
   .clone-grid { grid-template-columns: 1fr; }
   .settings-page { padding: 10px; }
 }
 
-/* Mobile report selector */
+/* Mobile report/archive selector */
 .mobile-report-sel { display: none; width: 100%; padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: var(--font); font-size: 13px; font-weight: 600; background: var(--surface); margin-bottom: 10px; cursor: pointer; }
+.mobile-archive-sel { display: none; width: 100%; padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-family: var(--font); font-size: 13px; font-weight: 600; background: var(--surface); margin-bottom: 10px; cursor: pointer; }
 @media (max-width: 768px) {
   .mobile-report-sel { display: block; }
+  .mobile-archive-sel { display: block; }
   .report-sidebar { display: none !important; }
   .mobile-nav { display: flex; }
 }
@@ -1710,10 +1749,15 @@ function renderArchives(container) {
     `<button class="report-nav-btn ${d.id===activeArchive?'active':''}" onclick="activeArchive='${d.id}';archiveFiles={};render()">${d.name}</button>`
   ).join('');
 
+  const mobileArchiveSel = `<select class="mobile-archive-sel" onchange="activeArchive=this.value;archiveFiles={};render()">
+    ${ARCHIVE_DEFS.map(d=>`<option value="${d.id}" ${d.id===activeArchive?'selected':''}>${d.name}</option>`).join('')}
+  </select>`;
+
   container.innerHTML = `
     <div class="reports-tab">
       <aside class="report-sidebar"><h3>מאגרים</h3>${sidebarBtns}</aside>
       <div class="report-content">
+        ${mobileArchiveSel}
         <div class="report-card">
           <div class="report-toolbar">
             <div>
