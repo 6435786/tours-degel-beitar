@@ -800,6 +800,8 @@ function render() {
 const MT_SHORT_COLS = ['f1','f2','f4','f13','f15','f9','f10','f11','f12','f18','f21','f23'];
 let mtShowAll = false;
 let mtSort = {col: null, dir: 1};
+let listSort = {col: null, dir: 1};
+let listSearch = '';
 let mtFilter = {};
 
 function renderMT(container) {
@@ -1007,15 +1009,47 @@ function getDay(d) { try{return DAYS[new Date(d).getDay()];}catch(e){return '';}
 function toHeb(d) { try{ return new Intl.DateTimeFormat('he-u-ca-hebrew',{day:'numeric',month:'long',year:'numeric'}).format(new Date(d)); }catch(e){return '';} }
 
 // ── LISTS TAB ──
+function listSortBy(ci) {
+  if(listSort.col===ci) listSort.dir*=-1;
+  else listSort={col:ci,dir:1};
+  render();
+}
 function renderLists(container) {
   const td=getTD();
   if(!activeTrip||!td){container.innerHTML=`<div class="no-trip"><div class="nt-icon">📝</div><h2>בחר טיול תחילה</h2></div>`;return;}
-  const def=LIST_DEFS[activeList], rows=td.lists[activeList]||[];
+  const def=LIST_DEFS[activeList];
+  let rows=td.lists[activeList]||[];
+
+  // Apply sort — keep original indices for editing
+  let sortedRows = rows.map((row,ri)=>({row,ri}));
+
+  // Apply search filter
+  if(listSearch) {
+    const q=listSearch.toLowerCase();
+    sortedRows=sortedRows.filter(({row})=>row.some(c=>String(c||'').toLowerCase().includes(q)));
+  }
+
+  // Apply sort
+  if(listSort.col!==null) {
+    sortedRows=[...sortedRows].sort((a,b)=>
+      String(a.row[listSort.col]||'').localeCompare(String(b.row[listSort.col]||''),'he')*listSort.dir
+    );
+  }
+
   const sb=LIST_KEYS.map((k,i)=>`<button class="list-nav-btn ${k===activeList?'active':''}" onclick="selList('${k}')"><span>${LIST_DEFS[k].name}</span><span class="list-num">${k===activeList?(td.lists[k]||[]).length+' ✓':'('+(i+1)+')'}</span></button>`).join('');
-  const hdrs=def.fields.map(f=>`<th>${f}</th>`).join('')+'<th class="col-act">מחק</th>';
-  const tbdy=rows.length===0
+
+  const hdrs=def.fields.map((f,ci)=>{
+    const isActive=listSort.col===ci;
+    const icon=isActive?(listSort.dir===1?'↑':'↓'):'⇅';
+    return `<th onclick="listSortBy(${ci})" style="cursor:pointer;white-space:nowrap;user-select:none">
+      ${f} <span style="font-size:10px;opacity:${isActive?1:0.35}">${icon}</span>
+    </th>`;
+  }).join('')+'<th class="col-act">מחק</th>';
+
+  const tbdy=sortedRows.length===0
     ?`<tr><td colspan="${def.fields.length+2}"><div class="empty-state"><div class="es-icon">📭</div><div>אין רשומות</div></div></td></tr>`
-    :rows.map((row,ri)=>`<tr><td class="col-num">${ri+1}</td>${def.fields.map((_,ci)=>`<td><input class="cell-input" value="${h(row[ci]||'')}" onchange="setLC('${activeList}',${ri},${ci},this.value)" dir="rtl"></td>`).join('')}<td><button class="btn btn-danger btn-icon btn-sm del-btn" onclick="delLR('${activeList}',${ri})">✕</button></td></tr>`).join('');
+    :sortedRows.map(({row,ri},si)=>`<tr><td class="col-num">${si+1}</td>${def.fields.map((_,ci)=>`<td><input class="cell-input" value="${h(row[ci]||'')}" onchange="setLC('${activeList}',${ri},${ci},this.value)" dir="rtl"></td>`).join('')}<td><button class="btn btn-danger btn-icon btn-sm del-btn" onclick="delLR('${activeList}',${ri})">✕</button></td></tr>`).join('');
+
   const adds=def.fields.map((f,i)=>`<div class="field-group"><label>${f}</label><input class="field-input" id="nf_${i}" placeholder="${f}" dir="rtl" onkeydown="if(event.key==='Enter')addLR('${activeList}')"></div>`).join('');
   container.innerHTML=`<div class="lists-tab">
     <aside class="lists-sidebar"><h3>רשימות</h3>${sb}</aside>
@@ -1025,8 +1059,10 @@ function renderLists(container) {
           <select class="mobile-list-sel" onchange="selList(this.value)" style="display:none;border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:6px 10px;font-family:var(--font);font-size:13px;font-weight:600;background:var(--surface);cursor:pointer">
             ${LIST_KEYS.map((k,i)=>`<option value="${k}" ${k===activeList?'selected':''}>${i+1}. ${LIST_DEFS[k].name}</option>`).join('')}
           </select>
-          <h2 class="list-title-text">רשימה ${LIST_KEYS.indexOf(activeList)+1}: ${def.name}</h2><span class="row-count">${rows.length}</span>
+          <h2 class="list-title-text">רשימה ${LIST_KEYS.indexOf(activeList)+1}: ${def.name}</h2><span class="row-count">${sortedRows.length}${listSearch?'/'+rows.length:''}</span>
         </div>
+        <input class="filter-input" placeholder="🔍 חיפוש..." dir="rtl" value="${h(listSearch)}"
+          oninput="listSearch=this.value;render()" style="flex:1;max-width:200px;font-size:12px">
         <div class="list-actions">
           <button class="btn btn-warn btn-sm" onclick="openBulkImport()">📦 ייבוא מרוכז</button>
           <button class="btn btn-secondary btn-sm" onclick="expL('${activeList}')">⬇ Excel</button>
@@ -1044,7 +1080,7 @@ function renderLists(container) {
     if(title) title.style.display='none';
   }
 }
-function selList(k){activeList=k;render();}
+function selList(k){activeList=k;listSort={col:null,dir:1};listSearch='';render();}
 function setLC(lk,ri,ci,v){const td=getTD();if(!td)return;pushU(snap());if(!td.lists[lk])td.lists[lk]=[];td.lists[lk][ri][ci]=v;save();}
 function delLR(lk,ri){const td=getTD();if(!td)return;pushU(snap());if(!td.lists[lk])return;td.lists[lk].splice(ri,1);save();render();showToast('נמחק','info');}
 function addLR(lk){
