@@ -880,6 +880,7 @@ function renderMT(container) {
         </button>
         <button class="btn btn-secondary btn-sm" onclick="mtFilter={};mtSort={col:null,dir:1};render()">🔄 אפס</button>
         <button class="btn btn-secondary btn-sm" onclick="addMTRow()">+ שורה</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportMTExcel()">⬇ Excel</button>
       </div>
     </div>
     <div class="main-table-wrap"><table><thead><tr><th class="col-num">#</th>${hdrs}</tr></thead><tbody>${tbdy}</tbody></table></div>
@@ -901,6 +902,43 @@ function mtSortBy(col) {
   if(mtSort.col===col) mtSort.dir*=-1;
   else mtSort={col,dir:1};
   render();
+}
+
+function exportMTExcel() {
+  const td = getTD(); if(!td) return;
+  const visFields = mtShowAll ? MT_FIELDS : MT_FIELDS.filter(f=>MT_SHORT_COLS.includes(f.id));
+  // Header row
+  const header = ['#', ...visFields.map(f=>f.label)];
+  // Data rows
+  const rows = td.mainTable || [];
+  const data = rows.map((row, ri) => {
+    return [ri+1, ...visFields.map(f => {
+      switch(f.type) {
+        case 'calc_total':        return calcTotal(row,td)||'';
+        case 'calc_buses':        return calcBuses(calcTotal(row,td))||'';
+        case 'calc_hebrew':       return row.f13 ? toHeb(row.f13) : '';
+        case 'calc_day':          return row.f13 ? getDay(row.f13) : '';
+        case 'calc_contact':      return getContact(row.f1,td);
+        case 'calc_participants': return countP(row.f1,td)||'';
+        case 'calc_hours':        return calcHours(row)||'';
+        case 'calc_attr_pp': {
+          const tot=calcTotal(row,td); const ap=calcAttrPriceTotal(row,td);
+          return tot&&ap ? Math.round(ap/tot) : '';
+        }
+        case 'calc_bus_pp': {
+          const tot=calcTotal(row,td); const bp=calcBusPriceTotal(row,td);
+          return tot&&bp ? Math.round(bp/tot) : '';
+        }
+        case 'checkbox': return row[f.id] ? '✓' : '';
+        default: return row[f.id]||'';
+      }
+    })];
+  });
+  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, activeTrip||'טבלה ראשית');
+  XLSX.writeFile(wb, `טבלה-ראשית-${activeTrip||''}.xlsx`);
+  showToast('הורד ✓');
 }
 
 function syncMTRows(td) {
