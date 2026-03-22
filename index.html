@@ -1532,6 +1532,13 @@ function getActiveRows(td) {
   return (td.mainTable||[]).filter(r => r.f2 && !attachedTo.has(r.f1));
 }
 
+// פונקציית עזר — שם קהילה + קהילה מצורפת בסוגרים
+function communityWithAttached(row) {
+  return row.f8 ? `${row.f1} (+ ${row.f8})` : row.f1;
+}
+
+let currentTripFolderCommunity = '';
+
 function buildReport1(td) {
   const rows = getActiveRows(td);
   if (!rows.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין קהילות פעילות</div></div>';
@@ -1547,6 +1554,7 @@ function buildReport1(td) {
     return `<tr>
       ${fields.map(f => {
         if(f==='טלפון אחראי') return `<td>${h(phone)}</td>`;
+        if(f==='f1') return `<td><strong>${h(communityWithAttached(row))}</strong></td>`;
         if(f==='f9') return `<td><strong>${total||''}</strong></td>`;
         if(f==='f10') return `<td><span class="${buses==='חריג'?'badge-exception':'badge-bus'}">${buses}</span></td>`;
         return `<td>${h(String(row[f]||''))}</td>`;
@@ -1573,7 +1581,7 @@ function buildReport2(td) {
     const contactRow = (td.lists.list6||[]).find(r=>r[0]===contact);
     const total = calcTotal(row,td);
     const cells = [
-      row.f1, row.f8,
+      communityWithAttached(row), row.f8,
       row.f18, getListCode('list2',row.f18,1),
       row.f19, getListCode('list2',row.f19,1),
       row.f20, getListCode('list2',row.f20,1),
@@ -1623,7 +1631,9 @@ function buildReport3(td) {
     const total=calcTotal(row,td);
     const hours=calcHours(row);
     const price=calcBusPrice(row,td,bus.type);
-    const communityLabel = totalBuses>1 ? `${row.f1} ${busNum}/${totalBuses}` : row.f1;
+    const communityLabel = totalBuses>1
+      ? `${communityWithAttached(row)} ${busNum}/${totalBuses}`
+      : communityWithAttached(row);
     return `<tr>
       <td>${h(communityLabel)}</td>
       <td><span class="badge-bus">${h(bus.type)}</span></td>
@@ -1698,7 +1708,7 @@ function buildReport4(td) {
     const supplier = attr?attr[14]||'':'';
     const price = calcAttrPrice(attrName, paxUsed);
     return `<tr>
-      <td>${h(row.f1)}</td>
+      <td>${h(communityWithAttached(row))}</td>
       <td>${h(row.f8||'')}</td>
       <td>${h(attrName)}</td>
       <td>${h(row[timeField]||'')}</td>
@@ -2035,7 +2045,7 @@ function renderTripFolders(container) {
   const tableRows = rows.map(row => {
     const attached = row.f8 || '';
     return `<tr>
-      <td><strong>${h(row.f1)}</strong></td>
+      <td><strong>${h(communityWithAttached(row))}</strong></td>
       <td>${h(attached)}</td>
       <td><button class="btn btn-primary btn-sm" onclick="openTripFolder('${h(row.f1)}')">🎒 תיק טיול</button></td>
     </tr>`;
@@ -2057,6 +2067,7 @@ function renderTripFolders(container) {
 }
 
 async function openTripFolder(communityName) {
+  currentTripFolderCommunity = communityName;
   const td = getTD(); if(!td) return;
   const row = td.mainTable.find(r=>r.f1===communityName);
   if(!row) return;
@@ -2267,24 +2278,42 @@ async function emailSelectedFiles() {
   const selected = [...document.querySelectorAll('.trip-file-cb:checked')];
   if(!selected.length) { showToast('לא נבחרו קבצים','danger'); return; }
 
-  // Build contact list from list6
   const td = getTD();
-  const contacts = (td?.lists?.list6 || []).filter(r => r[5]); // has email
+  const row = td?.mainTable?.find(r => r.f1 === currentTripFolderCommunity);
+  const attachedLabel = row?.f8 ? ` ו${row.f8}` : '';
+  const communityLabel = currentTripFolderCommunity
+    ? `קהילת ${currentTripFolderCommunity}${attachedLabel}`
+    : 'קהילתכם';
+
+  const contacts = (td?.lists?.list6 || []).filter(r => r[5]);
   
   // Show contact picker
   const to = await pickEmail(contacts);
   if(!to) return;
 
   const links = selected.map(cb => `• ${cb.dataset.name}\n  ${cb.dataset.url}`).join('\n\n');
-  const subject = 'תיק טיול — מסמכים';
-  const text = `שלום,\n\nמצורפים קישורים למסמכי תיק הטיול:\n\n${links}\n\nבברכה,\nמערכת טיולים דגל ביתר`;
+  const subject = `תיק טיול — ${currentTripFolderCommunity||'מסמכים'}`;
+
+  // Plain text fallback
+  const text = `שלום וברכה,\n\nמצורפים קישורים למסמכי תיק טיול ל${communityLabel}:\n\n${links}\n\nבכל שאלה ניתן לפנות להרב שלמה רוזנבאום בטל: 052-7632227`;
+
+  // HTML version with hyperlinks
+  const linksHtml = selected.map(cb =>
+    `<li><a href="${cb.dataset.url}" style="color:#1a56db;text-decoration:none;font-weight:500">${cb.dataset.name}</a></li>`
+  ).join('\n');
+  const html = `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:14px;color:#0f172a;line-height:1.8">
+    <p>שלום וברכה,</p>
+    <p>מצורפים קישורים למסמכי תיק טיול ל<strong>${communityLabel}</strong>:</p>
+    <ul style="padding-right:20px">${linksHtml}</ul>
+    <p>בכל שאלה ניתן לפנות להרב שלמה רוזנבאום בטל: <a href="tel:0527632227" style="color:#1a56db">052-7632227</a></p>
+  </div>`;
 
   try {
     showToast('שולח מייל...', 'info');
     const res = await fetch(ZIP_WORKER_URL + '/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, subject, text })
+      body: JSON.stringify({ to, subject, text, html })
     });
     if(!res.ok) throw new Error('שגיאה בשרת');
     showToast('המייל נשלח ל-' + to + ' ✓');
