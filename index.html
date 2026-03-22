@@ -1119,7 +1119,7 @@ function renderLists(container) {
   }
 }
 function selList(k){activeList=k;listSort={col:null,dir:1};listSearch='';render();}
-function setLC(lk,ri,ci,v){const td=getTD();if(!td)return;pushU(snap());if(!td.lists[lk])td.lists[lk]=[];td.lists[lk][ri][ci]=v;save();}
+function setLC(lk,ri,ci,v){const td=getTD();if(!td)return;pushU(snap());if(!td.lists[lk])td.lists[lk]=[];if(!td.lists[lk][ri])td.lists[lk][ri]=[];td.lists[lk][ri][ci]=v;save();render();}
 function delLR(lk,ri){const td=getTD();if(!td)return;pushU(snap());if(!td.lists[lk])return;td.lists[lk].splice(ri,1);save();render();showToast('נמחק','info');}
 function addLR(lk){
   const td=getTD();if(!td)return;
@@ -2025,10 +2025,12 @@ async function deleteFile(publicId, folder) {
     const files = await fetchCloudinaryFiles(folder);
     const newFiles = files.filter(f => f.public_id !== publicId);
     await saveArchiveFiles(folder, newFiles);
-    // Try to delete from Cloudinary too (may fail due to CORS but that's ok)
-    fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/resources/raw/upload?public_ids=${encodeURIComponent(publicId)}`,
-      { method: 'DELETE', headers: { 'Authorization': 'Basic ' + btoa(CLOUDINARY_CONFIG.apiKey + ':' + CLOUDINARY_CONFIG.apiSecret) } }
-    ).catch(()=>{});
+    // Delete from Cloudinary via Worker (avoids CORS)
+    fetch(ZIP_WORKER_URL + '/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publicId })
+    }).catch(()=>{});
     showToast('הקובץ נמחק ✓', 'info');
     loadArchiveFiles(folder);
   } catch(e) { showToast('שגיאה במחיקה', 'danger'); }
