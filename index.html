@@ -2297,6 +2297,16 @@ async function emailSelectedFiles() {
   // Plain text fallback
   const text = `שלום וברכה,\n\nמצורפים קישורים למסמכי תיק טיול ל${communityLabel}:\n\n${links}\n\nבכל שאלה ניתן לפנות להרב שלמה רוזנבאום בטל: 052-7632227`;
 
+  // Format date as DD/MM/YY
+  const dateStr = row?.f13 ? (() => {
+    const d = new Date(row.f13);
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${dd}/${mm}/${yy}`;
+  })() : 'XX/XX/XX';
+  const tripNum = row?.f3 || 'XXXXXXX';
+
   // HTML version with hyperlinks
   const linksHtml = selected.map(cb =>
     `<li><a href="${cb.dataset.url}" style="color:#1a56db;text-decoration:none;font-weight:500">${cb.dataset.name}</a></li>`
@@ -2304,6 +2314,9 @@ async function emailSelectedFiles() {
   const html = `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:14px;color:#0f172a;line-height:1.8">
     <p>שלום וברכה,</p>
     <p>מצורפים קישורים למסמכי תיק טיול ל<strong>${communityLabel}</strong>:</p>
+    <p style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:10px 14px;margin:12px 0">
+      <strong>שים לב!</strong> בטופס כתב מינוי לאחראי טיול יש למלא תאריך לועזי <strong>${dateStr}</strong> ואת מס' הטיול: <strong>${tripNum}</strong>
+    </p>
     <ul style="padding-right:20px">${linksHtml}</ul>
     <p>בכל שאלה ניתן לפנות להרב שלמה רוזנבאום בטל: <a href="tel:0527632227" style="color:#1a56db">052-7632227</a></p>
   </div>`;
