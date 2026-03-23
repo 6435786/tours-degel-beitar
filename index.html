@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>טיולים-דגל-ביתר</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -955,7 +956,12 @@ function renderMTCell(f,row,ri,td) {
   switch(f.type) {
     case 'auto': return `<td><strong style="font-size:12px">${h(v||'')}</strong></td>`;
     case 'checkbox': return `<td class="cell-checkbox"><input type="checkbox" ${v?'checked':''} onchange="setMT(${ri},'${f.id}',this.checked)"></td>`;
-    case 'text': return `<td><input class="cell-input" value="${h(String(v||''))}" onchange="setMT(${ri},'${f.id}',this.value)" dir="rtl" style="min-width:70px"></td>`;
+    case 'text': {
+      const dlId = `dl_mt_${f.id}`;
+      const vals = [...new Set((td.mainTable||[]).map(r=>String(r[f.id]||'')).filter(Boolean))];
+      const dl = `<datalist id="${dlId}">${vals.map(v=>`<option value="${h(v)}">`).join('')}</datalist>`;
+      return `<td>${dl}<input class="cell-input" value="${h(String(v||''))}" onchange="setMT(${ri},'${f.id}',this.value)" dir="rtl" style="min-width:70px" list="${dlId}"></td>`;
+    }
     case 'number': return `<td><input class="cell-input" type="number" value="${h(String(v||''))}" onchange="setMT(${ri},'${f.id}',this.value)" style="min-width:55px;text-align:center"></td>`;
     case 'time': return `<td><input class="cell-input" type="time" value="${h(String(v||''))}" onchange="setMT(${ri},'${f.id}',this.value)" style="min-width:75px"></td>`;
     case 'date': return `<td><input class="cell-input" type="date" value="${h(String(v||''))}" onchange="setMT(${ri},'${f.id}',this.value)" style="min-width:115px"></td>`;
@@ -1081,9 +1087,15 @@ function renderLists(container) {
     </th>`;
   }).join('')+'<th class="col-act">מחק</th>';
 
+  // Build datalists per column for autocomplete
+  const datalists = def.fields.map((_,ci) => {
+    const vals = [...new Set((td.lists[activeList]||[]).map(r=>String(r[ci]||'')).filter(Boolean))];
+    return `<datalist id="dl_lc_${ci}">${vals.map(v=>`<option value="${h(v)}">`).join('')}</datalist>`;
+  }).join('');
+
   const tbdy=sortedRows.length===0
     ?`<tr><td colspan="${def.fields.length+2}"><div class="empty-state"><div class="es-icon">📭</div><div>אין רשומות</div></div></td></tr>`
-    :sortedRows.map(({row,ri},si)=>`<tr><td class="col-num">${si+1}</td>${def.fields.map((_,ci)=>`<td><input class="cell-input" value="${h(row[ci]||'')}" onchange="setLC('${activeList}',${ri},${ci},this.value)" dir="rtl"></td>`).join('')}<td><button class="btn btn-danger btn-icon btn-sm del-btn" onclick="delLR('${activeList}',${ri})">✕</button></td></tr>`).join('');
+    :sortedRows.map(({row,ri},si)=>`<tr><td class="col-num">${si+1}</td>${def.fields.map((_,ci)=>`<td><input class="cell-input" value="${h(row[ci]||'')}" onchange="setLC('${activeList}',${ri},${ci},this.value)" dir="rtl" list="dl_lc_${ci}"></td>`).join('')}<td><button class="btn btn-danger btn-icon btn-sm del-btn" onclick="delLR('${activeList}',${ri})">✕</button></td></tr>`).join('');
 
   const adds=def.fields.map((f,i)=>`<div class="field-group"><label>${f}</label><input class="field-input" id="nf_${i}" placeholder="${f}" dir="rtl" onkeydown="if(event.key==='Enter')addLR('${activeList}')"></div>`).join('');
   container.innerHTML=`<div class="lists-tab">
@@ -1104,7 +1116,7 @@ function renderLists(container) {
           <button class="btn btn-primary btn-sm" onclick="openImp('${activeList}')">⬆ ייבוא</button>
         </div>
       </div>
-      <div class="table-wrap"><table><thead><tr><th class="col-num">#</th>${hdrs}</tr></thead><tbody>${tbdy}</tbody></table></div>
+      <div class="table-wrap">${datalists}<table><thead><tr><th class="col-num">#</th>${hdrs}</tr></thead><tbody>${tbdy}</tbody></table></div>
       <div class="add-row-form"><h4>+ הוספת שורה</h4><div class="add-row-fields">${adds}<button class="btn btn-success" onclick="addLR('${activeList}')" style="align-self:flex-end">+ הוסף</button></div></div>
     </div></div></div>`;
   // Mobile: show dropdown, hide title
