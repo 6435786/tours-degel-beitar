@@ -560,7 +560,7 @@ tbody tr:hover .del-btn{opacity:1}
 // ── DATA DEFS ──
 const LIST_DEFS = {
   list1:{name:'קהילות',fields:['שם קהילה','כתובת']},
-  list2:{name:'מסלולים',fields:['שם מסלול','פירוט מספרי מסלולים להזנה','שם קליט','משך זמן משוער']},
+  list2:{name:'מסלולים',fields:['שם מסלול','פירוט מספרי מסלולים להזנה','שם קליט','משך זמן משוער','ניהול סיכונים','מפות']},
   list3:{name:'אתרים',fields:['שם אתר','פירוט להזנה ממשרד החינוך','שם קליט']},
   list4:{name:'אטרקציות',fields:['שם אטרקציה מלא','פרטים להזנה משרד החינוך','מיקום בארץ','קישור וויז','משך זמן פעילות','מחיר','כמות למחיר','מינימום כמות','מקסימום משתתפים','תמחור לפי','שומר שבת','חוזר מנכ"ל 1','חוזר מנכ"ל 2','חוזר מנכ"ל 3','ספק']},
   list5:{name:'שמות טבלאות ראשיות',fields:['שם טבלה']},
@@ -568,9 +568,6 @@ const LIST_DEFS = {
   list7:{name:'משתתפים',fields:['שם משפחה','שם פרטי','ת.ז.','טלפון','קהילה']},
   list8:{name:'מחירון אוטובוסים',fields:['סוג','מחיר בסיס','כמות שעות לבסיס','מחיר לשעה נוספת','כביש-6 צד אחד','כביש-6 2 צדדים']},
   list9:{name:'מסמכים כלליים',fields:['שם מסמך']},
-  list10:{name:'ניהול סיכונים',fields:['שם אתר','שם קובץ']},
-  list11:{name:'מפות',fields:['שם אתר','שם קובץ']},
-  list12: { name:'חוזרי מנכל', fields:['שם אטרקציה','שם קובץ'] },
 };
 const LIST_KEYS = Object.keys(LIST_DEFS);
 
@@ -615,7 +612,7 @@ const MT_FIELDS = [
 
 const CALC_TYPES = ['calc_total','calc_buses','calc_hebrew','calc_day','calc_contact','calc_participants','calc_hours','calc_attr_pp','calc_bus_pp'];
 
-const DEF_CLONE_LISTS = {list1:true,list2:true,list3:true,list4:true,list5:true,list6:true,list7:false,list8:true,list9:true,list10:true,list11:true,list12:true};
+const DEF_CLONE_LISTS = {list1:true,list2:true,list3:true,list4:true,list5:true,list6:true,list7:false,list8:true,list9:true};
 const DEF_CLONE_MT = {f1:true,f18:true,f19:true,f20:true,f21:true,f22:true,f23:true,f26:true};
 
 // ── FIREBASE CONFIG ──
@@ -2083,18 +2080,23 @@ async function openTripFolder(communityName) {
   // מאגר 2 — all files
   filesToFind.push({ archive:'מאגר2', search:[''] });
 
-  // מאגר 3 — by routes (list10, list11) and attractions (list12)
-  const routes = [row.f18,row.f19,row.f20,row.f21,row.f22].filter(Boolean);
+  // מאגר 3 — by routes (list2 cols 4/5) and attractions (list4 cols 11/12/13)
+  const routes = [row.f18,row.f19,row.f20].filter(Boolean);
   const attractions = [row.f23,row.f26].filter(Boolean);
+
   routes.forEach(route => {
-    const r10 = (td.lists.list10||[]).find(r=>r[0]===route);
-    const r11 = (td.lists.list11||[]).find(r=>r[0]===route);
-    if(r10&&r10[1]) filesToFind.push({archive:'מאגר3/ניהול-סיכונים', search:[r10[1]]});
-    if(r11&&r11[1]) filesToFind.push({archive:'מאגר3/מפות', search:[r11[1]]});
+    const r2 = (td.lists.list2||[]).find(r=>r[0]===route);
+    if(r2&&r2[4]) filesToFind.push({archive:'מאגר3/ניהול-סיכונים', search:[r2[4]]});
+    if(r2&&r2[5]) filesToFind.push({archive:'מאגר3/מפות', search:[r2[5]]});
   });
+
   attractions.forEach(attr => {
-    const r12 = (td.lists.list12||[]).find(r=>r[0]===attr);
-    if(r12&&r12[1]) filesToFind.push({archive:'מאגר3/חוזרי-מנכל', search:[r12[1]]});
+    const r4 = (td.lists.list4||[]).find(r=>r[0]===attr);
+    if(r4) {
+      [r4[11],r4[12],r4[13]].filter(Boolean).forEach(fname =>
+        filesToFind.push({archive:'מאגר3/חוזרי-מנכל', search:[fname]})
+      );
+    }
   });
 
   // מאגר 4 — by community name or trip number
