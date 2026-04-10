@@ -2296,7 +2296,10 @@ function showTripFolderModal(communityName, files) {
 }
 
 // ── רשימת משתתפים לתיק טיול ──
+function decodeHtml(s){const t=document.createElement('textarea');t.innerHTML=s;return t.value;}
+
 function buildParticipantsData(communityName) {
+  communityName = decodeHtml(communityName);
   const td = getTD(); if(!td) return null;
   const row = td.mainTable.find(r=>r.f1===communityName);
   if(!row) return null;
@@ -2373,8 +2376,8 @@ function getParticipantsTableHtml(communityName) {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <strong style="font-size:14px">👥 רשימת משתתפים (${d.participants.length})</strong>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-secondary btn-sm" onclick="printParticipants(this.dataset.c)" data-c="${communityName}">🖨️ הדפס</button>
-          <button class="btn btn-secondary btn-sm" onclick="downloadParticipantsExcel(this.dataset.c)" data-c="${communityName}">⬇ Excel</button>
+          <button class="btn btn-secondary btn-sm" onclick="printParticipants(this.dataset.c)" data-c="${h(communityName)}">🖨️ הדפס</button>
+          <button class="btn btn-secondary btn-sm" onclick="downloadParticipantsExcel(this.dataset.c)" data-c="${h(communityName)}">⬇ Excel</button>
         </div>
       </div>
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">
