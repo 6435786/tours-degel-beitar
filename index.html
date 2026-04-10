@@ -877,7 +877,6 @@ function renderMT(container) {
           ${mtShowAll?'📌 תצוגה מקוצרת':'📊 הצג הכל'}
         </button>
         <button class="btn btn-secondary btn-sm" onclick="mtFilter={};mtSort={col:null,dir:1};render()">🔄 אפס</button>
-        <button class="btn btn-secondary btn-sm" onclick="addMTRow()">+ שורה</button>
         <button class="btn btn-secondary btn-sm" onclick="exportMTExcel()">⬇ Excel</button>
       </div>
     </div>
@@ -941,13 +940,21 @@ function exportMTExcel() {
 
 function syncMTRows(td) {
   if(!td.mainTable) td.mainTable=[];
-  // אתחל רשימות חסרות (לטיולים ישנים שנוצרו לפני הוספת רשימות חדשות)
   LIST_KEYS.forEach(k=>{ if(!td.lists[k]) td.lists[k]=[]; });
-  (td.lists.list1||[]).forEach(r=>{
-    const name=r[0]||'';
-    if(name&&!td.mainTable.find(x=>x.f1===name)){
+  const list1Names = (td.lists.list1||[]).map(r=>r[0]||'').filter(Boolean);
+  // הוסף שורות חסרות
+  list1Names.forEach(name=>{
+    if(!td.mainTable.find(x=>x.f1===name)){
       const nr={}; MT_FIELDS.forEach(f=>nr[f.id]=f.type==='checkbox'?false:''); nr.f1=name; td.mainTable.push(nr);
     }
+  });
+  // סדר לפי list1 — שורות שאינן ברשימה יופיעו בסוף
+  td.mainTable.sort((a,b)=>{
+    const ai=list1Names.indexOf(a.f1), bi=list1Names.indexOf(b.f1);
+    if(ai===-1&&bi===-1) return 0;
+    if(ai===-1) return 1;
+    if(bi===-1) return -1;
+    return ai-bi;
   });
 }
 
@@ -1018,7 +1025,9 @@ function addMTRow() {
 function getOpts(src,td) {
   if(!src||!td) return [];
   const m=src.match(/^(list\d+)_col(\d+)$/); if(!m) return [];
-  return (td.lists[m[1]]||[]).map(r=>r[parseInt(m[2])]||'').filter(Boolean);
+  const opts=(td.lists[m[1]]||[]).map(r=>r[parseInt(m[2])]||'').filter(Boolean);
+  if(m[1]==='list6') return opts.sort((a,b)=>a.localeCompare(b,'he'));
+  return opts;
 }
 function countP(name,td) { if(!name||!td) return 0; return (td.lists.list7||[]).filter(r=>r[4]===name).length; }
 function calcTotal(row,td) {
@@ -1315,6 +1324,13 @@ function renderEditField(fdef, row, td) {
   // Full width fields
   const fullWidth = ['f1','f29','f30'].includes(fdef.id);
   const cls = fullWidth ? 'form-field form-field-full' : 'form-field';
+
+  if(fdef.type === 'auto') {
+    return `<div class="${cls}">
+      <label>${fdef.label}</label>
+      <div class="calc-display" style="font-weight:700;font-size:14px">${h(String(v))}</div>
+    </div>`;
+  }
 
   if(fdef.type === 'checkbox') {
     return `<div class="${cls}">
