@@ -2288,13 +2288,151 @@ function showTripFolderModal(communityName, files) {
     <h3>🎒 תיק טיול — ${h(communityName)}</h3>
     <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">סמן את המסמכים הרצויים</p>
     ${filesHtml}
+    ${files !== null ? getParticipantsTableHtml(communityName) : ''}
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="document.getElementById('tripFolderModal').style.display='none'">סגור</button>
     </div>
   </div>`;
 }
 
-function toggleAllTripFiles(cb) {
+// ── רשימת משתתפים לתיק טיול ──
+function buildParticipantsData(communityName) {
+  const td = getTD(); if(!td) return null;
+  const row = td.mainTable.find(r=>r.f1===communityName);
+  if(!row) return null;
+
+  const communities = [communityName];
+  if(row.f8) communities.push(row.f8);
+
+  // אחראי טיול
+  const coordName = row.f17||'';
+  const coordRow = (td.lists.list6||[]).find(r=>r[0]===coordName);
+  const coordPhone = coordRow?coordRow[4]||'':'';
+  const coordEmail = coordRow?coordRow[5]||'':'';
+
+  // משתתפים לפי קהילות
+  const fields = ['שם משפחה','שם פרטי','ת.ז.','טלפון','קהילה'];
+  const participants = (td.lists.list7||[]).filter(r=>communities.includes(r[4]));
+
+  return { communities, coordName, coordPhone, coordEmail, fields, participants, tripNum:row.f3||'', date:row.f13||'' };
+}
+
+function generateParticipantsExcel(communityName) {
+  const d = buildParticipantsData(communityName);
+  if(!d) return null;
+
+  const communityLabel = d.communities.join(' + ');
+  const dateStr = d.date ? (() => {
+    const dt=new Date(d.date);
+    return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`;
+  })() : '';
+
+  const aoa = [
+    [`רשימת משתתפים — ${communityLabel}`],
+    [`תאריך: ${dateStr}`, '', `מס' טיול: ${d.tripNum}`],
+    [`אחראי טיול: ${d.coordName}`, `טלפון: ${d.coordPhone}`, `מייל: ${d.coordEmail}`],
+    [],
+    d.fields,
+    ...d.participants,
+    [],
+    [`סה"כ משתתפים: ${d.participants.length}`]
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'משתתפים');
+  makeNiceExcel(wb, ws, [d.fields, ...d.participants]);
+
+  // החזר כ-base64
+  const wbout = XLSX.write(wb, {bookType:'xlsx', type:'base64'});
+  return { base64: wbout, name: `רשימת-משתתפים-${communityName}.xlsx` };
+}
+
+function getParticipantsTableHtml(communityName) {
+  const d = buildParticipantsData(communityName);
+  if(!d || !d.participants.length) return '';
+
+  const communityLabel = d.communities.join(' + ');
+  const dateStr = d.date ? (() => {
+    const dt=new Date(d.date);
+    return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`;
+  })() : '';
+
+  const rows = d.participants.map((p,i)=>
+    `<tr><td style="text-align:center">${i+1}</td>${d.fields.map((_,ci)=>`<td>${h(p[ci]||'')}</td>`).join('')}</tr>`
+  ).join('');
+
+  return `
+    <div id="participantsPrintArea" style="margin-top:18px;border-top:2px solid var(--border);padding-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <strong style="font-size:14px">👥 רשימת משתתפים (${d.participants.length})</strong>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" onclick="printParticipants('${h(communityName)}')">🖨️ הדפס</button>
+          <button class="btn btn-secondary btn-sm" onclick="downloadParticipantsExcel('${h(communityName)}')">⬇ Excel</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">
+        ${communityLabel} | ${dateStr} | אחראי: ${h(d.coordName)} ${d.coordPhone?'| '+d.coordPhone:''}
+      </div>
+      <div style="overflow-x:auto">
+        <table class="report-table" style="font-size:12px">
+          <thead><tr><th>#</th>${d.fields.map(f=>`<th>${f}</th>`).join('')}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function downloadParticipantsExcel(communityName) {
+  const result = generateParticipantsExcel(communityName);
+  if(!result) { showToast('אין משתתפים','warn'); return; }
+  const bin = atob(result.base64);
+  const buf = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=result.name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function printParticipants(communityName) {
+  const d = buildParticipantsData(communityName);
+  if(!d) return;
+  const communityLabel = d.communities.join(' + ');
+  const dateStr = d.date ? (() => {
+    const dt=new Date(d.date);
+    return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`;
+  })() : '';
+  const rows = d.participants.map((p,i)=>
+    `<tr><td>${i+1}</td>${d.fields.map((_,ci)=>`<td>${p[ci]||''}</td>`).join('')}</tr>`
+  ).join('');
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html dir="rtl"><head>
+    <meta charset="UTF-8">
+    <title>רשימת משתתפים — ${communityLabel}</title>
+    <style>
+      body{font-family:Arial,sans-serif;direction:rtl;padding:20px;font-size:13px}
+      h2{margin-bottom:4px}
+      .meta{color:#666;font-size:12px;margin-bottom:16px}
+      table{width:100%;border-collapse:collapse;font-size:12px}
+      th{background:#1a56db;color:#fff;padding:7px 10px;text-align:right}
+      td{padding:6px 10px;border-bottom:1px solid #e2e8f0}
+      tr:nth-child(even){background:#f8fafc}
+      .footer{margin-top:14px;font-weight:700}
+      @media print{body{padding:0}}
+    </style>
+  </head><body>
+    <h2>רשימת משתתפים — ${communityLabel}</h2>
+    <div class="meta">תאריך: ${dateStr} | מס' טיול: ${d.tripNum} | אחראי: ${d.coordName} ${d.coordPhone?'| '+d.coordPhone:''}</div>
+    <table>
+      <thead><tr><th>#</th>${d.fields.map(f=>`<th>${f}</th>`).join('')}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="footer">סה"כ: ${d.participants.length} משתתפים</div>
+    <script>window.onload=()=>window.print()<\/script>
+  </body></html>`);
+  win.document.close();
+}
   document.querySelectorAll('.trip-file-cb').forEach(el => el.checked = cb.checked);
 }
 
@@ -2303,6 +2441,11 @@ async function downloadZip(communityName) {
   if(!selected.length) { showToast('לא נבחרו קבצים','danger'); return; }
   showToast('מכין ZIP...', 'info');
   const files = selected.map(cb => ({ url: cb.dataset.url, name: cb.dataset.name }));
+
+  // הוסף Excel משתתפים
+  const participantsXlsx = generateParticipantsExcel(communityName);
+  if(participantsXlsx) files.push({ base64: participantsXlsx.base64, name: participantsXlsx.name });
+
   try {
     const res = await fetch(ZIP_WORKER_URL, {
       method: 'POST',
