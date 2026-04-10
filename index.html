@@ -1700,7 +1700,7 @@ function buildReport3(td) {
     });
   });
 
-  const hdrs=['שם קהילה','סוג רכב','אתר 1','אתר 2','אתר 3','אתר 4','אתר 5','אתר 6','אתר 7','כמות משתתפים','איש קשר','טלפון','כתובת','תאריך','יום','שעת יציאה','שעת חזרה','שעת חזרה בפועל','שעות','שינויים והערות','שינוי בסכום','סיכום עלות'].map(l=>`<th>${l}</th>`).join('');
+  const hdrs=['שם קהילה','סוג רכב','תאריך','יום','שעת יציאה','כתובת','איש קשר','טלפון','אתר 1','אתר 2','אתר 3','אתר 4','אתר 5','אתר 6','אתר 7','כמות משתתפים','שעת חזרה','שעת חזרה בפועל','שעות','שינויים והערות','שינוי בסכום','סיכום עלות'].map(l=>`<th>${l}</th>`).join('');
 
   const trs=expandedRows.map(({row,bus,busNum,totalBuses})=>{
     const contact=getContact(row.f1,td);
@@ -1714,6 +1714,12 @@ function buildReport3(td) {
     return `<tr>
       <td>${h(communityLabel)}</td>
       <td><span class="badge-bus">${h(bus.type)}</span></td>
+      <td>${h(row.f13||'')}</td>
+      <td>${h(row.f15||getDay(row.f13))}</td>
+      <td>${h(row.f11||'')}</td>
+      <td>${h(getAddr(row.f1))}</td>
+      <td>${h(contact)}</td>
+      <td>${h(contactRow?contactRow[4]||'':'')}</td>
       <td>${h(getLC('list2',row.f18,2))}</td>
       <td>${h(getLC('list2',row.f19,2))}</td>
       <td>${h(getLC('list2',row.f20,2))}</td>
@@ -1722,12 +1728,6 @@ function buildReport3(td) {
       <td>${h(getLC('list4',row.f23,0))}</td>
       <td>${h(getLC('list4',row.f26,0))}</td>
       <td style="text-align:center">${total||''}</td>
-      <td>${h(contact)}</td>
-      <td>${h(contactRow?contactRow[4]||'':'')}</td>
-      <td>${h(getAddr(row.f1))}</td>
-      <td>${h(row.f13||'')}</td>
-      <td>${h(row.f15||getDay(row.f13))}</td>
-      <td>${h(row.f11||'')}</td>
       <td>${h(row.f12||'')}</td>
       <td><input type="time" value="${row.f34&&row.f34.match(/^\d{2}:\d{2}/)?row.f34.slice(0,5):''}" onchange="reportEditByRow('${row.f1}','f34',this.value)" style="border:1px solid var(--border-strong);border-radius:4px;padding:2px 6px;font-family:var(--font);font-size:12px;background:var(--warn-light)"></td>
       <td>${hours||''}</td>
