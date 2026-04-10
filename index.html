@@ -2174,7 +2174,7 @@ function renderTripFolders(container) {
     return `<tr>
       <td><strong>${h(communityWithAttached(row))}</strong></td>
       <td>${h(attached)}</td>
-      <td><button class="btn btn-primary btn-sm" onclick="openTripFolder('${h(row.f1)}')">🎒 תיק טיול</button></td>
+      <td><button class="btn btn-primary btn-sm" onclick="openTripFolder(this.dataset.c)" data-c="${h(row.f1)}">🎒 תיק טיול</button></td>
     </tr>`;
   }).join('');
 
@@ -2280,7 +2280,7 @@ function showTripFolderModal(communityName, files) {
       <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
         <button class="btn btn-secondary" onclick="printSelectedFiles()">🖨️ הדפס נבחרים</button>
         <button class="btn btn-primary" onclick="emailSelectedFiles()">✉️ שלח במייל</button>
-        <button class="btn btn-success" onclick="downloadZip('${communityName}')">📦 הורד ZIP</button>
+        <button class="btn btn-success" onclick="downloadZip(this.dataset.c)" data-c="${communityName}">📦 הורד ZIP</button>
       </div>`;
 
   modal.style.display = 'flex';
@@ -2367,8 +2367,8 @@ function getParticipantsTableHtml(communityName) {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <strong style="font-size:14px">👥 רשימת משתתפים (${d.participants.length})</strong>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-secondary btn-sm" onclick="printParticipants('${h(communityName)}')">🖨️ הדפס</button>
-          <button class="btn btn-secondary btn-sm" onclick="downloadParticipantsExcel('${h(communityName)}')">⬇ Excel</button>
+          <button class="btn btn-secondary btn-sm" onclick="printParticipants(this.dataset.c)" data-c="${communityName}">🖨️ הדפס</button>
+          <button class="btn btn-secondary btn-sm" onclick="downloadParticipantsExcel(this.dataset.c)" data-c="${communityName}">⬇ Excel</button>
         </div>
       </div>
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">
