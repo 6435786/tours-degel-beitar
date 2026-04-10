@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>טיולים-דגל-ביתר</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
-<script src="https://cdn.jsdelivr.net/npm/xlsx-style@0.8.13/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -1171,28 +1171,8 @@ function makeNiceExcel(wb, ws, data) {
   }
 
   // Freeze top row
-  ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activeCell: 'A2', state: 'frozen' };
-  ws['!sheetView'] = { rightToLeft: true };
-
-  // Style header row (row 0)
-  if(data && data[0]) {
-    const headerStyle = {
-      font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
-      fill: { patternType: 'solid', fgColor: { rgb: '1a56db' } },
-      alignment: { horizontal: 'right', vertical: 'center', wrapText: false },
-      border: {
-        bottom: { style: 'thin', color: { rgb: 'FFFFFF' } }
-      }
-    };
-    const range = XLSX.utils.decode_range(ws['!ref']||'A1');
-    for(let c = range.s.c; c <= range.e.c; c++) {
-      const cellAddr = XLSX.utils.encode_cell({r: 0, c});
-      if(ws[cellAddr]) ws[cellAddr].s = headerStyle;
-    }
-    // Set header row height
-    if(!ws['!rows']) ws['!rows'] = [];
-    ws['!rows'][0] = { hpt: 20 };
-  }
+  if(!ws['!sheetViews']) ws['!sheetViews'] = [];
+  ws['!sheetViews'][0] = { rightToLeft: true, state: 'frozen', ySplit: 1, topLeftCell: 'A2' };
 }
 
 function expL(lk){
