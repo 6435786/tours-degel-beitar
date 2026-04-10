@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>טיולים-דגל-ביתר</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-style@0.8.13/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -931,9 +931,11 @@ function exportMTExcel() {
       }
     })];
   });
-  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+  const allData = [header, ...data];
+  const ws = XLSX.utils.aoa_to_sheet(allData);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, activeTrip||'טבלה ראשית');
+  makeNiceExcel(wb, ws, allData);
   XLSX.writeFile(wb, `טבלה-ראשית-${activeTrip||''}.xlsx`);
   showToast('הורד ✓');
 }
@@ -1152,11 +1154,57 @@ function addLR(lk){
   if(!td.lists[lk]) td.lists[lk]=[];  // אתחול אם לא קיים
   td.lists[lk].push(vals);save();render();showToast('שורה נוספה ✓');
 }
+// ── EXCEL STYLING HELPER ──
+function makeNiceExcel(wb, ws, data) {
+  // RTL
+  if(!wb.Workbook) wb.Workbook = {};
+  if(!wb.Workbook.Views) wb.Workbook.Views = [];
+  wb.Workbook.Views[0] = { RTL: true };
+
+  // Auto column widths
+  if(data && data.length) {
+    const colWidths = data[0].map((_,ci) => {
+      const max = data.reduce((m,row) => Math.max(m, String(row[ci]||'').length), 0);
+      return { wch: Math.min(Math.max(max + 2, 8), 40) };
+    });
+    ws['!cols'] = colWidths;
+  }
+
+  // Freeze top row
+  ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activeCell: 'A2', state: 'frozen' };
+  ws['!sheetView'] = { rightToLeft: true };
+
+  // Style header row (row 0)
+  if(data && data[0]) {
+    const headerStyle = {
+      font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+      fill: { patternType: 'solid', fgColor: { rgb: '1a56db' } },
+      alignment: { horizontal: 'right', vertical: 'center', wrapText: false },
+      border: {
+        bottom: { style: 'thin', color: { rgb: 'FFFFFF' } }
+      }
+    };
+    const range = XLSX.utils.decode_range(ws['!ref']||'A1');
+    for(let c = range.s.c; c <= range.e.c; c++) {
+      const cellAddr = XLSX.utils.encode_cell({r: 0, c});
+      if(ws[cellAddr]) ws[cellAddr].s = headerStyle;
+    }
+    // Set header row height
+    if(!ws['!rows']) ws['!rows'] = [];
+    ws['!rows'][0] = { hpt: 20 };
+  }
+}
+
 function expL(lk){
   const td=getTD();if(!td)return;
   const def=LIST_DEFS[lk];
-  const ws=XLSX.utils.aoa_to_sheet([def.fields,...(td.lists[lk]||[])]);
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,def.name);XLSX.writeFile(wb,def.name+'.xlsx');
+  const rows=td.lists[lk]||[];
+  const data=[def.fields, ...rows];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,def.name);
+  makeNiceExcel(wb, ws, data);
+  XLSX.writeFile(wb,def.name+'.xlsx');
   showToast('הורד ✓');
 }
 
@@ -1616,6 +1664,9 @@ function communityWithAttached(row) {
 
 let currentTripFolderCommunity = '';
 
+// דחיסת ערכים — מסיר ריקים ומחזיר מערך צפוף
+function compactVals(arr) { return arr.filter(Boolean); }
+
 function buildReport1(td) {
   const rows = getActiveRows(td);
   if (!rows.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין קהילות פעילות</div></div>';
@@ -1623,17 +1674,23 @@ function buildReport1(td) {
   const labels = {'f1':'שם קהילה','f3':'מס\' אישור','f5':'נרשמים','f8':'קהילה מצורפת','f9':'סה"כ','f10':'אוטובוסים','f11':'שעת יציאה','f12':'שעת חזרה','f15':'יום','f17':'אחראי טיול','טלפון אחראי':'טלפון','f18':'טיול 1','f19':'טיול 2','f20':'טיול 3','f21':'אתר 1','f22':'אתר 2','f23':'אטרקציה 1','f26':'אטרקציה 2','f29':'הערות'};
   const hdrs = fields.map(f=>`<th>${labels[f]||f}</th>`).join('');
   const trs = rows.map((row,ri) => {
-    const contact = getContact(row.f1, td);
-    const contactRow = (td.lists.list6||[]).find(r=>r[0]===contact);
-    const phone = contactRow ? contactRow[4]||'' : '';
+    const tripCoord = row.f17 || '';
+    const coordRow = (td.lists.list6||[]).find(r=>r[0]===tripCoord);
+    const phone = coordRow ? coordRow[4]||'' : '';
     const total = calcTotal(row,td);
     const buses = calcBuses(total);
+    // דחיסת אתרים/מסלולים/אטרקציות
+    const sites = compactVals([row.f18,row.f19,row.f20,row.f21,row.f22,row.f23,row.f26]);
     return `<tr>
-      ${fields.map(f => {
+      ${fields.map((f,fi) => {
         if(f==='טלפון אחראי') return `<td>${h(phone)}</td>`;
         if(f==='f1') return `<td><strong>${h(communityWithAttached(row))}</strong></td>`;
         if(f==='f9') return `<td><strong>${total||''}</strong></td>`;
         if(f==='f10') return `<td><span class="${buses==='חריג'?'badge-exception':'badge-bus'}">${buses}</span></td>`;
+        if(['f18','f19','f20','f21','f22','f23','f26'].includes(f)) {
+          const idx = ['f18','f19','f20','f21','f22','f23','f26'].indexOf(f);
+          return `<td>${h(sites[idx]||'')}</td>`;
+        }
         return `<td>${h(String(row[f]||''))}</td>`;
       }).join('')}
     </tr>`;
@@ -1654,8 +1711,8 @@ function buildReport2(td) {
   }
 
   const trs = rows.map((row,ri) => {
-    const contact = getContact(row.f1,td);
-    const contactRow = (td.lists.list6||[]).find(r=>r[0]===contact);
+    const tripCoord = row.f17 || '';
+    const coordRow = (td.lists.list6||[]).find(r=>r[0]===tripCoord);
     const total = calcTotal(row,td);
     const cells = [
       communityWithAttached(row), row.f8,
@@ -1666,10 +1723,10 @@ function buildReport2(td) {
       row.f22, getListCode('list3',row.f22,1),
       row.f23, getListCode('list4',row.f23,1),
       row.f26, getListCode('list4',row.f26,1),
-      total, contact,
-      contactRow?contactRow[3]||'':'',
-      contactRow?contactRow[4]||'':'',
-      contactRow?contactRow[5]||'':'',
+      total, tripCoord,
+      coordRow?coordRow[3]||'':'',
+      coordRow?coordRow[4]||'':'',
+      coordRow?coordRow[5]||'':'',
       row.f3,
       row.f4?'✓':'',
     ];
@@ -1704,13 +1761,21 @@ function buildReport3(td) {
 
   const trs=expandedRows.map(({row,bus,busNum,totalBuses})=>{
     const contact=getContact(row.f1,td);
-    const contactRow=(td.lists.list6||[]).find(r=>r[0]===contact);
+    const tripCoord = row.f17 || contact;
+    const contactRow=(td.lists.list6||[]).find(r=>r[0]===tripCoord);
     const total=calcTotal(row,td);
     const hours=calcHours(row);
     const price=calcBusPrice(row,td,bus.type);
     const communityLabel = totalBuses>1
       ? `${communityWithAttached(row)} ${busNum}/${totalBuses}`
       : communityWithAttached(row);
+    // דחיסת אתרים/מסלולים/אטרקציות — ללא חורים
+    const siteVals = compactVals([
+      getLC('list2',row.f18,2), getLC('list2',row.f19,2), getLC('list2',row.f20,2),
+      getLC('list3',row.f21,2), getLC('list3',row.f22,2),
+      getLC('list4',row.f23,0), getLC('list4',row.f26,0)
+    ]);
+    const s = i => siteVals[i]||'';
     return `<tr>
       <td>${h(communityLabel)}</td>
       <td><span class="badge-bus">${h(bus.type)}</span></td>
@@ -1718,15 +1783,15 @@ function buildReport3(td) {
       <td>${h(row.f15||getDay(row.f13))}</td>
       <td>${h(row.f11||'')}</td>
       <td>${h(getAddr(row.f1))}</td>
-      <td>${h(contact)}</td>
+      <td>${h(tripCoord)}</td>
       <td>${h(contactRow?contactRow[4]||'':'')}</td>
-      <td>${h(getLC('list2',row.f18,2))}</td>
-      <td>${h(getLC('list2',row.f19,2))}</td>
-      <td>${h(getLC('list2',row.f20,2))}</td>
-      <td>${h(getLC('list3',row.f21,2))}</td>
-      <td>${h(getLC('list3',row.f22,2))}</td>
-      <td>${h(getLC('list4',row.f23,0))}</td>
-      <td>${h(getLC('list4',row.f26,0))}</td>
+      <td>${h(s(0))}</td>
+      <td>${h(s(1))}</td>
+      <td>${h(s(2))}</td>
+      <td>${h(s(3))}</td>
+      <td>${h(s(4))}</td>
+      <td>${h(s(5))}</td>
+      <td>${h(s(6))}</td>
       <td style="text-align:center">${total||''}</td>
       <td>${h(row.f12||'')}</td>
       <td><input type="time" value="${row.f34&&row.f34.match(/^\d{2}:\d{2}/)?row.f34.slice(0,5):''}" onchange="reportEditByRow('${row.f1}','f34',this.value)" style="border:1px solid var(--border-strong);border-radius:4px;padding:2px 6px;font-family:var(--font);font-size:12px;background:var(--warn-light)"></td>
@@ -1863,6 +1928,9 @@ function exportReportExcel() {
   const ws = XLSX.utils.table_to_sheet(table);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'דוח');
+  // Extract data for column widths
+  const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  makeNiceExcel(wb, ws, data);
   XLSX.writeFile(wb, 'דוח.xlsx');
   showToast('הורד ✓');
 }
