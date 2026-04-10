@@ -2310,9 +2310,15 @@ function buildParticipantsData(communityName) {
   const coordPhone = coordRow?coordRow[4]||'':'';
   const coordEmail = coordRow?coordRow[5]||'':'';
 
-  // משתתפים לפי קהילות
   const fields = ['שם משפחה','שם פרטי','ת.ז.','טלפון','קהילה'];
-  const participants = (td.lists.list7||[]).filter(r=>communities.includes(r[4]));
+  // משתתפים לפי קהילות — השוואה לאחר הסרת מרכאות וגרשיים
+  const participants = (td.lists.list7||[]).filter(r => {
+    const pComm = String(r[4]||'').replace(/["'״׳]/g,'').trim();
+    return communities.some(c => {
+      const cClean = String(c||'').replace(/["'״׳]/g,'').trim();
+      return pComm === cClean;
+    });
+  });
 
   return { communities, coordName, coordPhone, coordEmail, fields, participants, tripNum:row.f3||'', date:row.f13||'' };
 }
@@ -2397,7 +2403,7 @@ function downloadParticipantsExcel(communityName) {
 
 function printParticipants(communityName) {
   const d = buildParticipantsData(communityName);
-  if(!d) return;
+  if(!d || !d.participants.length) { showToast('אין משתתפים להדפסה','warn'); return; }
   const communityLabel = d.communities.join(' + ');
   const dateStr = d.date ? (() => {
     const dt=new Date(d.date);
@@ -2406,10 +2412,19 @@ function printParticipants(communityName) {
   const rows = d.participants.map((p,i)=>
     `<tr><td>${i+1}</td>${d.fields.map((_,ci)=>`<td>${p[ci]||''}</td>`).join('')}</tr>`
   ).join('');
-  const win = window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html dir="rtl"><head>
+
+  // יצירת iframe מוסתר להדפסה
+  let iframe = document.getElementById('printIframe');
+  if(!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'printIframe';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none';
+    document.body.appendChild(iframe);
+  }
+
+  const content = `<!DOCTYPE html><html dir="rtl"><head>
     <meta charset="UTF-8">
-    <title>רשימת משתתפים — ${communityLabel}</title>
+    <title>רשימת משתתפים</title>
     <style>
       body{font-family:Arial,sans-serif;direction:rtl;padding:20px;font-size:13px}
       h2{margin-bottom:4px}
@@ -2419,7 +2434,6 @@ function printParticipants(communityName) {
       td{padding:6px 10px;border-bottom:1px solid #e2e8f0}
       tr:nth-child(even){background:#f8fafc}
       .footer{margin-top:14px;font-weight:700}
-      @media print{body{padding:0}}
     </style>
   </head><body>
     <h2>רשימת משתתפים — ${communityLabel}</h2>
@@ -2429,9 +2443,13 @@ function printParticipants(communityName) {
       <tbody>${rows}</tbody>
     </table>
     <div class="footer">סה"כ: ${d.participants.length} משתתפים</div>
-    <script>window.onload=()=>window.print()<\/script>
-  </body></html>`);
-  win.document.close();
+  </body></html>`;
+
+  iframe.srcdoc = content;
+  iframe.onload = () => {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+  };
 }
 
 function toggleAllTripFiles(cb) {
