@@ -948,14 +948,10 @@ function syncMTRows(td) {
       const nr={}; MT_FIELDS.forEach(f=>nr[f.id]=f.type==='checkbox'?false:''); nr.f1=name; td.mainTable.push(nr);
     }
   });
-  // סדר לפי list1 — שורות שאינן ברשימה יופיעו בסוף
-  td.mainTable.sort((a,b)=>{
-    const ai=list1Names.indexOf(a.f1), bi=list1Names.indexOf(b.f1);
-    if(ai===-1&&bi===-1) return 0;
-    if(ai===-1) return 1;
-    if(bi===-1) return -1;
-    return ai-bi;
-  });
+  // הסר שורות שאינן ברשימת הקהילות
+  td.mainTable = td.mainTable.filter(r => list1Names.includes(r.f1));
+  // סדר לפי list1
+  td.mainTable.sort((a,b)=>list1Names.indexOf(a.f1)-list1Names.indexOf(b.f1));
 }
 
 function renderMTCell(f,row,ri,td) {
