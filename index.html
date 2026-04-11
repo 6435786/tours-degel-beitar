@@ -1141,9 +1141,12 @@ function printList(lk) {
   const rows = td.lists[lk] || [];
   if(!rows.length) { showToast('אין נתונים להדפסה','warn'); return; }
 
-  const hdrs = def.fields.map(f=>`<th>${f}</th>`).join('');
+  // ברשימת משתתפים — הסתר שם פרטי (col 1) בהדפסה
+  const skipCols = lk === 'list7' ? new Set([1]) : new Set();
+  const printFields = def.fields.filter((_,ci) => !skipCols.has(ci));
+  const hdrs = printFields.map(f=>`<th>${f}</th>`).join('');
   const trs = rows.map((row,i)=>
-    `<tr><td style="text-align:center;color:#888">${i+1}</td>${def.fields.map((_,ci)=>`<td>${row[ci]||''}</td>`).join('')}</tr>`
+    `<tr><td style="text-align:center;color:#888">${i+1}</td>${def.fields.map((_,ci)=> skipCols.has(ci) ? '' : `<td>${row[ci]||''}</td>`).join('')}</tr>`
   ).join('');
 
   let iframe = document.getElementById('printIframe');
@@ -1941,7 +1944,67 @@ function reportEdit(rowIdx, fieldId, value) {
 }
 
 function printReport() {
-  window.print();
+  const body = document.getElementById('reportBody');
+  if(!body) return;
+  const table = body.querySelector('table');
+  if(!table) { window.print(); return; }
+
+  // מצא עמודות ריקות לחלוטין
+  const rows = [...table.querySelectorAll('tr')];
+  const headers = [...rows[0].querySelectorAll('th')];
+  const numCols = headers.length;
+  const emptyColIndices = new Set();
+
+  for(let ci=0; ci<numCols; ci++) {
+    const allEmpty = rows.slice(1).every(row => {
+      const cell = row.querySelectorAll('td,th')[ci];
+      return !cell || !cell.textContent.trim();
+    });
+    if(allEmpty) emptyColIndices.add(ci);
+  }
+
+  // בנה טבלה נקייה בלי עמודות ריקות
+  const printRows = rows.map(row => {
+    const cells = [...row.querySelectorAll('td,th')];
+    const tag = row.querySelector('th') ? 'th' : 'td';
+    return '<tr>' + cells
+      .filter((_,ci) => !emptyColIndices.has(ci))
+      .map(cell => `<${tag} ${tag==='th'?'':''}>${cell.innerHTML}</${tag}>`)
+      .join('') + '</tr>';
+  }).join('');
+
+  const title = document.querySelector('.report-title')?.textContent || 'דוח';
+
+  let iframe = document.getElementById('printIframe');
+  if(!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'printIframe';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none';
+    document.body.appendChild(iframe);
+  }
+
+  iframe.srcdoc = `<!DOCTYPE html><html dir="rtl"><head>
+    <meta charset="UTF-8">
+    <title>${title}</title>
+    <style>
+      body{font-family:Arial,sans-serif;direction:rtl;padding:16px;font-size:11px}
+      h2{font-size:14px;margin-bottom:10px;color:#1a56db}
+      table{width:100%;border-collapse:collapse;table-layout:auto}
+      th{background:#1a56db;color:#fff;padding:5px 7px;text-align:right;font-size:10px;white-space:nowrap}
+      td{padding:4px 7px;border-bottom:1px solid #e2e8f0;vertical-align:top;word-break:break-word;font-size:10px}
+      tr:nth-child(even) td{background:#f8fafc}
+      .badge-bus,.badge-exception{font-size:9px;padding:1px 4px;border-radius:4px;background:#cffafe;color:#0e7490}
+      @media print{
+        @page{margin:10mm;size:A4 landscape}
+        body{padding:0}
+      }
+    </style>
+  </head><body>
+    <h2>${title}</h2>
+    <table><tbody>${printRows}</tbody></table>
+  </body></html>`;
+
+  iframe.onload = () => { iframe.contentWindow.focus(); iframe.contentWindow.print(); };
 }
 
 function exportReportExcel() {
