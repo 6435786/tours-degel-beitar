@@ -1119,6 +1119,7 @@ function renderLists(container) {
           oninput="listSearch=this.value;render()" style="flex:1;max-width:200px;font-size:12px">
         <div class="list-actions">
           <button class="btn btn-warn btn-sm" onclick="openBulkImport()">📦 ייבוא מרוכז</button>
+          <button class="btn btn-secondary btn-sm" onclick="printList('${activeList}')">🖨️ הדפס</button>
           <button class="btn btn-secondary btn-sm" onclick="expL('${activeList}')">⬇ Excel</button>
           <button class="btn btn-primary btn-sm" onclick="openImp('${activeList}')">⬆ ייבוא</button>
         </div>
@@ -1134,6 +1135,49 @@ function renderLists(container) {
     if(title) title.style.display='none';
   }
 }
+function printList(lk) {
+  const td = getTD(); if(!td) return;
+  const def = LIST_DEFS[lk];
+  const rows = td.lists[lk] || [];
+  if(!rows.length) { showToast('אין נתונים להדפסה','warn'); return; }
+
+  const hdrs = def.fields.map(f=>`<th>${f}</th>`).join('');
+  const trs = rows.map((row,i)=>
+    `<tr><td style="text-align:center;color:#888">${i+1}</td>${def.fields.map((_,ci)=>`<td>${row[ci]||''}</td>`).join('')}</tr>`
+  ).join('');
+
+  let iframe = document.getElementById('printIframe');
+  if(!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'printIframe';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none';
+    document.body.appendChild(iframe);
+  }
+
+  iframe.srcdoc = `<!DOCTYPE html><html dir="rtl"><head>
+    <meta charset="UTF-8">
+    <title>${def.name}</title>
+    <style>
+      body{font-family:Arial,sans-serif;direction:rtl;padding:20px;font-size:12px}
+      h2{margin-bottom:12px;font-size:16px;color:#1a56db}
+      table{width:100%;border-collapse:collapse}
+      th{background:#1a56db;color:#fff;padding:7px 10px;text-align:right;font-size:11px}
+      td{padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px}
+      tr:nth-child(even){background:#f8fafc}
+      .footer{margin-top:10px;font-size:11px;color:#888}
+    </style>
+  </head><body>
+    <h2>${def.name}</h2>
+    <table>
+      <thead><tr><th>#</th>${hdrs}</tr></thead>
+      <tbody>${trs}</tbody>
+    </table>
+    <div class="footer">סה"כ: ${rows.length} רשומות</div>
+  </body></html>`;
+
+  iframe.onload = () => { iframe.contentWindow.focus(); iframe.contentWindow.print(); };
+}
+
 function selList(k){activeList=k;listSort={col:null,dir:1};listSearch='';render();}
 function setLC(lk,ri,ci,v){
   const td=getTD();if(!td)return;
