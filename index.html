@@ -1121,6 +1121,7 @@ function renderLists(container) {
           <button class="btn btn-warn btn-sm" onclick="openBulkImport()">📦 ייבוא מרוכז</button>
           <button class="btn btn-secondary btn-sm" onclick="printList('${activeList}')">🖨️ הדפס</button>
           <button class="btn btn-secondary btn-sm" onclick="expL('${activeList}')">⬇ Excel</button>
+          ${activeList==='list6'||activeList==='list7' ? `<button class="btn btn-secondary btn-sm" onclick="exportPhones('${activeList}')">📞 טלפונים</button>` : ''}
           <button class="btn btn-primary btn-sm" onclick="openImp('${activeList}')">⬆ ייבוא</button>
         </div>
       </div>
@@ -1179,6 +1180,40 @@ function printList(lk) {
   </body></html>`;
 
   iframe.onload = () => { iframe.contentWindow.focus(); iframe.contentWindow.print(); };
+}
+
+function exportPhones(lk) {
+  const td = getTD(); if(!td) return;
+  const def = LIST_DEFS[lk];
+  const phoneCol = lk==='list6' ? 4 : 3;
+  const rows = (td.lists[lk]||[]).filter(r=>r[phoneCol]);
+  if(!rows.length) { showToast('אין טלפונים','warn'); return; }
+  const data = [['טלפון'], ...rows.map(r=>[r[phoneCol]])];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'טלפונים');
+  makeNiceExcel(wb, ws, data);
+  XLSX.writeFile(wb, `טלפונים-${def.name}.xlsx`);
+  showToast('הורד ✓');
+}
+
+function exportReportPhones() {
+  const td = getTD(); if(!td) return;
+  const rows = getActiveRows(td);
+  if(!rows.length) { showToast('אין נתונים','warn'); return; }
+  const phones = rows.map(row => {
+    const coordName = row.f17||'';
+    const coordRow = (td.lists.list6||[]).find(r=>r[0]===coordName);
+    return coordRow?coordRow[4]||'':'';
+  }).filter(Boolean);
+  if(!phones.length) { showToast('אין טלפונים','warn'); return; }
+  const data = [['טלפון'], ...phones.map(p=>[p])];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'טלפונים');
+  makeNiceExcel(wb, ws, data);
+  XLSX.writeFile(wb, `טלפונים-דוח-כללי.xlsx`);
+  showToast('הורד ✓');
 }
 
 function selList(k){activeList=k;listSort={col:null,dir:1};listSearch='';render();}
@@ -1587,6 +1622,7 @@ function renderReports(container) {
             <div class="report-actions">
               <button class="btn btn-secondary btn-sm" onclick="printReport()">🖨️ הדפסה</button>
               <button class="btn btn-primary btn-sm" onclick="exportReportExcel()">⬇ Excel</button>
+              ${activeReport==='report1' ? '<button class="btn btn-secondary btn-sm" onclick="exportReportPhones()">📞 טלפונים</button>' : ''}
             </div>
           </div>
           <div class="report-body" id="reportBody">${reportHtml}</div>
@@ -2391,13 +2427,15 @@ function showTripFolderModal(communityName, files) {
       </div>`;
 
   modal.style.display = 'flex';
-  modal.innerHTML = `<div class="modal" style="width:700px;max-height:85vh;overflow-y:auto">
-    <h3>🎒 תיק טיול — ${h(communityName)}</h3>
-    <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">סמן את המסמכים הרצויים</p>
-    ${filesHtml}
-    ${files !== null ? getParticipantsTableHtml(communityName) : ''}
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="document.getElementById('tripFolderModal').style.display='none'">סגור</button>
+  modal.innerHTML = `<div class="modal" style="width:700px;max-height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <h3 style="margin:0">🎒 תיק טיול — ${h(communityName)}</h3>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('tripFolderModal').style.display='none'">✕ סגור</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px 20px">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">סמן את המסמכים הרצויים</p>
+      ${filesHtml}
+      ${files !== null ? getParticipantsTableHtml(communityName) : ''}
     </div>
   </div>`;
 }
@@ -2603,7 +2641,7 @@ function printSelectedFiles() {
   showToast(`נפתחו ${selected.length} קבצים להדפסה`);
 }
 
-function pickEmail(contacts) {
+function pickEmail(contacts, defaultEmail='') {
   return new Promise(resolve => {
     let modal = document.getElementById('emailPickerModal');
     if(!modal) {
@@ -2639,7 +2677,7 @@ function pickEmail(contacts) {
         </div>` : ''}
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:8px">
         <label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px">הזן מייל ידנית (אפשר כמה, מופרדים בפסיק):</label>
-        <input type="text" id="emailManualInput" class="form-control" placeholder="email@example.com, email2@example.com" dir="ltr">
+        <input type="text" id="emailManualInput" class="form-control" placeholder="email@example.com, email2@example.com" dir="ltr" value="${defaultEmail}">
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="document.getElementById('emailPickerModal').style.display='none';window._emailPickResolve(null)">ביטול</button>
@@ -2694,9 +2732,20 @@ async function emailSelectedFiles() {
     : 'קהילתכם';
 
   const contacts = (td?.lists?.list6 || []).filter(r => r[5]);
-  
+
+  // ברירת מחדל — מייל אחראי טיול של הקהילה (ושל המצורפת אם יש)
+  const defaultEmails = [];
+  const communities = [currentTripFolderCommunity];
+  if(row?.f8) communities.push(row.f8);
+  communities.forEach(comm => {
+    const commRow = td?.mainTable?.find(r => r.f1 === comm);
+    const coordName = commRow?.f17 || '';
+    const coordContact = (td?.lists?.list6||[]).find(r=>r[0]===coordName);
+    if(coordContact?.[5]) defaultEmails.push(coordContact[5]);
+  });
+
   // Show contact picker
-  const to = await pickEmail(contacts);
+  const to = await pickEmail(contacts, defaultEmails.join(','));
   if(!to) return;
 
   const links = selected.map(cb => `• ${cb.dataset.name}\n  ${cb.dataset.url}`).join('\n\n');
