@@ -486,7 +486,6 @@ tbody tr:hover .del-btn{opacity:1}
     </div>
     <div class="header-actions">
       <button class="btn-backup" onclick="backupData()" title="גבה את כל הנתונים">💾 גיבוי</button>
-      <button class="btn-backup" onclick="backupToDrive()" title="גבה ל-Google Drive">📤 Drive</button>
       <button class="btn-backup" onclick="document.getElementById('restoreInput').click()" title="שחזר נתונים מגיבוי">📂 שחזר</button>
       <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreData(this.files[0])">
       <button class="btn-trip-mgmt" id="tripMgmtBtn" onclick="toggleTripMenu()" title="ניהול טיול פעיל">⚙️</button>
