@@ -1042,24 +1042,16 @@ async function sendContactEmail(email, contactName) {
     <p style="color:#666;font-size:12px;margin-top:20px">בכל שאלה ניתן לפנות להרב שלמה רוזנבאום בטל: 052-7632227</p>
   </div>`;
 
-  // בנה attachments
-  const attachments = [];
-  for(const url of [attach1Url, attach2Url]) {
-    if(!url) continue;
-    try {
-      const res = await fetch(url);
-      const buf = await res.arrayBuffer();
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-      const name = url.split('/').pop().split('?')[0];
-      attachments.push({ base64: b64, name, mimeType: 'application/pdf' });
-    } catch(e) { console.warn('Failed to fetch attachment:', e); }
-  }
+  // בנה attachments — שלח URL, ה-Worker יוריד
+  const attachmentUrls = [];
+  if(attach1Url) attachmentUrls.push({ url: attach1Url, name: attach1Url.split('/').pop().split('?')[0] });
+  if(attach2Url) attachmentUrls.push({ url: attach2Url, name: attach2Url.split('/').pop().split('?')[0] });
 
   try {
     const res = await fetch(ZIP_WORKER_URL + '/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: email, subject, text: bodyText, html, attachments })
+      body: JSON.stringify({ to: email, subject, text: bodyText, html, attachmentUrls })
     });
     if(!res.ok) throw new Error('שגיאה בשרת');
     document.getElementById('contactEmailModal').style.display = 'none';
