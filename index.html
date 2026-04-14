@@ -3140,25 +3140,83 @@ async function emailSelectedFiles() {
 async function backupToDrive() {
   try {
     showToast('מגבה ל-Drive...', 'info');
-    const backup = {
-      version: 3,
-      date: new Date().toISOString(),
-      trips: state.trips,
-      global: state.global,
-      activeTrip: state.activeTrip
-    };
-    const data = JSON.stringify(backup, null, 2);
-    const res = await fetch(ZIP_WORKER_URL + '/backup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: data
-    });
-    if (!res.ok) throw new Error('שגיאה בשרת');
-    const result = await res.json();
-    showToast('גובה ל-Drive ✓ — ' + result.filename);
+
+    // קבל access token מהסשן הנוכחי
+    const user = auth.currentUser;
+    if (!user) { showToast('נא להתחבר תחילה','danger'); return; }
+
+    // Firebase יכול לתת access token של Google רק אם ניכנסנו עם popup
+    // נשתמש ב-getIdToken כפתרון זמני — נעדכן provider
+    let accessToken = null;
+    try {
+      const result = await auth.signInWithPopup(
+        Object.assign(new firebase.auth.GoogleAuthProvider(), {
+          addScope: function(s) { this.scope = s; return this; }
+        })
+      );
+      accessToken = result.credential?.accessToken;
+    } catch(e) {}
+
+    if (!accessToken) {
+      // fallback — שלח דרך Worker
+      const backup = { version:3, date:new Date().toISOString(), trips:state.trips, global:state.global, activeTrip:state.activeTrip };
+      const data = JSON.stringify(backup);
+      const res = await fetch(ZIP_WORKER_URL + '/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        body: data
+      });
+      if (!res.ok) { const t = await res.text(); throw new Error(t); }
+      const result2 = await res.json();
+      showToast('גובה ל-Drive ✓');
+      return;
+    }
+
+    await uploadBackupToDrive(accessToken);
+    showToast('גובה ל-Drive ✓');
   } catch(e) {
     showToast('שגיאה בגיבוי: ' + e.message, 'danger');
   }
+}
+
+async function uploadBackupToDrive(accessToken) {
+  const backup = { version:3, date:new Date().toISOString(), trips:state.trips, global:state.global, activeTrip:state.activeTrip };
+  const data = JSON.stringify(backup);
+
+  // מצא/צור תיקייה
+  const folderName = 'גיבויים — טיולים דגל ביתר';
+  const searchRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name='${encodeURIComponent(folderName)}' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id)`,
+    { headers: { 'Authorization': `Bearer ${accessToken}` } }
+  );
+  const searchData = await searchRes.json();
+  let folderId;
+  if (searchData.files?.length) {
+    folderId = searchData.files[0].id;
+  } else {
+    const cr = await fetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder' })
+    });
+    folderId = (await cr.json()).id;
+  }
+
+  const now = new Date();
+  const d = now.toLocaleDateString('he-IL').replace(/\//g,'-');
+  const t = now.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}).replace(/:/g,'-');
+  const filename = `גיבוי-טיולים-${d}_${t}.json`;
+
+  const bnd = '---314159265358979';
+  const body = `--${bnd}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name:filename, parents:[folderId]})}\r\n--${bnd}\r\nContent-Type: application/json\r\n\r\n${data}\r\n--${bnd}--`;
+  const upRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': `multipart/related; boundary="${bnd}"` },
+    body
+  });
+  const upData = await upRes.json();
+  if (upData.error) throw new Error(upData.error.message);
+  return upData;
 }
 
 function backupData() {
@@ -3238,6 +3296,7 @@ let storage = null;
 
 function signInWithGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/drive.file');
   auth.signInWithPopup(provider).catch(e => {
     document.getElementById('authError').textContent = 'שגיאה בכניסה: ' + e.message;
   });
