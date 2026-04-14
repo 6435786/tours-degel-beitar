@@ -3141,36 +3141,20 @@ async function backupToDrive() {
   try {
     showToast('מגבה ל-Drive...', 'info');
 
-    // קבל access token מהסשן הנוכחי
-    const user = auth.currentUser;
-    if (!user) { showToast('נא להתחבר תחילה','danger'); return; }
+    // בקש הרשאת Drive מחדש
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/drive.file');
+    provider.setCustomParameters({ prompt: 'consent' });
 
-    // Firebase יכול לתת access token של Google רק אם ניכנסנו עם popup
-    // נשתמש ב-getIdToken כפתרון זמני — נעדכן provider
-    let accessToken = null;
+    let accessToken;
     try {
-      const result = await auth.signInWithPopup(
-        Object.assign(new firebase.auth.GoogleAuthProvider(), {
-          addScope: function(s) { this.scope = s; return this; }
-        })
-      );
+      const result = await auth.signInWithPopup(provider);
       accessToken = result.credential?.accessToken;
-    } catch(e) {}
-
-    if (!accessToken) {
-      // fallback — שלח דרך Worker
-      const backup = { version:3, date:new Date().toISOString(), trips:state.trips, global:state.global, activeTrip:state.activeTrip };
-      const data = JSON.stringify(backup);
-      const res = await fetch(ZIP_WORKER_URL + '/backup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-        body: data
-      });
-      if (!res.ok) { const t = await res.text(); throw new Error(t); }
-      const result2 = await res.json();
-      showToast('גובה ל-Drive ✓');
-      return;
+    } catch(e) {
+      throw new Error('לא ניתן לקבל הרשאת Drive: ' + e.message);
     }
+
+    if (!accessToken) throw new Error('לא התקבל access token');
 
     await uploadBackupToDrive(accessToken);
     showToast('גובה ל-Drive ✓');
