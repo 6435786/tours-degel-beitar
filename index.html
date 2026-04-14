@@ -186,6 +186,11 @@ tbody tr:hover .del-btn{opacity:1}
 .file-selected{background:var(--success-light);color:var(--success);padding:8px 12px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;margin-bottom:11px;display:flex;align-items:center;gap:8px}
 .file-selected button{margin-right:auto;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px}
 .settings-page{padding:18px;overflow-y:auto;height:100%}
+.settings-accordion{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow);overflow:hidden;max-width:720px}
+.settings-acc-header{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;cursor:pointer;font-size:15px;font-weight:700;user-select:none;transition:background .15s}
+.settings-acc-header:hover{background:var(--surface2)}
+.settings-acc-body{padding:16px 20px;border-top:1px solid var(--border)}
+.acc-arrow{font-size:12px;color:var(--text-muted);transition:all .2s}
 
 /* EDIT ROW MODAL */
 .edit-modal{width:720px;max-width:96vw}
@@ -1572,12 +1577,51 @@ function renderSettings(container) {
   const cm=state.global.settings.cloneMTFields||DEF_CLONE_MT;
   const lg=LIST_KEYS.map(k=>`<label class="clone-item"><input type="checkbox" id="s_cl_${k}" ${cl[k]!==false?'checked':''} onchange="saveSett()"><span>${LIST_DEFS[k].name}</span></label>`).join('');
   const mg=MT_FIELDS.filter(f=>!CALC_TYPES.includes(f.type)).map(f=>`<label class="clone-item"><input type="checkbox" id="s_cmf_${f.id}" ${cm[f.id]?'checked':''} onchange="saveSett()"><span>${f.label}</span></label>`).join('');
+
   container.innerHTML=`<div class="settings-page">
-    <h2 style="font-size:19px;font-weight:700;margin-bottom:16px">⚙️ הגדרות</h2>
-    ${renderUsersSection()}
-    <div class="settings-card" style="margin-top:14px"><h4>📝 הגדרות שכפול — רשימות</h4><div class="clone-grid">${lg}</div></div>
-    <div class="settings-card"><h4>📋 הגדרות שכפול — שדות טבלה ראשית</h4><div class="clone-grid">${mg}</div></div>
+    <h2 style="font-size:19px;font-weight:700;margin-bottom:20px">⚙️ הגדרות</h2>
+
+    <!-- כרטיסיית משתמשים -->
+    <div class="settings-accordion" id="acc-users">
+      <div class="settings-acc-header" onclick="toggleAccordion('acc-users')">
+        <span>👥 ניהול משתמשים והרשאות</span>
+        <span class="acc-arrow">▼</span>
+      </div>
+      <div class="settings-acc-body">
+        ${renderUsersSection()}
+      </div>
+    </div>
+
+    <!-- כרטיסיית שכפול -->
+    <div class="settings-accordion" id="acc-clone" style="margin-top:10px">
+      <div class="settings-acc-header" onclick="toggleAccordion('acc-clone')">
+        <span>📋 הגדרות שכפול טיולים</span>
+        <span class="acc-arrow">▼</span>
+      </div>
+      <div class="settings-acc-body" style="display:none">
+        <div class="settings-card" style="margin-bottom:14px;box-shadow:none;border:1px solid var(--border)">
+          <h4>📝 רשימות — מה לשכפל?</h4>
+          <div class="clone-grid">${lg}</div>
+        </div>
+        <div class="settings-card" style="box-shadow:none;border:1px solid var(--border)">
+          <h4>📋 שדות טבלה ראשית — מה לשכפל?</h4>
+          <div class="clone-grid">${mg}</div>
+        </div>
+      </div>
+    </div>
+
   </div>`;
+}
+
+function toggleAccordion(id) {
+  const acc = document.getElementById(id);
+  if(!acc) return;
+  const body = acc.querySelector('.settings-acc-body');
+  const arrow = acc.querySelector('.acc-arrow');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  arrow.textContent = isOpen ? '▼' : '▲';
+  arrow.style.color = isOpen ? '' : 'var(--primary)';
 }
 function saveSett(){
   const cl={},cm={};
@@ -3228,16 +3272,13 @@ function renderUsersSection() {
     </tr>`).join('');
 
   return `
-    <div class="settings-card">
-      <h4 style="display:flex;align-items:center;justify-content:space-between">
-        👥 ניהול משתמשים
-        <button class="btn btn-primary btn-sm" onclick="openAddUserModal()">+ הוסף משתמש</button>
-      </h4>
+    <div>
       <table class="users-table">
         <thead><tr><th>שם</th><th>אימייל</th><th>הרשאה</th><th>סטטוס</th><th>פעולות</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="margin-top:12px;display:flex;justify-content:flex-end">
+      <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+        <button class="btn btn-primary btn-sm" onclick="openAddUserModal()">+ הוסף משתמש</button>
         <button class="btn btn-success btn-sm" onclick="saveUsers()">💾 שמור שינויים</button>
       </div>
     </div>`;
