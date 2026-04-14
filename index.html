@@ -839,7 +839,7 @@ let mtSort = {col: null, dir: 1};
 let listSort = {col: null, dir: 1};
 let listSearch = '';
 let mtFilter = {};
-let contactSort = {col: null, dir: 1};
+let contactSort = {col: 0, dir: 1};
 let contactSearch = '';
 let contactFilter = {};
 
@@ -883,7 +883,7 @@ function renderContactsTab(container) {
         const community = row[6]||'';
         return `<tr>
           <td class="col-num" style="white-space:nowrap">
-            ${email?`<button class="btn btn-primary btn-icon btn-sm" onclick="openContactEmail('${h(email)}','${h(row[0]||'')}','${h(community)}')" title="שלח מייל">✉️</button>`:''}
+            ${email?`<button style="background:var(--primary);color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:14px;line-height:1" onclick="openContactEmail('${h(email)}','${h(row[0]||'')}','${h(community)}')" title="שלח מייל ל-${h(row[0]||'')}">✉️ מייל</button>`:''}
           </td>
           ${CONTACT_FIELDS.map((f,ci)=>{
             const v = row[ci]||'';
@@ -962,14 +962,34 @@ async function openContactEmail(email, contactName, community) {
     document.body.appendChild(modal);
   }
 
+  // תיקון 4: הצג שם קהילה + מספר לפי מאגר 1
+  // בנה מפה של מספר אישור → שם קהילה מכל השורות בטבלה
+  const tripNumMap = {};
+  (td?.mainTable||[]).forEach(r => {
+    if(r.f3) tripNumMap[r.f3.toLowerCase()] = r.f1||'';
+  });
+
   const archive1Html = archive1Files.length
     ? `<div style="margin-bottom:10px">
-        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">📎 אישור טיול של ${h(community)}:</label>
-        <select id="cemAttach1" class="form-control" style="font-size:13px">
-          <option value="">— ללא צירוף —</option>
-          ${archive1Files.map(f=>{const n=f.public_id.split('/').pop();return `<option value="${f.secure_url}">${h(n)}</option>`;}).join('')}
-        </select>
-      </div>`
+        <label class="checkbox-field" style="cursor:pointer;margin:0">
+          <input type="checkbox" id="cemAttach1Cb" style="width:16px;height:16px;accent-color:var(--primary)" checked>
+          <span style="font-size:13px;font-weight:500">צרף אישור טיול של <strong>${h(community)}</strong></span>
+        </label>
+        <div id="cemAttach1Wrap" style="margin-top:6px">
+          <select id="cemAttach1" class="form-control" style="font-size:13px">
+            ${archive1Files.map(f=>{
+              const n = f.public_id.split('/').pop();
+              // נסה למצוא שם קהילה לפי מספר בשם הקובץ
+              let label = n;
+              Object.entries(tripNumMap).forEach(([num, comm]) => {
+                if(num && n.toLowerCase().includes(num)) label = `${comm} — ${n}`;
+              });
+              return `<option value="${f.secure_url}">${h(label)}</option>`;
+            }).join('')}
+          </select>
+        </div>
+      </div>
+      <script>document.getElementById('cemAttach1Cb')?.addEventListener('change',function(){document.getElementById('cemAttach1Wrap').style.display=this.checked?'block':'none'});<\/script>`
     : `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">לא נמצא אישור טיול עבור ${h(community)}</div>`;
 
   modal.style.display = 'flex';
@@ -1020,8 +1040,23 @@ async function loadArchiveFilesForEmail() {
   if(!folder || !fileSel) return;
   fileSel.innerHTML = '<option value="">טוען...</option>';
   const files = await fetchCloudinaryFiles(folder);
+
+  // בנה מפה מספר אישור → שם קהילה
+  const td = getTD();
+  const tripNumMap = {};
+  (td?.mainTable||[]).forEach(r => { if(r.f3) tripNumMap[r.f3.toLowerCase()] = r.f1||''; });
+
   fileSel.innerHTML = '<option value="">— בחר קובץ —</option>' +
-    files.map(f=>{const n=f.public_id.split('/').pop(); return `<option value="${f.secure_url}">${h(n)}</option>`;}).join('');
+    files.map(f => {
+      const n = f.public_id.split('/').pop();
+      let label = n;
+      if(folder === 'מאגר1' || folder === 'מאגר4') {
+        Object.entries(tripNumMap).forEach(([num, comm]) => {
+          if(num && n.toLowerCase().includes(num)) label = `${comm} — ${n}`;
+        });
+      }
+      return `<option value="${f.secure_url}">${h(label)}</option>`;
+    }).join('');
 }
 
 async function sendContactEmail(email, contactName) {
@@ -1029,7 +1064,8 @@ async function sendContactEmail(email, contactName) {
   contactName = decodeHtml(contactName);
   const subject = document.getElementById('cemSubject')?.value||'';
   const bodyText = document.getElementById('cemBody')?.value||'';
-  const attach1Url = document.getElementById('cemAttach1')?.value||'';
+  const attach1Cb = document.getElementById('cemAttach1Cb');
+  const attach1Url = (attach1Cb?.checked !== false) ? (document.getElementById('cemAttach1')?.value||'') : '';
   const attach2Url = document.getElementById('cemFileSel')?.value||'';
 
   if(!bodyText.trim()) { showToast('נא לכתוב תוכן','danger'); return; }
