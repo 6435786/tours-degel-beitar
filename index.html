@@ -3150,8 +3150,8 @@ async function backupToDrive() {
     const data = JSON.stringify(backup, null, 2);
     const res = await fetch(ZIP_WORKER_URL + '/backup', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data })
+      headers: { 'Content-Type': 'text/plain' },
+      body: data
     });
     if (!res.ok) throw new Error('שגיאה בשרת');
     const result = await res.json();
