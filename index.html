@@ -3140,24 +3140,18 @@ async function emailSelectedFiles() {
 async function backupToDrive() {
   try {
     showToast('מגבה ל-Drive...', 'info');
-
-    // בקש הרשאת Drive מחדש
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/drive.file');
-    provider.setCustomParameters({ prompt: 'consent' });
-
-    let accessToken;
-    try {
-      const result = await auth.signInWithPopup(provider);
-      accessToken = result.credential?.accessToken;
-    } catch(e) {
-      throw new Error('לא ניתן לקבל הרשאת Drive: ' + e.message);
-    }
-
-    if (!accessToken) throw new Error('לא התקבל access token');
-
-    await uploadBackupToDrive(accessToken);
-    showToast('גובה ל-Drive ✓');
+    const backup = { version:3, date:new Date().toISOString(), trips:state.trips, global:state.global, activeTrip:state.activeTrip };
+    const data = JSON.stringify(backup);
+    console.log('backup size:', data.length);
+    // שלח כטקסט רגיל
+    const res = await fetch(ZIP_WORKER_URL + '/backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: data
+    });
+    if (!res.ok) { const t = await res.text(); throw new Error(t); }
+    const result = await res.json();
+    showToast('גיבוי ל-Drive הצליח ✓ — ' + (result.filename||''));
   } catch(e) {
     showToast('שגיאה בגיבוי: ' + e.message, 'danger');
   }
