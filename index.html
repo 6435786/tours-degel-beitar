@@ -827,6 +827,7 @@ function render() {
   else if(activeTab==='reports') renderReports(m);
   else if(activeTab==='archives') renderArchives(m);
   else if(activeTab==='trip-folders') renderTripFolders(m);
+  else if(activeTab==='contacts') renderContactsTab(m);
   else m.innerHTML=`<div class="coming-soon"><div class="cs-icon">🚧</div><h2>בשלב הבנייה</h2><p>לשונית זו תהיה זמינה בשלב הבא</p></div>`;
 }
 
@@ -838,6 +839,235 @@ let mtSort = {col: null, dir: 1};
 let listSort = {col: null, dir: 1};
 let listSearch = '';
 let mtFilter = {};
+let contactSort = {col: null, dir: 1};
+let contactSearch = '';
+let contactFilter = {};
+
+// ── CONTACTS TAB ──
+const CONTACT_FIELDS = ['שם מאוחד','שם משפחה','שם פרטי','ת.ז.','טלפון','מייל','קהילה','תפקיד'];
+
+function renderContactsTab(container) {
+  const td = getTD();
+  if(!activeTrip||!td){container.innerHTML=`<div class="no-trip"><div class="nt-icon">👥</div><h2>בחר טיול תחילה</h2></div>`;return;}
+  let rows = (td.lists.list6||[]).map((row,ri)=>({row,ri}));
+
+  // חיפוש
+  if(contactSearch) {
+    const q=contactSearch.toLowerCase();
+    rows=rows.filter(({row})=>row.some(c=>String(c||'').toLowerCase().includes(q)));
+  }
+  // סינון עמודות
+  Object.entries(contactFilter).forEach(([ci,val])=>{
+    if(val) rows=rows.filter(({row})=>String(row[ci]||'').toLowerCase().includes(val.toLowerCase()));
+  });
+  // מיון
+  if(contactSort.col!==null) {
+    rows=[...rows].sort((a,b)=>String(a.row[contactSort.col]||'').localeCompare(String(b.row[contactSort.col]||''),'he')*contactSort.dir);
+  }
+
+  const hdrs = CONTACT_FIELDS.map((f,ci)=>{
+    const isActive=contactSort.col===ci;
+    const icon=isActive?(contactSort.dir===1?'↑':'↓'):'⇅';
+    const filterVal = contactFilter[ci]||'';
+    return `<th style="cursor:pointer;white-space:nowrap;min-width:80px">
+      <div onclick="contactSortBy(${ci})" style="user-select:none">${f} <span style="font-size:10px;opacity:${isActive?1:0.35}">${icon}</span></div>
+      <input class="col-filter" value="${h(filterVal)}" placeholder="סנן..." oninput="contactFilter[${ci}]=this.value;renderContactsTab(document.getElementById('appMain'))" onclick="event.stopPropagation()">
+    </th>`;
+  }).join('');
+
+  const tbdy = rows.length===0
+    ? `<tr><td colspan="${CONTACT_FIELDS.length+1}" style="text-align:center;padding:28px;color:var(--text-muted)">אין רשומות</td></tr>`
+    : rows.map(({row,ri})=>{
+        const phone = row[4]||'';
+        const email = row[5]||'';
+        const community = row[6]||'';
+        return `<tr>
+          <td class="col-num" style="white-space:nowrap">
+            ${email?`<button class="btn btn-primary btn-icon btn-sm" onclick="openContactEmail('${h(email)}','${h(row[0]||'')}','${h(community)}')" title="שלח מייל">✉️</button>`:''}
+          </td>
+          ${CONTACT_FIELDS.map((f,ci)=>{
+            const v = row[ci]||'';
+            if(ci===4 && v) return `<td><a href="tel:${v}" style="color:var(--primary);text-decoration:none;font-weight:500">${h(v)}</a></td>`;
+            if(ci===5 && v) return `<td><span style="font-size:12px;color:var(--text-muted)">${h(v)}</span></td>`;
+            return `<td style="font-size:13px">${h(v)}</td>`;
+          }).join('')}
+        </tr>`;
+      }).join('');
+
+  container.innerHTML=`<div class="main-table-tab">
+    <div class="main-table-toolbar">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <h2 style="margin:0">👥 אנשי קשר</h2>
+        <span class="row-count">${rows.length}${contactSearch||Object.values(contactFilter).some(Boolean)?'/'+(td.lists.list6||[]).length:''}</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input class="filter-input" placeholder="🔍 חיפוש חופשי..." dir="rtl" value="${h(contactSearch)}"
+          oninput="contactSearch=this.value;renderContactsTab(document.getElementById('appMain'))">
+        <button class="btn btn-secondary btn-sm" onclick="contactSort={col:null,dir:1};contactFilter={};contactSearch='';renderContactsTab(document.getElementById('appMain'))">🔄 אפס</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportPhones('list6')">📞 טלפונים</button>
+        <button class="btn btn-secondary btn-sm" onclick="expL('list6')">⬇ Excel</button>
+      </div>
+    </div>
+    <div class="main-table-wrap">
+      <table>
+        <thead><tr><th class="col-act"></th>${hdrs}</tr></thead>
+        <tbody>${tbdy}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function contactSortBy(ci) {
+  if(contactSort.col===ci) contactSort.dir*=-1;
+  else contactSort={col:ci,dir:1};
+  renderContactsTab(document.getElementById('appMain'));
+}
+
+async function openContactEmail(email, contactName, community) {
+  email = decodeHtml(email);
+  contactName = decodeHtml(contactName);
+  community = decodeHtml(community);
+
+  const td = getTD();
+
+  // מצא אישור טיול של הקהילה (מס' אישור מטבלה ראשית)
+  const row = td?.mainTable?.find(r => r.f1 === community);
+  const tripNum = row?.f3 || '';
+
+  // קבל רשימת קבצים ממאגר 1 לפי מס' אישור / שם קהילה
+  let archive1Files = [];
+  try {
+    const files = await fetchCloudinaryFiles('מאגר1');
+    archive1Files = files.filter(f =>
+      (tripNum && f.public_id.toLowerCase().includes(tripNum.toLowerCase())) ||
+      (community && f.public_id.toLowerCase().includes(community.toLowerCase()))
+    );
+  } catch(e) {}
+
+  // בנה רשימת מאגרים
+  const ARCHIVE_OPTIONS = [
+    {folder:'מאגר1', label:'מאגר 1 — אישורי טיול'},
+    {folder:'מאגר2', label:'מאגר 2 — מסמכי חובה'},
+    {folder:'מאגר3/חוזרי-מנכל', label:'מאגר 3 — חוזרי מנכ"ל'},
+    {folder:'מאגר3/ניהול-סיכונים', label:'מאגר 3 — ניהול סיכונים'},
+    {folder:'מאגר3/מפות', label:'מאגר 3 — מפות'},
+    {folder:'מאגר4', label:'מאגר 4 — כתבי מינוי'},
+  ];
+
+  let modal = document.getElementById('contactEmailModal');
+  if(!modal) {
+    modal = document.createElement('div');
+    modal.id = 'contactEmailModal';
+    modal.className = 'modal-overlay';
+    document.body.appendChild(modal);
+  }
+
+  const archive1Html = archive1Files.length
+    ? `<div style="margin-bottom:10px">
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">📎 אישור טיול של ${h(community)}:</label>
+        <select id="cemAttach1" class="form-control" style="font-size:13px">
+          <option value="">— ללא צירוף —</option>
+          ${archive1Files.map(f=>{const n=f.public_id.split('/').pop();return `<option value="${f.secure_url}">${h(n)}</option>`;}).join('')}
+        </select>
+      </div>`
+    : `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">לא נמצא אישור טיול עבור ${h(community)}</div>`;
+
+  modal.style.display = 'flex';
+  modal.innerHTML = `<div class="modal" style="width:560px">
+    <h3>✉️ שליחת מייל ל-${h(contactName)}</h3>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">${h(email)}</div>
+
+    <div class="form-group">
+      <label>נושא</label>
+      <input class="form-control" id="cemSubject" value="פרטי טיול — ${h(community)}" dir="rtl">
+    </div>
+    <div class="form-group">
+      <label>תוכן המייל</label>
+      <textarea class="form-control" id="cemBody" rows="5" dir="rtl" placeholder="שלום וברכה,&#10;&#10;..."></textarea>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">📎 צירוף קבצים (אופציונלי)</div>
+
+      ${archive1Html}
+
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">📂 קובץ ממאגר:</label>
+        <div style="display:flex;gap:8px">
+          <select id="cemArchiveSel" class="form-control" style="font-size:12px" onchange="loadArchiveFilesForEmail()">
+            <option value="">— בחר מאגר —</option>
+            ${ARCHIVE_OPTIONS.map(a=>`<option value="${a.folder}">${a.label}</option>`).join('')}
+          </select>
+          <select id="cemFileSel" class="form-control" style="font-size:12px">
+            <option value="">— בחר קובץ —</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('contactEmailModal').style.display='none'">ביטול</button>
+      <button class="btn btn-primary" onclick="sendContactEmail('${h(email)}','${h(contactName)}')">✉️ שלח</button>
+    </div>
+  </div>`;
+
+  modal.onclick = e => { if(e.target===modal) modal.style.display='none'; };
+}
+
+async function loadArchiveFilesForEmail() {
+  const folder = document.getElementById('cemArchiveSel')?.value;
+  const fileSel = document.getElementById('cemFileSel');
+  if(!folder || !fileSel) return;
+  fileSel.innerHTML = '<option value="">טוען...</option>';
+  const files = await fetchCloudinaryFiles(folder);
+  fileSel.innerHTML = '<option value="">— בחר קובץ —</option>' +
+    files.map(f=>{const n=f.public_id.split('/').pop(); return `<option value="${f.secure_url}">${h(n)}</option>`;}).join('');
+}
+
+async function sendContactEmail(email, contactName) {
+  email = decodeHtml(email);
+  contactName = decodeHtml(contactName);
+  const subject = document.getElementById('cemSubject')?.value||'';
+  const bodyText = document.getElementById('cemBody')?.value||'';
+  const attach1Url = document.getElementById('cemAttach1')?.value||'';
+  const attach2Url = document.getElementById('cemFileSel')?.value||'';
+
+  if(!bodyText.trim()) { showToast('נא לכתוב תוכן','danger'); return; }
+
+  showToast('שולח מייל...','info');
+
+  // בנה HTML
+  const html = `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8">
+    ${bodyText.replace(/\n/g,'<br>')}
+    <p style="color:#666;font-size:12px;margin-top:20px">בכל שאלה ניתן לפנות להרב שלמה רוזנבאום בטל: 052-7632227</p>
+  </div>`;
+
+  // בנה attachments
+  const attachments = [];
+  for(const url of [attach1Url, attach2Url]) {
+    if(!url) continue;
+    try {
+      const res = await fetch(url);
+      const buf = await res.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const name = url.split('/').pop().split('?')[0];
+      attachments.push({ base64: b64, name, mimeType: 'application/pdf' });
+    } catch(e) { console.warn('Failed to fetch attachment:', e); }
+  }
+
+  try {
+    const res = await fetch(ZIP_WORKER_URL + '/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: email, subject, text: bodyText, html, attachments })
+    });
+    if(!res.ok) throw new Error('שגיאה בשרת');
+    document.getElementById('contactEmailModal').style.display = 'none';
+    showToast('המייל נשלח ✓');
+  } catch(e) {
+    showToast('שגיאה: ' + e.message, 'danger');
+  }
+}
 
 function renderMT(container) {
   const td=getTD();
@@ -1387,6 +1617,10 @@ function doImport(mode){
 
 // ── UTILS ──
 function h(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function phoneLink(phone) {
+  if(!phone) return '';
+  return `<a href="tel:${phone}" style="color:var(--primary);text-decoration:none;white-space:nowrap">${h(phone)}</a>`;
+}
 function normalizeId(v){const s=String(v||'').trim();return /^\d{8}$/.test(s)?'0'+s:s;}
 function validateIsraeliId(id) {
   const s = String(id||'').trim();
@@ -1783,7 +2017,7 @@ function buildReport1(td) {
     const sites = compactVals([row.f18,row.f19,row.f20,row.f21,row.f22,row.f23,row.f26]);
     return `<tr>
       ${fields.map((f,fi) => {
-        if(f==='טלפון אחראי') return `<td>${h(phone)}</td>`;
+        if(f==='טלפון אחראי') return `<td>${phoneLink(phone)}</td>`;
         if(f==='f1') return `<td><strong>${h(communityWithAttached(row))}</strong></td>`;
         if(f==='f9') return `<td><strong>${total||''}</strong></td>`;
         if(f==='f10') return `<td><span class="${buses==='חריג'?'badge-exception':'badge-bus'}">${buses}</span></td>`;
@@ -1884,7 +2118,7 @@ function buildReport3(td) {
       <td>${h(row.f11||'')}</td>
       <td>${h(getAddr(row.f1))}</td>
       <td>${h(tripCoord)}</td>
-      <td>${h(contactRow?contactRow[4]||'':'')}</td>
+      <td>${phoneLink(contactRow?contactRow[4]||'':'')}</td>
       <td>${h(s(0))}</td>
       <td>${h(s(1))}</td>
       <td>${h(s(2))}</td>
