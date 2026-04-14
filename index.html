@@ -246,13 +246,33 @@ tbody tr:hover .del-btn{opacity:1}
   .report-card{box-shadow:none;border-radius:0}
 }
 
-/* ═══ MOBILE RESPONSIVE ═══ */
+/* ═══ RESPONSIVE — כל גדלי המסך ═══ */
+
+/* ── טאבלט (769px–1024px) ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .mobile-nav { display: none; }
+  .tab-nav { padding: 0 8px; gap: 0; }
+  .tab-btn { padding: 10px 10px; font-size: 12px; }
+  .app-header { padding: 0 14px; height: 56px; gap: 10px; }
+  .brand { font-size: 15px; }
+  .trip-select { min-width: 140px; font-size: 12px; }
+  .main-table-tab { padding: 10px; }
+  .main-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .main-table-wrap table { font-size: 11.5px; min-width: max-content; }
+  .lists-sidebar { width: 170px; }
+  .report-sidebar { width: 165px; }
+  .form-grid { grid-template-columns: 1fr 1fr; }
+  .form-grid-3 { grid-template-columns: 1fr 1fr; }
+  .edit-modal { width: 95vw; }
+  .modal { max-width: 95vw; }
+  .settings-card { max-width: 100%; }
+}
+
+/* ── טלפון (≤768px) ── */
 @media (max-width: 768px) {
-  /* Hide desktop tab nav, show mobile bottom nav */
+  /* ניווט תחתון */
   .tab-nav { display: none; }
   .app-main { padding-bottom: 65px; }
-
-  /* Mobile bottom navigation */
   .mobile-nav {
     display: flex;
     position: fixed;
@@ -263,85 +283,54 @@ tbody tr:hover .del-btn{opacity:1}
     box-shadow: 0 -2px 10px rgba(0,0,0,.08);
   }
   .mobile-nav-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 8px 4px;
-    border: none;
-    background: none;
-    font-family: var(--font);
-    font-size: 10px;
-    color: var(--text-muted);
-    cursor: pointer;
-    gap: 3px;
-    transition: all .15s;
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 8px 2px; border: none; background: none;
+    font-family: var(--font); font-size: 10px;
+    color: var(--text-muted); cursor: pointer; gap: 3px;
+    min-height: 54px;
   }
-  .mobile-nav-btn .nav-icon { font-size: 20px; }
+  .mobile-nav-btn .nav-icon { font-size: 22px; }
   .mobile-nav-btn.active { color: var(--primary); }
   .mobile-nav-btn.active .nav-icon { transform: scale(1.1); }
 
-  /* Header mobile */
+  /* Header */
   .app-header { padding: 0 10px; height: 54px; gap: 8px; }
   .brand { font-size: 14px; }
   .trip-selector label { display: none; }
-  .trip-select { min-width: 120px; font-size: 12px; }
+  .trip-select { min-width: 100px; flex: 1; font-size: 12px; }
   .btn-backup { display: none; }
   .btn-new-trip { display: none; }
   .undo-btn { display: none; }
-  .btn-trip-mgmt { width: 28px; height: 28px; font-size: 13px; }
+  .btn-trip-mgmt { width: 34px; height: 34px; font-size: 15px; }
 
-  /* ── MAIN TABLE mobile ── */
+  /* טבלה ראשית */
   .main-table-tab { padding: 6px; gap: 6px; }
-  .main-table-toolbar {
-    padding: 8px 10px;
-    gap: 6px;
-  }
-  .main-table-toolbar > div:first-child {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    width: 100%;
-  }
-  .main-table-toolbar > div:last-child {
-    flex-wrap: wrap;
-    gap: 5px;
-    width: 100%;
-  }
+  .main-table-toolbar { padding: 8px 10px; gap: 6px; }
+  .main-table-toolbar > div:first-child { flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; }
+  .main-table-toolbar > div:last-child { flex-wrap: wrap; gap: 5px; width: 100%; }
   .main-table-toolbar h2 { font-size: 13px; }
-  .status-counters { gap: 4px; }
+  .status-counters { gap: 4px; flex-wrap: wrap; }
   .counter-badge { font-size: 10px; padding: 2px 6px; }
   .filter-input { flex: 1; min-width: 0; font-size: 12px; }
-  /* ── CRITICAL: horizontal scroll for wide table ── */
-  .main-table-wrap {
-    overflow-x: auto;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
+  .main-table-wrap { overflow-x: auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .main-table-wrap table { font-size: 11px; min-width: max-content; }
   .main-table-wrap thead th { padding: 5px 6px; font-size: 10px; }
   .main-table-wrap tbody td { padding: 3px 5px; }
 
-  /* ── LISTS tab mobile ── */
+  /* רשימות */
   .lists-tab { flex-direction: column; height: 100%; }
   .lists-sidebar { display: none; }
   .lists-content { padding: 6px; flex: 1; overflow: hidden; display: flex; flex-direction: column; }
   .list-editor { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
   .list-editor-header { padding: 8px 10px; flex-wrap: wrap; gap: 6px; }
   .list-actions { flex-wrap: wrap; gap: 4px; }
-  /* ── CRITICAL: list table scroll ── */
-  .table-wrap {
-    flex: 1;
-    overflow-x: auto;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
+  .table-wrap { flex: 1; overflow-x: auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .table-wrap table { min-width: max-content; }
   .add-row-form { flex-shrink: 0; }
   .add-row-fields { flex-wrap: wrap; }
 
-  /* ── REPORTS mobile ── */
+  /* דוחות */
   .reports-tab { flex-direction: column; }
   .report-sidebar { display: none; }
   .report-content { padding: 8px; }
@@ -351,24 +340,72 @@ tbody tr:hover .del-btn{opacity:1}
   .report-table tbody td { padding: 5px 7px; }
   .report-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-  /* Modal mobile - full screen */
+  /* מודאל */
   .modal-overlay { align-items: flex-end; }
   .modal {
-    width: 100% !important;
-    max-width: 100% !important;
+    width: 100% !important; max-width: 100% !important;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    max-height: 90vh;
-    padding: 20px 16px;
+    max-height: 92vh; padding: 16px 14px;
   }
-  .edit-modal { max-height: 95vh; }
+  .edit-modal { max-height: 96vh; }
   .form-grid { grid-template-columns: 1fr 1fr; }
+  .form-grid-3 { grid-template-columns: 1fr 1fr; }
 
-  /* Auth screen mobile */
-  .auth-card { width: 90vw; padding: 28px 20px; }
+  /* Auth */
+  .auth-card { width: 92vw; padding: 24px 18px; }
 
-  /* Settings mobile */
+  /* הגדרות */
   .clone-grid { grid-template-columns: 1fr; }
   .settings-page { padding: 10px; }
+}
+
+/* ── טלפון קטן (≤480px) ── */
+@media (max-width: 480px) {
+  html { font-size: 14px; }
+
+  /* Header צפוף יותר */
+  .app-header { padding: 0 8px; height: 50px; gap: 6px; }
+  .brand { font-size: 13px; }
+  .trip-select { font-size: 11px; min-width: 80px; }
+  .btn-trip-mgmt { width: 30px; height: 30px; font-size: 13px; }
+
+  /* ניווט תחתון — אייקון גדול יותר לנגישות */
+  .mobile-nav-btn { font-size: 9px; padding: 6px 2px; }
+  .mobile-nav-btn .nav-icon { font-size: 20px; }
+
+  /* כפתורים — מינימום גודל מגע */
+  .btn { padding: 8px 10px; font-size: 12px; min-height: 36px; }
+  .btn-sm { padding: 6px 8px; font-size: 11px; min-height: 32px; }
+
+  /* טבלה ראשית */
+  .main-table-wrap table { font-size: 10px; }
+  .main-table-wrap thead th { font-size: 9px; padding: 4px 5px; }
+  .main-table-wrap tbody td { padding: 3px 4px; }
+
+  /* רשימות */
+  .list-editor-header { padding: 6px 8px; }
+  .list-actions { gap: 3px; }
+  .list-actions .btn-sm { font-size: 10px; padding: 5px 6px; }
+
+  /* מודאל — תופס כל המסך */
+  .modal { max-height: 98vh; padding: 12px 10px; }
+  .edit-modal { max-height: 98vh; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid-3 { grid-template-columns: 1fr; }
+  .modal-footer { flex-wrap: wrap; gap: 6px; }
+  .modal-footer .btn { flex: 1; justify-content: center; }
+
+  /* כותרת רשימה */
+  .list-title-text { font-size: 13px; }
+  .row-count { font-size: 10px; }
+
+  /* דוחות */
+  .report-toolbar { flex-direction: column; gap: 8px; align-items: flex-start; }
+  .report-actions { width: 100%; justify-content: flex-start; }
+
+  /* Auth */
+  .auth-card { width: 96vw; padding: 20px 14px; }
+  .auth-card h1 { font-size: 18px; }
 }
 
 /* Mobile report/archive selector */
