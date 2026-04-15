@@ -1,0 +1,9 @@
+# Local project notes — contain secrets, never push
+project-summary.md
+
+# Claude Code working dir
+.claude/
+
+# Local backups
+*.backup-local
+*-backup-old/
