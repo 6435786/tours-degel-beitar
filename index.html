@@ -485,7 +485,8 @@ tbody tr:hover .del-btn{opacity:1}
       </select>
     </div>
     <div class="header-actions">
-      <button class="btn-backup" onclick="backupData()" title="גבה את כל הנתונים">💾 גיבוי</button>
+      <button class="btn-backup" onclick="backupToDrive()" title="גבה ל-Google Drive">☁️ גיבוי ל-Drive</button>
+      <button class="btn-backup" onclick="backupData()" title="הורד גיבוי מקומי">💾 גיבוי מקומי</button>
       <button class="btn-backup" onclick="document.getElementById('restoreInput').click()" title="שחזר נתונים מגיבוי">📂 שחזר</button>
       <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreData(this.files[0])">
       <button class="btn-trip-mgmt" id="tripMgmtBtn" onclick="toggleTripMenu()" title="ניהול טיול פעיל">⚙️</button>
@@ -711,9 +712,26 @@ async function saveToFirestore() {
       }),
       updatedAt: new Date().toISOString()
     });
+    mirrorToDrive(); // debounced silent mirror to Drive for nightly backup
   } catch(e) {
     console.warn('Firestore save error:', e);
   }
+}
+
+// Silent throttled mirror to Drive — keeps state-latest.json fresh for the nightly cron
+let mirrorTimeout = null;
+function mirrorToDrive() {
+  if (mirrorTimeout) clearTimeout(mirrorTimeout);
+  mirrorTimeout = setTimeout(async () => {
+    try {
+      const backup = { version:3, date:new Date().toISOString(), trips:state.trips, global:state.global, activeTrip:state.activeTrip };
+      await fetch(ZIP_WORKER_URL + '/mirror', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(backup)
+      });
+    } catch(e) { /* silent — this is a background backup */ }
+  }, 10000); // 10s after last save
 }
 
 async function loadFromFirestore() {
