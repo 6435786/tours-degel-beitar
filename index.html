@@ -6,6 +6,7 @@
 <title>טיולים-דגל-ביתר</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -604,8 +605,8 @@ tbody tr:hover .del-btn{opacity:1}
 // ── DATA DEFS ──
 const LIST_DEFS = {
   list1:{name:'קהילות',fields:['שם קהילה','כתובת']},
-  list2:{name:'מסלולים',fields:['שם מסלול','פירוט מספרי מסלולים להזנה','שם קליט','משך זמן משוער','ניהול סיכונים','מפות']},
-  list3:{name:'אתרים',fields:['שם אתר','פירוט להזנה ממשרד החינוך','שם קליט']},
+  list2:{name:'מסלולים',fields:['שם מסלול','פירוט מספרי מסלולים להזנה','שם קליט','משך זמן משוער','ניהול סיכונים','מפות','קישור וויז']},
+  list3:{name:'אתרים',fields:['שם אתר','פירוט להזנה ממשרד החינוך','שם קליט','קישור וויז']},
   list4:{name:'אטרקציות',fields:['שם אטרקציה מלא','פרטים להזנה משרד החינוך','מיקום בארץ','קישור וויז','משך זמן פעילות','מחיר','כמות למחיר','מינימום כמות','מקסימום משתתפים','תמחור לפי','שומר שבת','חוזר מנכ"ל 1','חוזר מנכ"ל 2','מפות','ספק']},
   list5:{name:'שמות טבלאות ראשיות',fields:['שם טבלה']},
   list6:{name:'אנשי קשר',fields:['שם מאוחד','שם משפחה','שם פרטי','ת.ז.','טלפון','מייל','קהילה','תפקיד']},
@@ -671,6 +672,51 @@ const FIREBASE_CONFIG = {
 };
 
 const ZIP_WORKER_URL = 'https://blue-fog-0eb3.6435786.workers.dev';
+
+// ── WAZE HELPERS ──
+function buildWazeUrl(input) {
+  if (!input) return '';
+  const s = String(input).trim();
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  return 'https://waze.com/ul?q=' + encodeURIComponent(s) + '&navigate=yes';
+}
+function isWazeField(name) { return name === 'קישור וויז'; }
+function wazeColIdx(listKey) {
+  const def = LIST_DEFS[listKey]; if(!def) return -1;
+  return def.fields.findIndex(isWazeField);
+}
+// Collect {kind, label, input, url} entries for a community's row
+function collectWazeEntriesForCommunity(communityName) {
+  const td = getTD(); if(!td) return [];
+  const row = td.mainTable.find(r=>r.f1===communityName); if(!row) return [];
+  const out = [];
+  const tryAdd = (listKey, refValue, kindLabel) => {
+    if(!refValue) return;
+    const col = wazeColIdx(listKey); if(col<0) return;
+    const rec = (td.lists[listKey]||[]).find(r=>r[0]===refValue);
+    const input = rec?.[col]; if(!input) return;
+    out.push({ kind: kindLabel, label: refValue, input: String(input).trim(), url: buildWazeUrl(input) });
+  };
+  // 3 routes, 2 sites, 2 attractions
+  tryAdd('list2', row.f18, 'מסלול');
+  tryAdd('list2', row.f19, 'מסלול');
+  tryAdd('list2', row.f20, 'מסלול');
+  tryAdd('list3', row.f21, 'אתר');
+  tryAdd('list3', row.f22, 'אתר');
+  tryAdd('list4', row.f23, 'אטרקציה');
+  tryAdd('list4', row.f26, 'אטרקציה');
+  return out;
+}
+// Render a PNG data-URL QR code for given text (uses qrcodejs CDN)
+function qrDataUrl(text, size=160) {
+  const div = document.createElement('div');
+  new QRCode(div, { text, width:size, height:size, correctLevel: QRCode.CorrectLevel.M });
+  const img = div.querySelector('img') || div.querySelector('canvas');
+  if(img && img.tagName==='IMG') return img.src;
+  if(img && img.tagName==='CANVAS') return img.toDataURL('image/png');
+  return '';
+}
 
 const CLOUDINARY_CONFIG = {
   cloudName: 'djahciacr',
@@ -1420,7 +1466,14 @@ function renderLists(container) {
 
   const tbdy=sortedRows.length===0
     ?`<tr><td colspan="${def.fields.length+2}"><div class="empty-state"><div class="es-icon">📭</div><div>אין רשומות</div></div></td></tr>`
-    :sortedRows.map(({row,ri},si)=>`<tr><td class="col-num">${si+1}</td>${def.fields.map((_,ci)=>`<td><input class="cell-input" value="${h(row[ci]||'')}" onchange="setLC('${activeList}',${ri},${ci},this.value)" dir="rtl" list="dl_lc_${ci}"></td>`).join('')}<td><button class="btn btn-danger btn-icon btn-sm del-btn" onclick="delLR('${activeList}',${ri})">✕</button></td></tr>`).join('');
+    :sortedRows.map(({row,ri},si)=>`<tr><td class="col-num">${si+1}</td>${def.fields.map((f,ci)=>{
+      const val=row[ci]||'';
+      const input=`<input class="cell-input" value="${h(val)}" onchange="setLC('${activeList}',${ri},${ci},this.value)" dir="rtl" list="dl_lc_${ci}">`;
+      if(isWazeField(f) && val) {
+        return `<td><div style="display:flex;align-items:center;gap:4px">${input}<a href="${h(buildWazeUrl(val))}" target="_blank" title="פתח בוויז" style="text-decoration:none;font-size:16px;padding:2px 4px">🧭</a></div></td>`;
+      }
+      return `<td>${input}</td>`;
+    }).join('')}<td><button class="btn btn-danger btn-icon btn-sm del-btn" onclick="delLR('${activeList}',${ri})">✕</button></td></tr>`).join('');
 
   const adds=def.fields.map((f,i)=>`<div class="field-group"><label>${f}</label><input class="field-input" id="nf_${i}" placeholder="${f}" dir="rtl" onkeydown="if(event.key==='Enter')addLR('${activeList}')"></div>`).join('');
   container.innerHTML=`<div class="lists-tab">
@@ -2781,8 +2834,9 @@ function showTripFolderModal(communityName, files) {
           </tr>`;
         }).join('')}</tbody>
       </table>
-      <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+      <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
         <button class="btn btn-secondary" onclick="printSelectedFiles()">🖨️ הדפס נבחרים</button>
+        <button class="btn btn-secondary" onclick="printWazePage(this.dataset.c)" data-c="${communityName}">🧭 דף וויז</button>
         <button class="btn btn-primary" onclick="emailSelectedFiles()">✉️ שלח במייל</button>
         <button class="btn btn-success" onclick="downloadZip(this.dataset.c)" data-c="${communityName}">📦 הורד ZIP</button>
       </div>`;
@@ -2975,6 +3029,15 @@ async function downloadZip(communityName) {
   const participantsXlsx = generateParticipantsExcel(communityName);
   if(participantsXlsx) files.push({ base64: participantsXlsx.base64, name: participantsXlsx.name });
 
+  // הוסף דף וויז (אם יש קישורים וספריית QR נטענה)
+  if(typeof QRCode !== 'undefined') {
+    const wazeHtml = buildWazePageHtml(communityName);
+    if(wazeHtml) {
+      const b64 = btoa(unescape(encodeURIComponent(wazeHtml)));
+      files.push({ base64: b64, name: `דף-וויז-${communityName}.html` });
+    }
+  }
+
   try {
     const res = await fetch(ZIP_WORKER_URL, {
       method: 'POST',
@@ -3000,6 +3063,50 @@ function printSelectedFiles() {
   if(!selected.length) { showToast('לא נבחרו קבצים','danger'); return; }
   selected.forEach(cb => window.open(cb.dataset.url, '_blank'));
   showToast(`נפתחו ${selected.length} קבצים להדפסה`);
+}
+
+// Build HTML page with Waze QR codes for a community
+function buildWazePageHtml(communityName) {
+  const entries = collectWazeEntriesForCommunity(communityName);
+  if(!entries.length) return null;
+  const items = entries.map(e => {
+    const qr = qrDataUrl(e.url, 180);
+    const isUrl = /^https?:\/\//i.test(e.input);
+    const instruction = isUrl
+      ? `<div style="font-size:13px;color:#64748b">קישור ישיר לוויז</div>`
+      : `<div style="font-size:14px">לכתוב בוויז: <strong>${h(e.input)}</strong></div>`;
+    return `<div style="break-inside:avoid;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:12px;display:flex;gap:16px;align-items:center">
+      <img src="${qr}" style="width:150px;height:150px;flex-shrink:0">
+      <div style="flex:1">
+        <div style="font-size:12px;color:#1a56db;font-weight:600;margin-bottom:2px">${e.kind}</div>
+        <div style="font-size:17px;font-weight:700;margin-bottom:6px">${h(e.label)}</div>
+        ${instruction}
+        <div style="font-size:11px;color:#94a3b8;margin-top:6px;word-break:break-all">${h(e.url)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>דף וויז — ${h(communityName)}</title>
+    <style>
+      body{font-family:Arial,sans-serif;direction:rtl;padding:20px;color:#0f172a;max-width:800px;margin:0 auto}
+      h1{font-size:20px;color:#1a56db;margin-bottom:4px}
+      .sub{color:#64748b;font-size:13px;margin-bottom:18px}
+      @media print { body{padding:0} .noprint{display:none} }
+    </style></head><body>
+    <h1>🧭 קישורי ניווט בוויז</h1>
+    <div class="sub">קהילת ${h(communityName)}</div>
+    ${items}
+    <div class="noprint" style="margin-top:20px;text-align:center">
+      <button onclick="window.print()" style="padding:10px 24px;background:#1a56db;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨️ הדפס</button>
+    </div>
+  </body></html>`;
+}
+
+function printWazePage(communityName) {
+  if(typeof QRCode === 'undefined') { showToast('ספריית QR עדיין נטענת, נסה שוב','warn'); return; }
+  const html = buildWazePageHtml(communityName);
+  if(!html) { showToast('אין קישורי וויז לקהילה זו','warn'); return; }
+  const w = window.open('', '_blank');
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 function pickEmail(contacts, defaultEmail='') {
@@ -3129,6 +3236,15 @@ async function emailSelectedFiles() {
   const linksHtml = selected.map(cb =>
     `<li><a href="${cb.dataset.url}" style="color:#1a56db;text-decoration:none;font-weight:500">${cb.dataset.name}</a></li>`
   ).join('\n');
+
+  // Waze links for this community
+  const wazeEntries = collectWazeEntriesForCommunity(currentTripFolderCommunity);
+  const wazeHtml = wazeEntries.length ? `
+    <p style="margin-top:18px"><strong>🧭 קישורי ניווט בוויז:</strong></p>
+    <ul style="padding-right:20px">
+      ${wazeEntries.map(e=>`<li>קישור ל-<a href="${e.url}" style="color:#1a56db;text-decoration:none;font-weight:500">${h(e.label)}</a></li>`).join('\n')}
+    </ul>` : '';
+
   const html = `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:14px;color:#0f172a;line-height:1.8">
     <p>שלום וברכה,</p>
     <p>מצורפים קישורים למסמכי תיק טיול ל<strong>${communityLabel}</strong>:</p>
@@ -3136,6 +3252,7 @@ async function emailSelectedFiles() {
       <strong>שים לב!</strong> בטופס כתב מינוי לאחראי טיול יש למלא תאריך לועזי <strong>${dateStr}</strong> ואת מס' הטיול: <strong>${tripNum}</strong>
     </p>
     <ul style="padding-right:20px">${linksHtml}</ul>
+    ${wazeHtml}
     <p>בכל שאלה ניתן לפנות להרב שלמה רוזנבאום בטל: <a href="tel:0527632227" style="color:#1a56db">052-7632227</a></p>
   </div>`;
 
