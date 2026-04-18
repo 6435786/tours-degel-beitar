@@ -607,12 +607,13 @@ const LIST_DEFS = {
   list1:{name:'קהילות',fields:['שם קהילה','כתובת']},
   list2:{name:'מסלולים',fields:['שם מסלול','פירוט מספרי מסלולים להזנה','שם קליט','משך זמן משוער','ניהול סיכונים','מפות','קישור וויז']},
   list3:{name:'אתרים',fields:['שם אתר','פירוט להזנה ממשרד החינוך','שם קליט','קישור וויז']},
-  list4:{name:'אטרקציות',fields:['שם אטרקציה מלא','פרטים להזנה משרד החינוך','מיקום בארץ','קישור וויז','משך זמן פעילות','מחיר','כמות למחיר','מינימום כמות','מקסימום משתתפים','תמחור לפי','שומר שבת','חוזר מנכ"ל 1','חוזר מנכ"ל 2','מפות','ספק']},
+  list4:{name:'אטרקציות',fields:['שם אטרקציה מלא','פרטים להזנה משרד החינוך','מיקום בארץ','קישור וויז','משך זמן פעילות','מחיר','כמות למחיר','מינימום כמות','מקסימום משתתפים','תמחור לפי','שומר שבת','חוזר מנכ"ל 1','חוזר מנכ"ל 2','מפות','ספק','קטגוריה']},
   list5:{name:'שמות טבלאות ראשיות',fields:['שם טבלה']},
   list6:{name:'אנשי קשר',fields:['שם מאוחד','שם משפחה','שם פרטי','ת.ז.','טלפון','מייל','קהילה','תפקיד']},
   list7:{name:'משתתפים',fields:['שם משפחה','שם פרטי','ת.ז.','טלפון','קהילה']},
   list8:{name:'מחירון אוטובוסים',fields:['סוג','מחיר בסיס','כמות שעות לבסיס','מחיר לשעה נוספת','כביש-6 צד אחד','כביש-6 2 צדדים']},
   list9:{name:'מסמכים כלליים',fields:['שם מסמך']},
+  list10:{name:'קטגוריות פעילות',fields:['שם הקטגוריה','ניהול סיכונים','חוזר מנכ"ל 1','חוזר מנכ"ל 2']},
 };
 const LIST_KEYS = Object.keys(LIST_DEFS);
 
@@ -657,7 +658,7 @@ const MT_FIELDS = [
 
 const CALC_TYPES = ['calc_total','calc_buses','calc_hebrew','calc_day','calc_contact','calc_participants','calc_hours','calc_attr_pp','calc_bus_pp'];
 
-const DEF_CLONE_LISTS = {list1:true,list2:true,list3:true,list4:true,list5:true,list6:true,list7:false,list8:true,list9:true};
+const DEF_CLONE_LISTS = {list1:true,list2:true,list3:true,list4:true,list5:true,list6:true,list7:false,list8:true,list9:true,list10:true};
 const DEF_CLONE_MT = {f1:true,f18:true,f19:true,f20:true,f21:true,f22:true,f23:true,f26:true};
 
 // ── FIREBASE CONFIG ──
@@ -1473,7 +1474,7 @@ function renderLists(container) {
         return `<td><div style="display:flex;align-items:center;gap:4px">${input}<a href="${h(buildWazeUrl(val))}" target="_blank" title="פתח בוויז" style="text-decoration:none;font-size:16px;padding:2px 4px">🧭</a></div></td>`;
       }
       return `<td>${input}</td>`;
-    }).join('')}<td><button class="btn btn-danger btn-icon btn-sm del-btn" onclick="delLR('${activeList}',${ri})">✕</button></td></tr>`).join('');
+    }).join('')}<td style="white-space:nowrap"><div style="display:flex;gap:3px;justify-content:flex-end;align-items:center">${activeList==='list4' && row[0] ? `<button class="btn btn-secondary btn-icon btn-sm" title="שבץ בכל הקהילות" onclick="openBulkAddAttr(${ri})">📋</button>` : ''}<button class="btn btn-danger btn-icon btn-sm del-btn" onclick="delLR('${activeList}',${ri})">✕</button></div></td></tr>`).join('');
 
   const adds=def.fields.map((f,i)=>`<div class="field-group"><label>${f}</label><input class="field-input" id="nf_${i}" placeholder="${f}" dir="rtl" onkeydown="if(event.key==='Enter')addLR('${activeList}')"></div>`).join('');
   container.innerHTML=`<div class="lists-tab">
@@ -1820,7 +1821,9 @@ function openEditRow(ri) {
     }
   ];
 
-  let html = '';
+  let html = `<div style="margin-bottom:10px;display:flex;justify-content:flex-start">
+    <button class="btn btn-secondary btn-sm" onclick="openDuplicateFromCommunity()">📋 שכפל טיול מקהילה אחרת</button>
+  </div>`;
   sections.forEach(sec => {
     html += `<div class="form-section">
       <div class="form-section-title">${sec.title}</div>
@@ -1835,6 +1838,190 @@ function openEditRow(ri) {
 
   document.getElementById('editModalBody').innerHTML = html;
   document.getElementById('editRowModal').style.display = 'flex';
+}
+
+// ── DUPLICATE FROM COMMUNITY ──
+const DUP_GROUPS = [
+  { key:'times',  icon:'⏰', label:'זמנים',      fields:['f13','f11','f12'] },
+  { key:'routes', icon:'🚶', label:'מסלולים',    fields:['f18','f19','f20'] },
+  { key:'sites',  icon:'📍', label:'אתרים',      fields:['f21','f22'] },
+  { key:'attrs',  icon:'🎢', label:'אטרקציות',   fields:['f23','f26'] },
+];
+function openDuplicateFromCommunity() {
+  const td = getTD(); if(!td||editRowIdx===null) return;
+  const others = td.mainTable
+    .map((r,i)=>({r,i}))
+    .filter(({r,i}) => i !== editRowIdx && r.f1);
+  if(!others.length) { showToast('אין קהילות אחרות לשכפל מהן','warn'); return; }
+
+  let modal = document.getElementById('dupCommModal');
+  if(!modal) {
+    modal = document.createElement('div');
+    modal.id = 'dupCommModal';
+    modal.className = 'modal-overlay';
+    document.body.appendChild(modal);
+  }
+  const opts = ['<option value="">— בחר —</option>',
+    ...others.map(({r,i})=>`<option value="${i}">${h(r.f1)}</option>`)
+  ].join('');
+
+  const groupsHtml = DUP_GROUPS.map(g => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:700;font-size:14px">
+        <input type="checkbox" class="dup-grp-cb" data-grp="${g.key}" checked onchange="dupToggleGroup('${g.key}',this.checked)" style="width:17px;height:17px">
+        <span>${g.icon} ${g.label}</span>
+      </label>
+      <div style="margin-top:6px;padding-right:26px;display:flex;flex-wrap:wrap;gap:10px">
+        ${g.fields.map(fid => {
+          const fdef = MT_FIELDS.find(f=>f.id===fid);
+          return `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px">
+            <input type="checkbox" class="dup-f-cb" data-grp="${g.key}" data-f="${fid}" checked style="width:15px;height:15px">
+            <span>${fdef?.label||fid}</span>
+          </label>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+
+  modal.style.display = 'flex';
+  modal.innerHTML = `<div class="modal" style="width:520px;max-height:90vh;display:flex;flex-direction:column">
+    <h3 style="margin-bottom:10px">📋 שכפל טיול מקהילה אחרת</h3>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:13px;color:var(--text-muted);margin-bottom:4px">בחר קהילה מקור:</label>
+      <select id="dup_src" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:6px;font-family:var(--font);font-size:14px">${opts}</select>
+    </div>
+    <div style="flex:1;overflow-y:auto">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">בחר מה לשכפל:</div>
+      ${groupsHtml}
+    </div>
+    <div class="modal-footer" style="margin-top:12px">
+      <button class="btn btn-secondary" onclick="closeModal('dupCommModal')">ביטול</button>
+      <button class="btn btn-success" onclick="applyDuplicateFromCommunity()">✓ שכפל</button>
+    </div>
+  </div>`;
+}
+function dupToggleGroup(grpKey, checked) {
+  document.querySelectorAll(`.dup-f-cb[data-grp="${grpKey}"]`).forEach(cb => cb.checked = checked);
+}
+function applyDuplicateFromCommunity() {
+  const td = getTD(); if(!td||editRowIdx===null) return;
+  const srcIdx = parseInt(document.getElementById('dup_src').value);
+  if(isNaN(srcIdx)) { showToast('לא נבחרה קהילת מקור','warn'); return; }
+  const srcRow = td.mainTable[srcIdx];
+  if(!srcRow) return;
+  const cbs = [...document.querySelectorAll('.dup-f-cb:checked')];
+  if(!cbs.length) { showToast('לא נבחרו שדות לשכפול','warn'); return; }
+  let copied = 0;
+  cbs.forEach(cb => {
+    const fid = cb.dataset.f;
+    if(srcRow[fid] !== undefined) { editRowData[fid] = srcRow[fid]; copied++; }
+  });
+  closeModal('dupCommModal');
+  rebuildEditBody();
+  showToast(`שוכפלו ${copied} שדות מ-${srcRow.f1} ✓`);
+}
+// ── BULK ADD ATTRACTION TO ALL COMMUNITIES ──
+function openBulkAddAttr(list4Idx) {
+  const td = getTD(); if(!td) { showToast('אין טיול פעיל','danger'); return; }
+  const rec = (td.lists.list4||[])[list4Idx];
+  if(!rec || !rec[0]) return;
+  const attrName = rec[0];
+
+  // Communities with analysis: full (both slots taken), has one, empty, already-includes
+  const mtAnalysis = (td.mainTable||[]).map((r,i) => {
+    const hasAs23 = r.f23 === attrName;
+    const hasAs26 = r.f26 === attrName;
+    const slot23Empty = !r.f23;
+    const slot26Empty = !r.f26;
+    let status;
+    if(hasAs23 || hasAs26) status = 'already';
+    else if(slot23Empty || slot26Empty) status = 'canAdd';
+    else status = 'full';
+    return { idx:i, name:r.f1||'', status, slot23Empty, slot26Empty };
+  }).filter(x => x.name);
+
+  if(!mtAnalysis.length) { showToast('אין קהילות בטבלה הראשית','warn'); return; }
+
+  const canAddCount = mtAnalysis.filter(x=>x.status==='canAdd').length;
+  const alreadyCount = mtAnalysis.filter(x=>x.status==='already').length;
+  const fullCount = mtAnalysis.filter(x=>x.status==='full').length;
+
+  let modal = document.getElementById('bulkAddAttrModal');
+  if(!modal) {
+    modal = document.createElement('div');
+    modal.id = 'bulkAddAttrModal';
+    modal.className = 'modal-overlay';
+    document.body.appendChild(modal);
+  }
+
+  const rowsHtml = mtAnalysis.map(x => {
+    const disabled = x.status !== 'canAdd';
+    const statusLabel = x.status==='already' ? '<span style="color:var(--success);font-size:11px">✓ כבר קיים</span>'
+                      : x.status==='full' ? '<span style="color:var(--warn);font-size:11px">⚠ שני הסלוטים תפוסים</span>'
+                      : '';
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);${disabled?'opacity:0.5':'cursor:pointer'}">
+      <input type="checkbox" class="bulk-attr-cb" data-idx="${x.idx}" ${disabled?'disabled':'checked'} style="width:16px;height:16px">
+      <span style="flex:1;font-size:13px">${h(x.name)}</span>
+      ${statusLabel}
+    </label>`;
+  }).join('');
+
+  modal.style.display = 'flex';
+  modal.innerHTML = `<div class="modal" style="width:520px;max-height:85vh;display:flex;flex-direction:column">
+    <h3 style="margin-bottom:6px">📋 שיבוץ "${h(attrName)}" בכל הקהילות</h3>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">
+      זמינות: ${canAddCount} לשיבוץ · ${alreadyCount} כבר קיים · ${fullCount} תפוסות
+    </div>
+    <div style="margin-bottom:8px;display:flex;gap:8px">
+      <button class="btn btn-secondary btn-sm" onclick="document.querySelectorAll('#bulkAddAttrModal .bulk-attr-cb:not(:disabled)').forEach(c=>c.checked=true)">סמן הכל</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.querySelectorAll('#bulkAddAttrModal .bulk-attr-cb').forEach(c=>c.checked=false)">נקה</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:8px">${rowsHtml}</div>
+    <div class="modal-footer" style="margin-top:12px">
+      <button class="btn btn-secondary" onclick="closeModal('bulkAddAttrModal')">ביטול</button>
+      <button class="btn btn-success" onclick="applyBulkAddAttr('${h(attrName)}')">✓ שבץ</button>
+    </div>
+  </div>`;
+}
+function applyBulkAddAttr(attrName) {
+  const td = getTD(); if(!td) return;
+  const selected = [...document.querySelectorAll('#bulkAddAttrModal .bulk-attr-cb:checked')]
+    .map(cb => parseInt(cb.dataset.idx))
+    .filter(i => !isNaN(i));
+  if(!selected.length) { showToast('לא נבחרו קהילות','warn'); return; }
+  pushU(snap());
+  let placed23 = 0, placed26 = 0, skipped = 0;
+  selected.forEach(i => {
+    const r = td.mainTable[i]; if(!r) return;
+    if(r.f23 === attrName || r.f26 === attrName) { skipped++; return; }
+    if(!r.f23) { r.f23 = attrName; placed23++; }
+    else if(!r.f26) { r.f26 = attrName; placed26++; }
+    else skipped++;
+  });
+  save(); render();
+  closeModal('bulkAddAttrModal');
+  showToast(`שובצה ב-${placed23+placed26} קהילות (${placed23} בסלוט 1, ${placed26} בסלוט 2)${skipped?' · דילג על '+skipped:''} ✓`);
+}
+
+function rebuildEditBody() {
+  const td = getTD(); if(!td||!editRowData) return;
+  const row = editRowData;
+  const sections = [
+    { title:'👥 פרטי קהילה וכמויות', fields:['f1','f2','f3','f4','f5','f6','f7','f8','f9','f10'] },
+    { title:'📅 תאריכים, שעות ואוטובוסים', fields:['f13','f14','f15','f11','f12','f34','f30','f10','f31','f36','f29'] },
+    { title:'👤 אחראים', fields:['f16','f17'] },
+    { title:'🥾 מסלולים ואתרים', fields:['f18','f19','f20','f21','f22'] },
+    { title:'🎡 אטרקציות', fields:['f23','f32','f24','f25','f26','f33','f27','f28','f35'] },
+  ];
+  let html = `<div style="margin-bottom:10px;display:flex;justify-content:flex-start">
+    <button class="btn btn-secondary btn-sm" onclick="openDuplicateFromCommunity()">📋 שכפל טיול מקהילה אחרת</button>
+  </div>`;
+  sections.forEach(sec => {
+    html += `<div class="form-section"><div class="form-section-title">${sec.title}</div><div class="form-grid">`;
+    sec.fields.forEach(fid => { const fdef = MT_FIELDS.find(f=>f.id===fid); if(fdef) html += renderEditField(fdef, row, td); });
+    html += '</div></div>';
+  });
+  document.getElementById('editModalBody').innerHTML = html;
+  refreshCalcs();
 }
 
 function renderEditField(fdef, row, td) {
@@ -2778,8 +2965,15 @@ async function openTripFolder(communityName) {
   attractions.forEach(attr => {
     const r4 = (td.lists.list4||[]).find(r=>r[0]===attr);
     if(r4) {
-      // חוזרי מנכ"ל 1+2 (cols 11,12) → מאגר3/חוזרי-מנכל
-      [r4[11],r4[12]].filter(Boolean).forEach(fname =>
+      // אם לאטרקציה יש קטגוריה — הערכים שלה מנצחים את ערכי האטרקציה עצמה
+      const catName = r4[15];
+      const cat = catName ? (td.lists.list10||[]).find(r=>r[0]===catName) : null;
+      // ניהול סיכונים — רק מהקטגוריה
+      if(cat?.[1]) filesToFind.push({archive:'מאגר3/ניהול-סיכונים', search:[cat[1]]});
+      // חוזרי מנכ"ל 1+2 — קטגוריה אם יש, אחרת של האטרקציה
+      const circ1 = cat?.[2] || r4[11];
+      const circ2 = cat?.[3] || r4[12];
+      [circ1, circ2].filter(Boolean).forEach(fname =>
         filesToFind.push({archive:'מאגר3/חוזרי-מנכל', search:[fname]})
       );
       // מפות (col 13) → מאגר3/מפות
