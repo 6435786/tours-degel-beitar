@@ -607,13 +607,13 @@ const LIST_DEFS = {
   list1:{name:'קהילות',fields:['שם קהילה','כתובת']},
   list2:{name:'מסלולים',fields:['שם מסלול','פירוט מספרי מסלולים להזנה','שם קליט','משך זמן משוער','ניהול סיכונים','מפות','קישור וויז']},
   list3:{name:'אתרים',fields:['שם אתר','פירוט להזנה ממשרד החינוך','שם קליט','קישור וויז']},
-  list4:{name:'אטרקציות',fields:['שם אטרקציה מלא','פרטים להזנה משרד החינוך','מיקום בארץ','קישור וויז','משך זמן פעילות','מחיר','כמות למחיר','מינימום כמות','מקסימום משתתפים','תמחור לפי','שומר שבת','חוזר מנכ"ל 1','חוזר מנכ"ל 2','מפות','ספק','קטגוריה']},
+  list4:{name:'אטרקציות',fields:['שם אטרקציה מלא','פרטים להזנה משרד החינוך','מיקום בארץ','קישור וויז','משך זמן פעילות','ניהול סיכונים','מפות','מחיר','כמות למחיר','מינימום כמות','מקסימום משתתפים','תמחור לפי','שומר שבת','ספק']},
   list5:{name:'שמות טבלאות ראשיות',fields:['שם טבלה']},
   list6:{name:'אנשי קשר',fields:['שם מאוחד','שם משפחה','שם פרטי','ת.ז.','טלפון','מייל','קהילה','תפקיד']},
   list7:{name:'משתתפים',fields:['שם משפחה','שם פרטי','ת.ז.','טלפון','קהילה']},
   list8:{name:'מחירון אוטובוסים',fields:['סוג','מחיר בסיס','כמות שעות לבסיס','מחיר לשעה נוספת','כביש-6 צד אחד','כביש-6 2 צדדים']},
   list9:{name:'מסמכים כלליים',fields:['שם מסמך']},
-  list10:{name:'קטגוריות פעילות',fields:['שם הקטגוריה','ניהול סיכונים','חוזר מנכ"ל 1','חוזר מנכ"ל 2']},
+  list10:{name:'מאגר אטרקציות',fields:['שם האטרקציה','חוזר מנכ"ל','מסמך נוסף']},
 };
 const LIST_KEYS = Object.keys(LIST_DEFS);
 
@@ -734,6 +734,64 @@ let saveTimeout = null;
 
 function emptyTrip() { const l={}; LIST_KEYS.forEach(k=>l[k]=[]); return {lists:l,mainTable:[]}; }
 function getTD() { return activeTrip && state.trips[activeTrip] ? state.trips[activeTrip] : null; }
+
+// ── MIGRATIONS (one-time per trip, idempotent via flag) ──
+function migrateList4(td) {
+  if(!td || td._list4_v2) return;
+  if(!Array.isArray(td.lists?.list4)) return;
+  // OLD (16 cols): [שם, פרטים, מיקום, וויז, משך, מחיר(5), כמות למחיר(6), מינימום(7), מקסימום(8), תמחור לפי(9), שומר שבת(10), חוזר מנכ"ל 1(11), חוזר מנכ"ל 2(12), מפות(13), ספק(14), קטגוריה(15)]
+  // NEW (14 cols): [שם, פרטים, מיקום, וויז, משך, ניהול סיכונים(5), מפות(6), מחיר(7), כמות למחיר(8), מינימום(9), מקסימום(10), תמחור לפי(11), שומר שבת(12), ספק(13)]
+  td.lists.list4 = td.lists.list4.map(r => {
+    const a = Array.isArray(r) ? r : [];
+    return [
+      a[0]||'', a[1]||'', a[2]||'', a[3]||'', a[4]||'',
+      '',               // 5: ניהול סיכונים (חדש, ריק)
+      a[13]||'',        // 6: מפות (היה 13)
+      a[5]||'', a[6]||'', a[7]||'', a[8]||'', a[9]||'', a[10]||'',
+      a[14]||''         // 13: ספק (היה 14)
+    ];
+  });
+  td._list4_v2 = true;
+}
+function migrateList10(td) {
+  if(!td || td._list10_v2) return;
+  if(!Array.isArray(td.lists?.list10)) { td._list10_v2 = true; return; }
+  // OLD (4 cols): [שם קטגוריה, ניהול סיכונים, חוזר מנכ"ל 1, חוזר מנכ"ל 2]
+  // NEW (3 cols): [שם האטרקציה, חוזר מנכ"ל, מסמך נוסף]
+  td.lists.list10 = td.lists.list10.map(r => {
+    const a = Array.isArray(r) ? r : [];
+    return [a[0]||'', a[2]||'', '']; // בחירה בחוזר מנכ"ל 1 הישן כ'חוזר מנכ"ל' החדש
+  });
+  td._list10_v2 = true;
+}
+function migrateAllTrips() {
+  if(!state?.trips) return;
+  Object.values(state.trips).forEach(td => { migrateList4(td); migrateList10(td); });
+}
+
+// התאמה חכמה בין שם אטרקציה ברשימה 4 לרשומה ב'מאגר אטרקציות' (list10).
+// עובד גם אם השמות לא תואמים בדיוק: נרמול מרכאות/רווחים, ואז includes דו-כיווני.
+function _norm(s){ return String(s||'').replace(/["'״׳]/g,'').replace(/\s+/g,' ').trim().toLowerCase(); }
+function findAttrMatch(td, attrName) {
+  const list = td?.lists?.list10 || [];
+  if(!attrName || !list.length) return null;
+  const target = _norm(attrName);
+  if(!target) return null;
+  // 1) exact (after normalization)
+  let hit = list.find(r => _norm(r[0]) === target);
+  if(hit) return hit;
+  // 2) two-way includes — target contains rec name, OR rec name contains target
+  hit = list.find(r => { const n = _norm(r[0]); return n && (target.includes(n) || n.includes(target)); });
+  if(hit) return hit;
+  // 3) token overlap — רוב המילים במאגר נמצאות בשם האטרקציה
+  hit = list.find(r => {
+    const toks = _norm(r[0]).split(/\s+/).filter(t => t.length >= 2);
+    if(!toks.length) return false;
+    const found = toks.filter(t => target.includes(t)).length;
+    return found >= Math.ceil(toks.length * 0.6);
+  });
+  return hit || null;
+}
 function snap() { return JSON.stringify(state.trips); }
 
 // Debounced save to Firestore
@@ -790,6 +848,7 @@ async function loadFromFirestore() {
       const parsed = JSON.parse(raw.data || '{}');
       state.trips = parsed.trips || {};
       state.global = parsed.global || {settings:{}};
+      migrateAllTrips();
       // Try Firestore activeTrip first, then localStorage backup
       const lastActive = localStorage.getItem('lastActiveTrip');
       const firestoreActive = parsed.activeTrip || null;
@@ -2248,10 +2307,10 @@ function parseBuses(busStr) {
 function calcSingleAttrPrice(attrName, pax, td) {
   const attr=(td.lists.list4||[]).find(r=>r[0]===attrName);
   if(!attr||!pax) return 0;
-  const price      = parseFloat(attr[5])||0;  // מחיר
-  const perCount   = parseFloat(attr[6])||1;  // כמות למחיר
-  const minimum    = parseFloat(attr[7])||0;  // מינימום כמות
-  const billingUnit= parseFloat(attr[9])||1;  // תמחור לפי
+  const price      = parseFloat(attr[7])||0;   // מחיר
+  const perCount   = parseFloat(attr[8])||1;   // כמות למחיר
+  const minimum    = parseFloat(attr[9])||0;   // מינימום כמות
+  const billingUnit= parseFloat(attr[11])||1;  // תמחור לפי
   if(!price) return 0;
   const pricePerPerson = price / perCount;
   const effectivePax   = Math.max(pax, minimum);
@@ -2490,10 +2549,10 @@ function buildReport4(td) {
   function calcAttrPrice(attrName, pax) {
     const attr = (td.lists.list4||[]).find(r=>r[0]===attrName);
     if(!attr) return '';
-    const price      = parseFloat(attr[5])||0;  // מחיר
-    const perCount   = parseFloat(attr[6])||1;  // כמות למחיר
-    const minimum    = parseFloat(attr[7])||0;  // מינימום כמות
-    const billingUnit= parseFloat(attr[9])||1;  // תמחור לפי
+    const price      = parseFloat(attr[7])||0;   // מחיר
+    const perCount   = parseFloat(attr[8])||1;   // כמות למחיר
+    const minimum    = parseFloat(attr[9])||0;   // מינימום כמות
+    const billingUnit= parseFloat(attr[11])||1;  // תמחור לפי
     if(!price||!pax) return '';
     const pricePerPerson = price / perCount;
     // החל מינימום
@@ -2511,7 +2570,7 @@ function buildReport4(td) {
     const paxUsed = paxActual||total;
     const attrName = row[attrField]||'';
     const attr = (td.lists.list4||[]).find(r=>r[0]===attrName);
-    const supplier = attr?attr[14]||'':'';
+    const supplier = attr?attr[13]||'':'';
     const price = calcAttrPrice(attrName, paxUsed);
     return `<tr>
       <td>${h(communityWithAttached(row))}</td>
@@ -2534,7 +2593,7 @@ function buildReport4(td) {
     const attrName = row[attrField]||'';
     const attr = (td.lists.list4||[]).find(r=>r[0]===attrName);
     if(!attr) return;
-    const supplier = attr[14]||'לא ידוע';
+    const supplier = attr[13]||'לא ידוע';
     const price = parseFloat(calcAttrPrice(attrName,paxUsed))||0;
     supplierTotals[supplier] = (supplierTotals[supplier]||0)+price;
   });
@@ -2965,19 +3024,16 @@ async function openTripFolder(communityName) {
   attractions.forEach(attr => {
     const r4 = (td.lists.list4||[]).find(r=>r[0]===attr);
     if(r4) {
-      // אם לאטרקציה יש קטגוריה — הערכים שלה מנצחים את ערכי האטרקציה עצמה
-      const catName = r4[15];
-      const cat = catName ? (td.lists.list10||[]).find(r=>r[0]===catName) : null;
-      // ניהול סיכונים — רק מהקטגוריה
-      if(cat?.[1]) filesToFind.push({archive:'מאגר3/ניהול-סיכונים', search:[cat[1]]});
-      // חוזרי מנכ"ל 1+2 — קטגוריה אם יש, אחרת של האטרקציה
-      const circ1 = cat?.[2] || r4[11];
-      const circ2 = cat?.[3] || r4[12];
-      [circ1, circ2].filter(Boolean).forEach(fname =>
-        filesToFind.push({archive:'מאגר3/חוזרי-מנכל', search:[fname]})
-      );
-      // מפות (col 13) → מאגר3/מפות
-      if(r4[13]) filesToFind.push({archive:'מאגר3/מפות', search:[r4[13]]});
+      // ניהול סיכונים — ישירות מעמודת האטרקציה (col 5)
+      if(r4[5]) filesToFind.push({archive:'מאגר3/ניהול-סיכונים', search:[r4[5]]});
+      // מפות (col 6) → מאגר3/מפות
+      if(r4[6]) filesToFind.push({archive:'מאגר3/מפות', search:[r4[6]]});
+      // חוזר מנכ"ל ומסמך נוסף — ממאגר אטרקציות (list10) עם התאמה חכמה לשם
+      const mRec = findAttrMatch(td, attr);
+      if(mRec) {
+        if(mRec[1]) filesToFind.push({archive:'מאגר3/חוזרי-מנכל', search:[mRec[1]]});
+        if(mRec[2]) filesToFind.push({archive:'מאגר3/חוזרי-מנכל', search:[mRec[2]]});
+      }
     }
   });
 
@@ -3816,6 +3872,7 @@ async function initApp() {
             if(r) {
               const p = JSON.parse(r);
               state.trips = p.trips||{}; state.global = p.global||{settings:{}}; state.activeTrip = p.activeTrip||null; activeTrip = state.activeTrip;
+              migrateAllTrips();
               await saveToFirestore();
               showToast('הנתונים הועברו לענן ✓');
             }
