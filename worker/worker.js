@@ -20,6 +20,20 @@ export default {
         const data = await req.text();
         return await handleMirror({ data }, env);
       }
+      if (action === '/short') {
+        const u = (await req.text()).trim();
+        if (!u) return err('No URL', 400);
+        try {
+          const r = await fetch(`https://is.gd/create.php?format=simple&url=${encodeURIComponent(u)}`);
+          const t = (await r.text()).trim();
+          if (/^https?:\/\/is\.gd\//.test(t)) return ok({ short: t });
+          // Fallback to v.gd
+          const r2 = await fetch(`https://v.gd/create.php?format=simple&url=${encodeURIComponent(u)}`);
+          const t2 = (await r2.text()).trim();
+          if (/^https?:\/\/v\.gd\//.test(t2)) return ok({ short: t2 });
+          return err('shorten failed: ' + (t || t2).slice(0,200));
+        } catch(e) { return err(e.message); }
+      }
       const body = await req.json();
       if (action === '/email')  return await handleEmail(body, env);
       if (action === '/delete') return await handleDelete(body, env);
