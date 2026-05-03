@@ -711,12 +711,24 @@ function collectWazeEntriesForCommunity(communityName) {
 }
 // Render a PNG data-URL QR code for given text (uses qrcodejs CDN)
 function qrDataUrl(text, size=160) {
+  if(typeof QRCode === 'undefined') return '';
   const div = document.createElement('div');
-  new QRCode(div, { text, width:size, height:size, correctLevel: QRCode.CorrectLevel.M });
-  const img = div.querySelector('img') || div.querySelector('canvas');
-  if(img && img.tagName==='IMG') return img.src;
-  if(img && img.tagName==='CANVAS') return img.toDataURL('image/png');
-  return '';
+  div.style.cssText = 'position:absolute;left:-9999px;top:0;width:0;height:0;overflow:hidden';
+  document.body.appendChild(div);
+  let result = '';
+  try {
+    new QRCode(div, { text, width:size, height:size, correctLevel: QRCode.CorrectLevel.M });
+    const canvas = div.querySelector('canvas');
+    if(canvas) {
+      try { result = canvas.toDataURL('image/png'); } catch(e){}
+    }
+    if(!result) {
+      const img = div.querySelector('img');
+      if(img && img.src && img.src !== window.location.href) result = img.src;
+    }
+  } catch(e) { console.warn('QR generation failed:', e); }
+  finally { document.body.removeChild(div); }
+  return result;
 }
 
 const CLOUDINARY_CONFIG = {
