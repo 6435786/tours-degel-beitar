@@ -709,6 +709,88 @@ function collectWazeEntriesForCommunity(communityName) {
   tryAdd('list4', row.f26, 'אטרקציה');
   return out;
 }
+// Normalize phone to international format for wa.me
+function normalizeIsraeliPhone(phone) {
+  let p = String(phone||'').replace(/\D/g,'');
+  if(!p) return '';
+  if(p.startsWith('972')) return p;
+  if(p.startsWith('0')) return '972' + p.slice(1);
+  return p;
+}
+function openWhatsApp(phone, text) {
+  const p = normalizeIsraeliPhone(phone);
+  const base = p ? `https://wa.me/${p}` : `https://wa.me/`;
+  const url = base + '?text=' + encodeURIComponent(text);
+  window.open(url, '_blank');
+}
+// Plain-text Waze message for WhatsApp (URLs auto-linkify, *bold* supported)
+function buildWazeWhatsAppText(communityName) {
+  const entries = collectWazeEntriesForCommunity(communityName);
+  if(!entries.length) return '';
+  const lines = [`🧭 *קישורי ניווט בוויז*`, `קהילת ${communityName}`, ''];
+  entries.forEach(e => {
+    lines.push(`*${e.kind}: ${e.label}*`);
+    const isUrl = /^https?:\/\//i.test(e.input);
+    if(!isUrl) lines.push(`לכתוב בוויז: ${e.input}`);
+    lines.push(e.url);
+    lines.push('');
+  });
+  return lines.join('\n').trim();
+}
+// HTML-formatted Waze email body (clickable links)
+function buildWazeEmailHtml(communityName) {
+  const entries = collectWazeEntriesForCommunity(communityName);
+  if(!entries.length) return '';
+  const items = entries.map(e => {
+    const isUrl = /^https?:\/\//i.test(e.input);
+    const instruction = isUrl ? '' : `<div style="font-size:13px;margin-top:2px">לכתוב בוויז: <strong>${h(e.input)}</strong></div>`;
+    return `<li style="margin-bottom:14px">
+      <div style="font-size:12px;color:#1a56db;font-weight:600">${e.kind}</div>
+      <div style="font-size:15px;font-weight:700"><a href="${h(e.url)}" style="color:#0f172a;text-decoration:none">${h(e.label)}</a></div>
+      ${instruction}
+      <div style="margin-top:3px"><a href="${h(e.url)}" style="color:#1a56db">פתח בוויז ⟶</a></div>
+    </li>`;
+  }).join('');
+  return `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:14px;color:#0f172a;line-height:1.7">
+    <p>שלום וברכה,</p>
+    <p>מצורפים קישורי ניווט בוויז לטיול של קהילת <strong>${h(communityName)}</strong>:</p>
+    <ul style="padding-right:20px;list-style:none">${items}</ul>
+    <p style="font-size:12px;color:#64748b">ניתן ללחוץ על כל קישור כדי לפתוח ישירות בוויז.</p>
+  </div>`;
+}
+// Plain-text fallback for Waze email
+function buildWazePlainText(communityName) {
+  return buildWazeWhatsAppText(communityName).replace(/\*/g,'');
+}
+
+// Called from Waze popup: send Waze links by email
+window.sendWazeByEmail = async function(communityName) {
+  const td = getTD();
+  const contacts = (td?.lists?.list6 || []).filter(r => r[5]);
+  const to = await pickEmail(contacts, '');
+  if(!to) return;
+  const html = buildWazeEmailHtml(communityName);
+  if(!html) { showToast('אין קישורים לשליחה','warn'); return; }
+  const text = buildWazePlainText(communityName);
+  try {
+    showToast('שולח...', 'info');
+    const res = await fetch(ZIP_WORKER_URL + '/email', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({to, subject:`קישורי וויז — ${communityName}`, text, html})
+    });
+    if(!res.ok) throw new Error('שגיאה בשרת');
+    showToast('נשלח ✓');
+  } catch(e) { showToast('שגיאה: '+e.message,'danger'); }
+};
+
+// Called from Waze popup: open WhatsApp with prefilled text
+window.sendWazeByWhatsApp = function(communityName) {
+  const text = buildWazeWhatsAppText(communityName);
+  if(!text) { showToast('אין קישורים לשליחה','warn'); return; }
+  openWhatsApp('', text);
+};
+
 // Render a PNG data-URL QR code for given text (uses qrcodejs CDN)
 function qrDataUrl(text, size=160) {
   if(typeof QRCode === 'undefined') return '';
@@ -3100,6 +3182,7 @@ function showTripFolderModal(communityName, files) {
         <button class="btn btn-secondary" onclick="printSelectedFiles()">🖨️ הדפס נבחרים</button>
         <button class="btn btn-secondary" onclick="printWazePage(this.dataset.c)" data-c="${communityName}">🧭 דף וויז</button>
         <button class="btn btn-primary" onclick="emailSelectedFiles()">✉️ שלח במייל</button>
+        <button class="btn" style="background:#25d366;color:#fff" onclick="whatsappSelectedFiles(this.dataset.c)" data-c="${communityName}">📱 וואצאפ</button>
         <button class="btn btn-success" onclick="downloadZip(this.dataset.c)" data-c="${communityName}">📦 הורד ZIP</button>
       </div>`;
 
@@ -3357,9 +3440,25 @@ function buildWazePageHtml(communityName) {
     <h1>🧭 קישורי ניווט בוויז</h1>
     <div class="sub">קהילת ${h(communityName)}</div>
     ${items}
-    <div class="noprint" style="margin-top:20px;text-align:center">
-      <button onclick="window.print()" style="padding:10px 24px;background:#1a56db;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨️ הדפס</button>
+    <div class="noprint" style="margin-top:20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button id="btn_print_waze" style="padding:10px 24px;background:#1a56db;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨️ הדפס / שמור PDF</button>
+      <button id="btn_email_waze" style="padding:10px 24px;background:#059669;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">📧 שלח במייל</button>
+      <button id="btn_wa_waze" style="padding:10px 24px;background:#25d366;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">📱 שלח בוואצאפ</button>
     </div>
+    <script>
+      const COMM = ${JSON.stringify(communityName)};
+      document.getElementById('btn_print_waze').onclick = () => window.print();
+      const callOpener = (fnName) => {
+        if (window.opener && !window.opener.closed && window.opener[fnName]) {
+          window.opener[fnName](COMM);
+          window.opener.focus();
+        } else {
+          alert('האפליקציה הראשית נסגרה — חזור אליה ופתח שוב את דף הוויז');
+        }
+      };
+      document.getElementById('btn_email_waze').onclick = () => callOpener('sendWazeByEmail');
+      document.getElementById('btn_wa_waze').onclick = () => callOpener('sendWazeByWhatsApp');
+    </script>
   </body></html>`;
 }
 
@@ -3448,6 +3547,124 @@ function renderContactsFilter(filter) {
         <span style="color:var(--text-muted);font-size:12px;margin-right:8px">${h(r[5]||'')}</span>
       </span>
     </label>`).join('') || '<div style="color:var(--text-muted);padding:10px;text-align:center">לא נמצאו תוצאות</div>';
+}
+
+// Build trip-folder WhatsApp message: header + files + Waze links + signature
+function buildTripFolderWhatsAppText(communityName, selected) {
+  const td = getTD();
+  const row = td?.mainTable?.find(r => r.f1 === communityName);
+  const attachedLabel = row?.f8 ? ` ו${row.f8}` : '';
+  const communityLabel = `קהילת ${communityName}${attachedLabel}`;
+
+  // Format date as DD/MM/YY
+  const dateStr = row?.f13 ? (() => {
+    const d = new Date(row.f13);
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getFullYear()).slice(-2)}`;
+  })() : 'XX/XX/XX';
+  const tripNum = row?.f3 || 'XXXXXXX';
+
+  const lines = [`📁 *תיק טיול — ${communityLabel}*`, ''];
+
+  // Reminder about coordinator form
+  lines.push(`⚠️ בטופס כתב מינוי לאחראי טיול יש למלא תאריך לועזי *${dateStr}* ומס' טיול: *${tripNum}*`);
+  lines.push('');
+
+  // Files
+  if(selected.length) {
+    lines.push('📄 *מסמכים:*');
+    selected.forEach(cb => {
+      lines.push(`• ${cb.dataset.name}`);
+      lines.push(cb.dataset.url);
+    });
+    lines.push('');
+  }
+
+  // Waze links
+  const wazeEntries = collectWazeEntriesForCommunity(communityName);
+  if(wazeEntries.length) {
+    lines.push('🧭 *קישורי ניווט בוויז:*');
+    wazeEntries.forEach(e => {
+      lines.push(`• ${e.kind}: *${e.label}*`);
+      const isUrl = /^https?:\/\//i.test(e.input);
+      if(!isUrl) lines.push(`  לכתוב בוויז: ${e.input}`);
+      lines.push(`  ${e.url}`);
+    });
+    lines.push('');
+  }
+
+  lines.push(`לכל שאלה — הרב שלמה רוזנבאום, 052-7632227`);
+  return lines.join('\n');
+}
+
+function whatsappSelectedFiles(communityName) {
+  const selected = [...document.querySelectorAll('.trip-file-cb:checked')];
+  // Files optional — Waze alone is fine too. But warn if both empty:
+  const wazeCount = collectWazeEntriesForCommunity(communityName).length;
+  if(!selected.length && !wazeCount) { showToast('אין מה לשלוח','danger'); return; }
+
+  const td = getTD();
+  // Default phone: coordinator of the community
+  const row = td?.mainTable?.find(r => r.f1 === communityName);
+  const coordName = row?.f17 || '';
+  const coordContact = (td?.lists?.list6||[]).find(r=>r[0]===coordName);
+  const defaultPhone = coordContact?.[4] || '';
+
+  // Show picker for phone (similar to email picker)
+  pickWhatsAppNumber(td?.lists?.list6 || [], defaultPhone).then(phone => {
+    if(phone === null) return; // cancelled
+    const text = buildTripFolderWhatsAppText(communityName, selected);
+    openWhatsApp(phone, text);
+  });
+}
+
+// Picker UI: choose contact/phone to message
+function pickWhatsAppNumber(contacts, defaultPhone='') {
+  return new Promise(resolve => {
+    let modal = document.getElementById('waPickerModal');
+    if(!modal) {
+      modal = document.createElement('div');
+      modal.id = 'waPickerModal';
+      modal.className = 'modal-overlay';
+      document.body.appendChild(modal);
+    }
+    const validContacts = contacts.filter(r => r[4]); // has phone
+    const list = validContacts.map(r => `
+      <label class="wa-contact-row" onclick="toggleWaContact(this)" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;border:1px solid var(--border)">
+        <input type="radio" name="wa_pick" class="wa-pick-radio" value="${h(r[4]||'')}" style="width:16px;height:16px">
+        <span style="flex:1"><strong>${h(r[0]||'')}</strong>
+          <span style="color:var(--text-muted);font-size:12px;margin-right:8px;direction:ltr">${h(r[4]||'')}</span>
+        </span>
+      </label>`).join('') || '<div style="color:var(--text-muted);padding:10px;text-align:center">אין אנשי קשר עם טלפון</div>';
+
+    modal.style.display = 'flex';
+    modal.innerHTML = `<div class="modal" style="width:500px">
+      <h3>📱 שליחה בוואצאפ</h3>
+      <div style="max-height:240px;overflow-y:auto;margin-bottom:12px">${list}</div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:8px">
+        <label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px">או הזן מספר ידנית:</label>
+        <input type="text" id="waManualInput" class="form-control" placeholder="050-1234567" dir="ltr" value="${h(defaultPhone)}">
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">או השאר ריק לבחירה ב-WhatsApp עצמו</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="document.getElementById('waPickerModal').style.display='none';window._waPickResolve(null)">ביטול</button>
+        <button class="btn" style="background:#25d366;color:#fff" onclick="
+          const r=document.querySelector('.wa-pick-radio:checked');
+          const manual=document.getElementById('waManualInput').value.trim();
+          const chosen = r ? r.value : manual;
+          document.getElementById('waPickerModal').style.display='none';
+          window._waPickResolve(chosen);
+        ">📱 שלח</button>
+      </div>
+    </div>`;
+    window._waPickResolve = resolve;
+    modal.onclick = e => { if(e.target===modal){ modal.style.display='none'; resolve(null); } };
+  });
+}
+function toggleWaContact(label) {
+  const r = label.querySelector('input[type=radio]');
+  r.checked = true;
+  document.querySelectorAll('.wa-contact-row').forEach(l => l.style.background = '');
+  label.style.background = 'var(--primary-light)';
 }
 
 async function emailSelectedFiles() {
