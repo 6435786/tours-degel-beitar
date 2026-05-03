@@ -720,23 +720,27 @@ function displayFileName(f) {
   return baseName;
 }
 
-// URL shortener via is.gd (free, CORS-enabled, no API key). Caches + falls back to original.
+// URL shortener via Cloudflare Worker proxy (Netfree-safe). Caches + falls back to original.
 const _shortenCache = new Map();
 async function shortenUrl(url) {
-  if(!url || url.length < 60) return url; // short already
+  if(!url || url.length < 60) return url;
   if(_shortenCache.has(url)) return _shortenCache.get(url);
   try {
     const ctrl = new AbortController();
-    const t = setTimeout(()=>ctrl.abort(), 4000);
-    const res = await fetch(`https://is.gd/create.php?format=simple&url=${encodeURIComponent(url)}`, { signal: ctrl.signal });
+    const t = setTimeout(()=>ctrl.abort(), 6000);
+    const res = await fetch(ZIP_WORKER_URL + '/short', {
+      method: 'POST', body: url, signal: ctrl.signal
+    });
     clearTimeout(t);
-    const text = (await res.text()).trim();
-    if(/^https?:\/\/is\.gd\//.test(text)) {
-      _shortenCache.set(url, text);
-      return text;
+    if(res.ok) {
+      const data = await res.json();
+      if(data.short && /^https?:\/\//.test(data.short)) {
+        _shortenCache.set(url, data.short);
+        return data.short;
+      }
     }
   } catch(e) { /* network/timeout — fall through */ }
-  _shortenCache.set(url, url); // cache failure to avoid retries
+  _shortenCache.set(url, url);
   return url;
 }
 async function shortenMany(urls) {
@@ -3507,6 +3511,20 @@ function printWazePage(communityName) {
   w.document.open(); w.document.write(html); w.document.close();
 }
 
+// Sort + match helpers shared between email/WhatsApp pickers
+function _sortContactsAlpha(contacts) {
+  return [...contacts].sort((a,b) => String(a[0]||'').localeCompare(String(b[0]||''),'he'));
+}
+function _contactMatches(r, q) {
+  if(!q) return true;
+  const ql = q.toLowerCase();
+  // Search across all fields (col 0-7): שם מאוחד / משפחה / פרטי / ת.ז. / טלפון / מייל / קהילה / תפקיד
+  for(let i=0;i<8;i++) {
+    if(String(r[i]||'').toLowerCase().includes(ql)) return true;
+  }
+  return false;
+}
+
 function pickEmail(contacts, defaultEmail='') {
   return new Promise(resolve => {
     let modal = document.getElementById('emailPickerModal');
@@ -3517,13 +3535,14 @@ function pickEmail(contacts, defaultEmail='') {
       document.body.appendChild(modal);
     }
 
+    const sorted = _sortContactsAlpha(contacts.filter(r => r[5]));
+    window._emailContacts = sorted;
+
     const renderContacts = (filter='') => {
-      const filtered = contacts.filter(r => 
-        !filter || (r[0]||'').includes(filter) || (r[5]||'').includes(filter)
-      );
+      const filtered = sorted.filter(r => _contactMatches(r, filter));
       return filtered.map(r => `
         <label class="email-contact-row" onclick="toggleEmailContact(this)" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;border:1px solid var(--border)">
-          <input type="checkbox" class="email-pick-cb" value="${r[5]||''}" style="width:16px;height:16px;cursor:pointer">
+          <input type="checkbox" class="email-pick-cb" value="${h(r[5]||'')}" style="width:16px;height:16px;cursor:pointer">
           <span style="flex:1">
             <strong>${h(r[0]||'')}</strong>
             <span style="color:var(--text-muted);font-size:12px;margin-right:8px">${h(r[5]||'')}</span>
@@ -3534,16 +3553,16 @@ function pickEmail(contacts, defaultEmail='') {
     modal.style.display = 'flex';
     modal.innerHTML = `<div class="modal" style="width:500px">
       <h3>✉️ שליחת מייל</h3>
-      ${contacts.length ? `
-        <input type="text" id="emailSearchInput" class="form-control" placeholder="🔍 חיפוש לפי שם או מייל..." dir="rtl" 
+      ${sorted.length ? `
+        <input type="text" id="emailSearchInput" class="form-control" placeholder="🔍 חיפוש: שם / טלפון / מייל / קהילה / תפקיד..." dir="rtl"
           oninput="document.getElementById('emailContactList').innerHTML=renderContactsFilter(this.value)"
           style="margin-bottom:10px">
-        <div id="emailContactList" style="max-height:240px;overflow-y:auto;margin-bottom:12px">
+        <div id="emailContactList" style="max-height:280px;overflow-y:auto;margin-bottom:12px">
           ${renderContacts()}
         </div>` : ''}
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:8px">
         <label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px">הזן מייל ידנית (אפשר כמה, מופרדים בפסיק):</label>
-        <input type="text" id="emailManualInput" class="form-control" placeholder="email@example.com, email2@example.com" dir="ltr" value="${defaultEmail}">
+        <input type="text" id="emailManualInput" class="form-control" placeholder="email@example.com, email2@example.com" dir="ltr" value="${h(defaultEmail)}">
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="document.getElementById('emailPickerModal').style.display='none';window._emailPickResolve(null)">ביטול</button>
@@ -3557,10 +3576,9 @@ function pickEmail(contacts, defaultEmail='') {
       </div>
     </div>`;
 
-    // Store contacts for search
-    window._emailContacts = contacts;
     window._emailPickResolve = resolve;
     modal.onclick = e => { if(e.target===modal){ modal.style.display='none'; resolve(null); } };
+    setTimeout(()=>{ const s=document.getElementById('emailSearchInput'); if(s) s.focus(); }, 50);
   });
 }
 
@@ -3573,9 +3591,7 @@ function toggleEmailContact(label) {
 
 function renderContactsFilter(filter) {
   const contacts = window._emailContacts || [];
-  const filtered = contacts.filter(r => 
-    !filter || (r[0]||'').includes(filter) || (r[5]||'').includes(filter)
-  );
+  const filtered = contacts.filter(r => _contactMatches(r, filter));
   return filtered.map(r => `
     <label class="email-contact-row" onclick="toggleEmailContact(this)" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;border:1px solid var(--border)">
       <input type="checkbox" class="email-pick-cb" value="${h(r[5]||'')}" style="width:16px;height:16px;cursor:pointer">
@@ -3665,19 +3681,28 @@ function pickWhatsAppNumber(contacts, defaultPhone='') {
       modal.className = 'modal-overlay';
       document.body.appendChild(modal);
     }
-    const validContacts = contacts.filter(r => r[4]); // has phone
-    const list = validContacts.map(r => `
-      <label class="wa-contact-row" onclick="toggleWaContact(this)" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;border:1px solid var(--border)">
-        <input type="radio" name="wa_pick" class="wa-pick-radio" value="${h(r[4]||'')}" style="width:16px;height:16px">
-        <span style="flex:1"><strong>${h(r[0]||'')}</strong>
-          <span style="color:var(--text-muted);font-size:12px;margin-right:8px;direction:ltr">${h(r[4]||'')}</span>
-        </span>
-      </label>`).join('') || '<div style="color:var(--text-muted);padding:10px;text-align:center">אין אנשי קשר עם טלפון</div>';
+    const sorted = _sortContactsAlpha(contacts.filter(r => r[4]));
+    window._waContacts = sorted;
+
+    const renderList = (filter='') => {
+      const filtered = sorted.filter(r => _contactMatches(r, filter));
+      return filtered.map(r => `
+        <label class="wa-contact-row" onclick="toggleWaContact(this)" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;border:1px solid var(--border)">
+          <input type="radio" name="wa_pick" class="wa-pick-radio" value="${h(r[4]||'')}" style="width:16px;height:16px">
+          <span style="flex:1"><strong>${h(r[0]||'')}</strong>
+            <span style="color:var(--text-muted);font-size:12px;margin-right:8px;direction:ltr">${h(r[4]||'')}</span>
+          </span>
+        </label>`).join('') || '<div style="color:var(--text-muted);padding:10px;text-align:center">לא נמצאו תוצאות</div>';
+    };
 
     modal.style.display = 'flex';
     modal.innerHTML = `<div class="modal" style="width:500px">
       <h3>📱 שליחה בוואצאפ</h3>
-      <div style="max-height:240px;overflow-y:auto;margin-bottom:12px">${list}</div>
+      ${sorted.length ? `
+        <input type="text" id="waSearchInput" class="form-control" placeholder="🔍 חיפוש: שם / טלפון / מייל / קהילה / תפקיד..." dir="rtl"
+          oninput="document.getElementById('waContactList').innerHTML=renderWaContactsFilter(this.value)"
+          style="margin-bottom:10px">
+        <div id="waContactList" style="max-height:280px;overflow-y:auto;margin-bottom:12px">${renderList()}</div>` : ''}
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:8px">
         <label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px">או הזן מספר ידנית:</label>
         <input type="text" id="waManualInput" class="form-control" placeholder="050-1234567" dir="ltr" value="${h(defaultPhone)}">
@@ -3696,7 +3721,19 @@ function pickWhatsAppNumber(contacts, defaultPhone='') {
     </div>`;
     window._waPickResolve = resolve;
     modal.onclick = e => { if(e.target===modal){ modal.style.display='none'; resolve(null); } };
+    setTimeout(()=>{ const s=document.getElementById('waSearchInput'); if(s) s.focus(); }, 50);
   });
+}
+function renderWaContactsFilter(filter) {
+  const contacts = window._waContacts || [];
+  const filtered = contacts.filter(r => _contactMatches(r, filter));
+  return filtered.map(r => `
+    <label class="wa-contact-row" onclick="toggleWaContact(this)" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;border:1px solid var(--border)">
+      <input type="radio" name="wa_pick" class="wa-pick-radio" value="${h(r[4]||'')}" style="width:16px;height:16px">
+      <span style="flex:1"><strong>${h(r[0]||'')}</strong>
+        <span style="color:var(--text-muted);font-size:12px;margin-right:8px;direction:ltr">${h(r[4]||'')}</span>
+      </span>
+    </label>`).join('') || '<div style="color:var(--text-muted);padding:10px;text-align:center">לא נמצאו תוצאות</div>';
 }
 function toggleWaContact(label) {
   const r = label.querySelector('input[type=radio]');
