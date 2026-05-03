@@ -709,6 +709,40 @@ function collectWazeEntriesForCommunity(communityName) {
   tryAdd('list4', row.f26, 'אטרקציה');
   return out;
 }
+// Pretty file display name — adds "אישור טיול:" prefix when the file is a trip-approval doc
+function displayFileName(f) {
+  const baseName = (f.public_id || '').split('/').pop();
+  const noExt = baseName.replace(/\.(pdf|jpe?g|png|docx?|xlsx?)$/i, '');
+  // Trip-approval files live in מאגר1 and are named purely as digits
+  if(f.archive && f.archive.includes('מאגר1') && /^\d+$/.test(noExt)) {
+    return `אישור טיול: ${noExt}`;
+  }
+  return baseName;
+}
+
+// URL shortener via is.gd (free, CORS-enabled, no API key). Caches + falls back to original.
+const _shortenCache = new Map();
+async function shortenUrl(url) {
+  if(!url || url.length < 60) return url; // short already
+  if(_shortenCache.has(url)) return _shortenCache.get(url);
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), 4000);
+    const res = await fetch(`https://is.gd/create.php?format=simple&url=${encodeURIComponent(url)}`, { signal: ctrl.signal });
+    clearTimeout(t);
+    const text = (await res.text()).trim();
+    if(/^https?:\/\/is\.gd\//.test(text)) {
+      _shortenCache.set(url, text);
+      return text;
+    }
+  } catch(e) { /* network/timeout — fall through */ }
+  _shortenCache.set(url, url); // cache failure to avoid retries
+  return url;
+}
+async function shortenMany(urls) {
+  return Promise.all(urls.map(shortenUrl));
+}
+
 // Normalize phone to international format for wa.me
 function normalizeIsraeliPhone(phone) {
   let p = String(phone||'').replace(/\D/g,'');
@@ -724,15 +758,16 @@ function openWhatsApp(phone, text) {
   window.open(url, '_blank');
 }
 // Plain-text Waze message for WhatsApp (URLs auto-linkify, *bold* supported)
-function buildWazeWhatsAppText(communityName) {
+async function buildWazeWhatsAppText(communityName) {
   const entries = collectWazeEntriesForCommunity(communityName);
   if(!entries.length) return '';
+  const shortUrls = await shortenMany(entries.map(e => e.url));
   const lines = [`🧭 *קישורי ניווט בוויז*`, `קהילת ${communityName}`, ''];
-  entries.forEach(e => {
+  entries.forEach((e, i) => {
     lines.push(`*${e.kind}: ${e.label}*`);
     const isUrl = /^https?:\/\//i.test(e.input);
     if(!isUrl) lines.push(`לכתוב בוויז: ${e.input}`);
-    lines.push(e.url);
+    lines.push(shortUrls[i] || e.url);
     lines.push('');
   });
   return lines.join('\n').trim();
@@ -759,8 +794,9 @@ function buildWazeEmailHtml(communityName) {
   </div>`;
 }
 // Plain-text fallback for Waze email
-function buildWazePlainText(communityName) {
-  return buildWazeWhatsAppText(communityName).replace(/\*/g,'');
+async function buildWazePlainText(communityName) {
+  const t = await buildWazeWhatsAppText(communityName);
+  return t.replace(/\*/g,'');
 }
 
 // Called from Waze popup: send Waze links by email
@@ -771,7 +807,7 @@ window.sendWazeByEmail = async function(communityName) {
   if(!to) return;
   const html = buildWazeEmailHtml(communityName);
   if(!html) { showToast('אין קישורים לשליחה','warn'); return; }
-  const text = buildWazePlainText(communityName);
+  const text = await buildWazePlainText(communityName);
   try {
     showToast('שולח...', 'info');
     const res = await fetch(ZIP_WORKER_URL + '/email', {
@@ -785,8 +821,9 @@ window.sendWazeByEmail = async function(communityName) {
 };
 
 // Called from Waze popup: open WhatsApp with prefilled text
-window.sendWazeByWhatsApp = function(communityName) {
-  const text = buildWazeWhatsAppText(communityName);
+window.sendWazeByWhatsApp = async function(communityName) {
+  showToast('מקצר קישורים...', 'info');
+  const text = await buildWazeWhatsAppText(communityName);
   if(!text) { showToast('אין קישורים לשליחה','warn'); return; }
   openWhatsApp('', text);
 };
@@ -3169,10 +3206,10 @@ function showTripFolderModal(communityName, files) {
           <th>שם קובץ</th><th>מאגר</th><th>פעולות</th>
         </tr></thead>
         <tbody>${files.map((f,i) => {
-          const name = f.public_id.split('/').pop();
+          const name = displayFileName(f);
           return `<tr>
-            <td class="cell-checkbox"><input type="checkbox" class="trip-file-cb" data-url="${f.secure_url}" data-name="${name}" checked></td>
-            <td><a href="${f.secure_url}" target="_blank" style="color:var(--primary)">${name}</a></td>
+            <td class="cell-checkbox"><input type="checkbox" class="trip-file-cb" data-url="${f.secure_url}" data-name="${h(name)}" checked></td>
+            <td><a href="${f.secure_url}" target="_blank" style="color:var(--primary)">${h(name)}</a></td>
             <td style="font-size:11px;color:var(--text-muted)">${f.archive}</td>
             <td><a href="${f.secure_url}" target="_blank" class="btn btn-secondary btn-sm">👁 פתח</a></td>
           </tr>`;
@@ -3550,7 +3587,7 @@ function renderContactsFilter(filter) {
 }
 
 // Build trip-folder WhatsApp message: header + files + Waze links + signature
-function buildTripFolderWhatsAppText(communityName, selected) {
+async function buildTripFolderWhatsAppText(communityName, selected) {
   const td = getTD();
   const row = td?.mainTable?.find(r => r.f1 === communityName);
   const attachedLabel = row?.f8 ? ` ו${row.f8}` : '';
@@ -3563,31 +3600,35 @@ function buildTripFolderWhatsAppText(communityName, selected) {
   })() : 'XX/XX/XX';
   const tripNum = row?.f3 || 'XXXXXXX';
 
-  const lines = [`📁 *תיק טיול — ${communityLabel}*`, ''];
+  // Pre-shorten all URLs in parallel (files + Waze)
+  const wazeEntries = collectWazeEntriesForCommunity(communityName);
+  const fileUrls = selected.map(cb => cb.dataset.url);
+  const wazeUrls = wazeEntries.map(e => e.url);
+  const [fileShort, wazeShort] = await Promise.all([
+    shortenMany(fileUrls),
+    shortenMany(wazeUrls)
+  ]);
 
-  // Reminder about coordinator form
+  const lines = [`📁 *תיק טיול — ${communityLabel}*`, ''];
   lines.push(`⚠️ בטופס כתב מינוי לאחראי טיול יש למלא תאריך לועזי *${dateStr}* ומס' טיול: *${tripNum}*`);
   lines.push('');
 
-  // Files
   if(selected.length) {
     lines.push('📄 *מסמכים:*');
-    selected.forEach(cb => {
+    selected.forEach((cb, i) => {
       lines.push(`• ${cb.dataset.name}`);
-      lines.push(cb.dataset.url);
+      lines.push(fileShort[i] || cb.dataset.url);
     });
     lines.push('');
   }
 
-  // Waze links
-  const wazeEntries = collectWazeEntriesForCommunity(communityName);
   if(wazeEntries.length) {
     lines.push('🧭 *קישורי ניווט בוויז:*');
-    wazeEntries.forEach(e => {
+    wazeEntries.forEach((e, i) => {
       lines.push(`• ${e.kind}: *${e.label}*`);
       const isUrl = /^https?:\/\//i.test(e.input);
       if(!isUrl) lines.push(`  לכתוב בוויז: ${e.input}`);
-      lines.push(`  ${e.url}`);
+      lines.push(`  ${wazeShort[i] || e.url}`);
     });
     lines.push('');
   }
@@ -3596,25 +3637,22 @@ function buildTripFolderWhatsAppText(communityName, selected) {
   return lines.join('\n');
 }
 
-function whatsappSelectedFiles(communityName) {
+async function whatsappSelectedFiles(communityName) {
   const selected = [...document.querySelectorAll('.trip-file-cb:checked')];
-  // Files optional — Waze alone is fine too. But warn if both empty:
   const wazeCount = collectWazeEntriesForCommunity(communityName).length;
   if(!selected.length && !wazeCount) { showToast('אין מה לשלוח','danger'); return; }
 
   const td = getTD();
-  // Default phone: coordinator of the community
   const row = td?.mainTable?.find(r => r.f1 === communityName);
   const coordName = row?.f17 || '';
   const coordContact = (td?.lists?.list6||[]).find(r=>r[0]===coordName);
   const defaultPhone = coordContact?.[4] || '';
 
-  // Show picker for phone (similar to email picker)
-  pickWhatsAppNumber(td?.lists?.list6 || [], defaultPhone).then(phone => {
-    if(phone === null) return; // cancelled
-    const text = buildTripFolderWhatsAppText(communityName, selected);
-    openWhatsApp(phone, text);
-  });
+  const phone = await pickWhatsAppNumber(td?.lists?.list6 || [], defaultPhone);
+  if(phone === null) return;
+  showToast('מקצר קישורים...', 'info');
+  const text = await buildTripFolderWhatsAppText(communityName, selected);
+  openWhatsApp(phone, text);
 }
 
 // Picker UI: choose contact/phone to message
