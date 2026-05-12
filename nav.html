@@ -107,6 +107,16 @@ body{overflow-x:hidden}
 
 .gps-accuracy{font-size:10.5px;color:var(--text-muted);text-align:center;margin-top:4px;min-height:14px}
 
+/* User location (live tracking) */
+.user-location-marker{background:none!important;border:none!important}
+.user-arrow-wrap{width:40px;height:40px;position:relative;transition:transform .18s ease-out}
+.user-arrow-cone{position:absolute;top:-2px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:22px solid rgba(26,86,219,.55);filter:drop-shadow(0 1px 2px rgba(0,0,0,.15))}
+.user-arrow-dot{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:16px;height:16px;background:#1a56db;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.leaflet-control-tracking{background:#fff;border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,.4);width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;user-select:none;border:none}
+.leaflet-control-tracking.active{background:var(--primary);color:#fff}
+.leaflet-control-tracking:hover{background:var(--surface2)}
+.leaflet-control-tracking.active:hover{background:var(--primary-dark)}
+
 /* QR Scanner Modal */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:3000;padding:12px}
 .modal.show{display:flex}
@@ -517,6 +527,18 @@ function initMap() {
   layers['לוויין'].addTo(leafletMap);
   L.control.layers(null, layers, { collapsed: false, position: 'topleft' }).addTo(leafletMap);
 
+  const trackControl = L.control({ position: 'bottomleft' });
+  trackControl.onAdd = function() {
+    const div = L.DomUtil.create('div', 'leaflet-control-tracking');
+    div.id = 'trackingControl';
+    div.innerHTML = '🎯';
+    div.title = 'הצג את המיקום שלי';
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.on(div, 'click', toggleTracking);
+    return div;
+  };
+  trackControl.addTo(leafletMap);
+
   leafletMap.on('click', (e) => {
     const { lat, lng } = e.latlng;
     suppressMapMove = true;
@@ -540,6 +562,106 @@ function updateMapMarker(lat, lon) {
   if (!suppressMapMove) {
     leafletMap.setView([lat, lon], Math.max(leafletMap.getZoom(), 14));
   }
+}
+
+// === LIVE TRACKING (location + compass) ===
+let watchId = null;
+let userLocationMarker = null;
+let userAccuracyCircle = null;
+let currentHeading = null;
+let orientationListenerActive = false;
+let firstFix = true;
+
+async function toggleTracking() {
+  if (watchId !== null) { stopTracking(); return; }
+  await startTracking();
+}
+
+async function startTracking() {
+  if (!navigator.geolocation) { toast('GPS לא נתמך'); return; }
+
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
+  }
+
+  if (!orientationListenerActive) {
+    window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+    window.addEventListener('deviceorientation', handleOrientation, true);
+    orientationListenerActive = true;
+  }
+
+  const ctrl = document.getElementById('trackingControl');
+  if (ctrl) ctrl.classList.add('active');
+  firstFix = true;
+  toast('מאתר מיקום...', 1500);
+
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      const { latitude, longitude, accuracy, heading } = pos.coords;
+      const latlng = [latitude, longitude];
+      if (typeof heading === 'number' && !isNaN(heading)) currentHeading = heading;
+
+      if (!userLocationMarker) {
+        const icon = L.divIcon({
+          className: 'user-location-marker',
+          html: '<div class="user-arrow-wrap"><div class="user-arrow-cone"></div><div class="user-arrow-dot"></div></div>',
+          iconSize: [40, 40],
+          iconAnchor: [20, 20]
+        });
+        userLocationMarker = L.marker(latlng, { icon, zIndexOffset: 1000, interactive: false }).addTo(leafletMap);
+        userAccuracyCircle = L.circle(latlng, {
+          radius: accuracy, color: '#1a56db', fillColor: '#1a56db',
+          fillOpacity: .1, weight: 1, interactive: false
+        }).addTo(leafletMap);
+      } else {
+        userLocationMarker.setLatLng(latlng);
+        userAccuracyCircle.setLatLng(latlng);
+        userAccuracyCircle.setRadius(accuracy);
+      }
+
+      if (firstFix) {
+        leafletMap.setView(latlng, Math.max(leafletMap.getZoom(), 16));
+        firstFix = false;
+      }
+      updateUserMarkerRotation();
+    },
+    err => {
+      const msgs = { 1: 'נדחתה הרשאה', 2: 'לא זמין', 3: 'תם הזמן' };
+      toast('GPS: ' + (msgs[err.code] || err.message));
+      stopTracking();
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
+  );
+}
+
+function stopTracking() {
+  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if (userLocationMarker) { leafletMap.removeLayer(userLocationMarker); userLocationMarker = null; }
+  if (userAccuracyCircle) { leafletMap.removeLayer(userAccuracyCircle); userAccuracyCircle = null; }
+  const ctrl = document.getElementById('trackingControl');
+  if (ctrl) ctrl.classList.remove('active');
+}
+
+function handleOrientation(e) {
+  let h;
+  if (typeof e.webkitCompassHeading === 'number') {
+    h = e.webkitCompassHeading;
+  } else if (typeof e.alpha === 'number') {
+    h = (360 - e.alpha) % 360;
+  } else {
+    return;
+  }
+  currentHeading = h;
+  updateUserMarkerRotation();
+}
+
+function updateUserMarkerRotation() {
+  if (!userLocationMarker || currentHeading === null) return;
+  const el = userLocationMarker.getElement();
+  if (!el) return;
+  const wrap = el.querySelector('.user-arrow-wrap');
+  if (wrap) wrap.style.transform = `rotate(${currentHeading}deg)`;
 }
 
 // === QR SCANNER ===
