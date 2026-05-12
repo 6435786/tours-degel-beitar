@@ -165,10 +165,11 @@ body{overflow-x:hidden}
 
     <div class="card">
       <div class="section-title">פעולות</div>
+      <button class="btn btn-primary" style="width:100%;padding:16px;font-size:15px;margin-bottom:8px" onclick="openAsLocation()">📍 פתח באפליקציית מפה</button>
       <div class="action-grid">
-        <button class="btn btn-primary" onclick="openMap('waze')">🚗 פתח ב-Waze</button>
-        <button class="btn btn-primary" onclick="openMap('google')">🗺️ פתח ב-Google</button>
-        <button class="btn" onclick="shareLink()">🔗 שתף / העתק</button>
+        <button class="btn" onclick="openMap('waze')">🚗 ישר ל-Waze</button>
+        <button class="btn" onclick="openMap('google')">🗺️ ישר ל-Google</button>
+        <button class="btn" onclick="shareLink()">🔗 שתף קישור</button>
         <button class="btn" onclick="toggleQR()">📱 הצג QR</button>
       </div>
       <div id="qrSection" style="display:none;margin-top:14px">
@@ -403,6 +404,30 @@ function openMap(type) {
     ? `https://waze.com/ul?ll=${lat},${lon}&navigate=yes`
     : `https://www.google.com/maps?q=${lat},${lon}`;
   window.open(url, '_blank');
+}
+
+async function openAsLocation() {
+  if (!currentLatLon) return;
+  const [lat, lon] = currentLatLon;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  if (isIOS) {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'מיקום',
+          text: `מיקום: ${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+          url: `https://www.google.com/maps?q=${lat},${lon}`
+        });
+        return;
+      } catch (e) { if (e.name === 'AbortError') return; }
+    }
+    window.location.href = `https://maps.apple.com/?ll=${lat},${lon}&q=Location`;
+    return;
+  }
+
+  // Android: geo: URI triggers OS app chooser (like WhatsApp location)
+  window.location.href = `geo:${lat},${lon}?q=${lat},${lon}`;
 }
 
 function buildShareUrl() {
