@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a56db">
+<title>ניווט - קורדינאטות וגובה</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#1a56db;--primary-dark:#1240a8;--primary-light:#e8f0fe;
+  --success:#059669;--success-light:#d1fae5;
+  --danger:#dc2626;--danger-light:#fee2e2;
+  --info:#0891b2;--info-light:#cffafe;
+  --warn:#d97706;--warn-light:#fef3c7;
+  --bg:#f0f4f8;--surface:#fff;--surface2:#f8fafc;
+  --border:#e2e8f0;--border-strong:#cbd5e1;
+  --text:#0f172a;--text-muted:#64748b;--text-light:#94a3b8;
+  --shadow:0 4px 12px rgba(0,0,0,.08);
+  --radius:12px;--radius-sm:8px;
+}
+html,body{height:100%;font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);direction:rtl;font-size:16px;-webkit-tap-highlight-color:transparent}
+body{overflow-x:hidden}
+.app{max-width:600px;margin:0 auto;padding:0 12px 30px;min-height:100vh}
+.header{padding:18px 8px 16px;display:flex;align-items:center;gap:10px}
+.header h1{font-size:19px;font-weight:800;color:var(--primary)}
+.header .icon{font-size:26px}
+
+.card{background:var(--surface);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+
+.input-area{display:flex;flex-direction:column;gap:10px}
+.coord-input{width:100%;padding:14px;border:2px solid var(--border-strong);border-radius:var(--radius);font-family:inherit;font-size:18px;font-weight:600;text-align:center;background:var(--surface2);color:var(--text);direction:ltr}
+.coord-input:focus{outline:none;border-color:var(--primary);background:#fff}
+.coord-input::placeholder{font-weight:400;color:var(--text-light);font-size:14px}
+
+.examples{font-size:11.5px;color:var(--text-muted);text-align:center;line-height:1.8}
+.examples b{color:var(--primary);cursor:pointer;font-weight:600;background:var(--primary-light);padding:2px 7px;border-radius:5px;display:inline-block;margin:1px 0;direction:ltr}
+
+.input-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 14px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;background:var(--surface2);color:var(--text);width:100%}
+.btn:hover{background:var(--border)}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn-primary:hover{background:var(--primary-dark)}
+
+.detected{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--success-light);color:var(--success);border-radius:var(--radius-sm);font-size:13.5px;font-weight:600}
+.detected.error{background:var(--danger-light);color:var(--danger)}
+.detected.warn{background:var(--warn-light);color:var(--warn)}
+
+.result-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)}
+.result-row:last-child{border-bottom:none}
+.result-label{font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;width:65px;flex-shrink:0;background:var(--primary-light);padding:4px 6px;border-radius:5px;text-align:center}
+.result-main{flex:1;min-width:0}
+.result-value{font-family:'SF Mono','Consolas','Courier New',monospace;font-size:15px;font-weight:700;direction:ltr;text-align:left;color:var(--text);word-break:break-all}
+.result-hint{font-size:10.5px;color:var(--text-light);font-weight:400;margin-top:2px;text-align:left;direction:ltr}
+.copy-btn{background:none;border:1px solid var(--border-strong);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px;color:var(--text-muted);font-family:inherit;flex-shrink:0;font-weight:600}
+.copy-btn:hover{background:var(--surface2);color:var(--primary);border-color:var(--primary)}
+.copy-btn.copied{background:var(--success-light);color:var(--success);border-color:var(--success)}
+
+.elevation-row{display:flex;align-items:center;gap:12px;padding:14px;background:linear-gradient(135deg, var(--info-light) 0%, transparent 100%);border-radius:var(--radius-sm);margin-top:10px;border:1px solid #a5f3fc}
+.elevation-icon{font-size:30px}
+.elevation-text{flex:1}
+.elevation-value{font-size:24px;font-weight:800;color:var(--text);line-height:1.1}
+.elevation-value small{font-size:13px;font-weight:600;color:var(--text-muted)}
+.elevation-source{font-size:10.5px;color:var(--text-muted);margin-top:3px}
+
+.action-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.action-grid .btn{font-size:13.5px;padding:14px 8px}
+
+.map-card{padding:0;overflow:hidden}
+.map-card .map-header{padding:10px 14px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.map-card .map-header .section-title{margin:0;padding:0}
+.map-hint{font-size:10.5px;color:var(--text-muted);font-weight:500}
+#leafletMap{width:100%;height:380px;background:var(--surface2);position:relative;z-index:0}
+.map-pin-msg{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.85);color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;z-index:1000;pointer-events:none;white-space:nowrap;display:none}
+.map-pin-msg.show{display:block;animation:fadeOut 2.5s forwards}
+@keyframes fadeOut{0%,60%{opacity:1}100%{opacity:0}}
+
+/* Leaflet RTL fixes */
+.leaflet-control-layers,.leaflet-bar{direction:ltr;font-family:'Heebo',sans-serif!important}
+.leaflet-control-layers label{font-size:13px;cursor:pointer}
+.leaflet-control-attribution{font-size:9px!important;direction:ltr}
+
+.qr-box{display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px}
+.qr-box img,.qr-box canvas{border:6px solid #fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.qr-url{font-size:11px;color:var(--text-muted);direction:ltr;word-break:break-all;text-align:center;padding:8px;background:var(--surface2);border-radius:6px;width:100%;font-family:'SF Mono','Consolas',monospace}
+
+.empty{text-align:center;padding:24px 20px;color:var(--text-muted)}
+.empty .icon{font-size:48px;display:block;margin-bottom:10px;opacity:.35}
+.empty p{font-size:14px;line-height:1.7}
+
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:12px 22px;border-radius:30px;font-size:14px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:2000;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.section-title{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;padding:0 4px}
+
+.gps-accuracy{font-size:10.5px;color:var(--text-muted);text-align:center;margin-top:4px;min-height:14px}
+
+/* QR Scanner Modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:3000;padding:12px}
+.modal.show{display:flex}
+.modal-content{background:#fff;border-radius:var(--radius);padding:18px;max-width:480px;width:100%;position:relative;max-height:90vh;overflow-y:auto}
+.modal-close{position:absolute;top:8px;left:8px;background:var(--surface2);border:none;font-size:22px;cursor:pointer;color:var(--text);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:inherit;font-weight:700}
+.modal-close:hover{background:var(--border)}
+.modal h3{font-size:17px;font-weight:700;margin-bottom:6px;color:var(--primary)}
+.modal-info{font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.5}
+#qr-reader{width:100%;border-radius:var(--radius-sm);overflow:hidden;background:#000;min-height:200px}
+#qr-reader video{width:100%!important;height:auto!important;display:block}
+#qr-reader__dashboard_section_csr button{background:var(--primary)!important;color:#fff!important;border:none!important;padding:8px 14px!important;border-radius:6px!important;font-family:inherit!important}
+.qr-error{color:var(--danger);font-size:13px;margin-top:10px;padding:10px;background:var(--danger-light);border-radius:var(--radius-sm)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <span class="icon">🧭</span>
+    <h1>ניווט - קורדינאטות וגובה</h1>
+  </div>
+
+  <div class="card">
+    <div class="input-area">
+      <input type="text" class="coord-input" id="coordInput" placeholder="הכנס קורדינאטות..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <div class="examples">
+        דוגמאות (לחץ למילוי):<br>
+        <b onclick="setExample('31.78570, 35.20070')">31.78570, 35.20070</b>
+        <b onclick="setExample('220000 632000')">220000 632000</b>
+        <b onclick="setExample('700000 3520000')">700000 3520000</b>
+      </div>
+      <div class="input-buttons">
+        <button class="btn btn-primary" onclick="useCurrentLocation()" id="locBtn">📍 מיקום נוכחי</button>
+        <button class="btn btn-primary" onclick="openScanner()">📷 סרוק QR</button>
+      </div>
+      <div class="gps-accuracy" id="gpsAccuracy"></div>
+    </div>
+  </div>
+
+  <div id="empty" class="empty">
+    <span class="icon">👇</span>
+    <p>הכנס קורדינאטות, סרוק QR, קח מיקום נוכחי,<br>או לחץ על המפה למטה לבחירת נקודה</p>
+  </div>
+
+  <div id="results" style="display:none">
+    <div class="card">
+      <div class="detected" id="detected"></div>
+      <div id="resultRows" style="margin-top:10px"></div>
+      <div class="elevation-row" id="elevationRow">
+        <span class="elevation-icon">⛰️</span>
+        <div class="elevation-text">
+          <div class="elevation-value" id="elevationValue"><span class="spinner"></span></div>
+          <div class="elevation-source" id="elevationSource">טוען נתוני גובה...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">פעולות</div>
+      <div class="action-grid">
+        <button class="btn btn-primary" onclick="openMap('waze')">🚗 פתח ב-Waze</button>
+        <button class="btn btn-primary" onclick="openMap('google')">🗺️ פתח ב-Google</button>
+        <button class="btn" onclick="shareLink()">🔗 שתף / העתק</button>
+        <button class="btn" onclick="toggleQR()">📱 הצג QR</button>
+      </div>
+      <div id="qrSection" style="display:none;margin-top:14px">
+        <div class="qr-box">
+          <div id="qrCode"></div>
+          <div class="qr-url" id="qrUrl"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card map-card">
+    <div class="map-header">
+      <div class="section-title">מפה</div>
+      <span class="map-hint">לחץ במפה לבחירת נקודה · בחר תצוגה מהפינה</span>
+    </div>
+    <div id="leafletMap">
+      <div class="map-pin-msg" id="mapPinMsg">📍 נקודה נבחרה</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- QR Scanner Modal -->
+<div class="modal" id="qrScannerModal">
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeScanner()" aria-label="סגור">×</button>
+    <h3>📷 סריקת QR</h3>
+    <div class="modal-info">
+      הכוון את המצלמה לקוד QR שמכיל קישור למיקום (Google Maps, Waze, או קואורדינטות)
+    </div>
+    <div id="qr-reader"></div>
+    <div id="qrError" class="qr-error" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+proj4.defs('EPSG:2039', '+proj=tmerc +lat_0=31.7343936111111 +lon_0=35.2045169444444 +k=1.0000067 +x_0=219529.584 +y_0=626907.39 +ellps=GRS80 +towgs84=-24.0024,-17.1032,-17.8444,-0.33009,-1.85269,1.66969,5.4248 +units=m +no_defs');
+proj4.defs('EPSG:32636', '+proj=utm +zone=36 +datum=WGS84 +units=m +no_defs');
+
+let currentLatLon = null;
+let elevationAbortCtrl = null;
+let leafletMap = null;
+let mapMarker = null;
+let suppressMapMove = false;
+let html5QrCode = null;
+
+function toast(msg, ms = 2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+function setExample(s) {
+  document.getElementById('coordInput').value = s;
+  parse();
+}
+
+function parseDMS(str) {
+  const re = /(\d+(?:\.\d+)?)[°\s]+(\d+(?:\.\d+)?)[\s'′]+(?:(\d+(?:\.\d+)?)[\s"″]*)?\s*([NSEW])/gi;
+  const matches = [...str.matchAll(re)];
+  if (matches.length !== 2) return null;
+  const conv = m => {
+    const sec = m[3] ? parseFloat(m[3]) : 0;
+    let v = parseFloat(m[1]) + parseFloat(m[2])/60 + sec/3600;
+    if (/[SW]/i.test(m[4])) v = -v;
+    return { value: v, axis: /[NS]/i.test(m[4]) ? 'lat' : 'lon' };
+  };
+  const a = conv(matches[0]), b = conv(matches[1]);
+  if (a.axis === 'lat' && b.axis === 'lon') return [a.value, b.value];
+  if (a.axis === 'lon' && b.axis === 'lat') return [b.value, a.value];
+  return null;
+}
+
+function detectAndParse(input) {
+  if (!input || !input.trim()) return null;
+
+  if (/[°'"NSEW]/i.test(input)) {
+    const r = parseDMS(input);
+    if (r) return { type: 'WGS84 (מעלות-דקות-שניות)', latLon: r };
+    return { error: 'פורמט DMS לא מזוהה' };
+  }
+
+  const cleaned = input.replace(/[,;|()\[\]\t]/g, ' ').trim();
+  const parts = cleaned.split(/\s+/).filter(s => /^-?\d+(\.\d+)?$/.test(s));
+  if (parts.length < 2) return { error: 'הכנס שני מספרים מופרדים ברווח או פסיק' };
+
+  const a = parseFloat(parts[0]), b = parseFloat(parts[1]);
+
+  if (Math.abs(a) < 100 && Math.abs(b) < 100) {
+    let lat, lon;
+    if (a >= 29 && a <= 33.5 && b >= 33.5 && b <= 36) { lat = a; lon = b; }
+    else if (b >= 29 && b <= 33.5 && a >= 33.5 && a <= 36) { lat = b; lon = a; }
+    else { lat = a; lon = b; }
+    return { type: 'WGS84 (מעלות עשרוניות)', latLon: [lat, lon] };
+  }
+
+  const isUTMNorth = n => n >= 3000000 && n <= 4000000;
+  const isUTMEast = n => n >= 100000 && n <= 999999;
+  if (isUTMNorth(a) && isUTMEast(b)) {
+    const ll = proj4('EPSG:32636', 'EPSG:4326', [b, a]);
+    return { type: 'UTM 36N', latLon: [ll[1], ll[0]] };
+  }
+  if (isUTMNorth(b) && isUTMEast(a)) {
+    const ll = proj4('EPSG:32636', 'EPSG:4326', [a, b]);
+    return { type: 'UTM 36N', latLon: [ll[1], ll[0]] };
+  }
+
+  const isItmEast = n => n >= 100000 && n <= 320000;
+  const isItmNorth = n => n >= 350000 && n <= 820000;
+  if (isItmNorth(a) && isItmEast(b)) {
+    const ll = proj4('EPSG:2039', 'EPSG:4326', [b, a]);
+    return { type: 'ITM (רשת ישראל החדשה)', latLon: [ll[1], ll[0]] };
+  }
+  if (isItmNorth(b) && isItmEast(a)) {
+    const ll = proj4('EPSG:2039', 'EPSG:4326', [a, b]);
+    return { type: 'ITM (רשת ישראל החדשה)', latLon: [ll[1], ll[0]] };
+  }
+
+  return { error: 'לא זוהה פורמט - בדוק את הערכים' };
+}
+
+function parse() {
+  const input = document.getElementById('coordInput').value;
+  if (!input.trim()) {
+    document.getElementById('empty').style.display = 'block';
+    document.getElementById('results').style.display = 'none';
+    currentLatLon = null;
+    if (mapMarker) { leafletMap.removeLayer(mapMarker); mapMarker = null; }
+    return;
+  }
+
+  const r = detectAndParse(input);
+  document.getElementById('empty').style.display = 'none';
+  document.getElementById('results').style.display = 'block';
+
+  const detEl = document.getElementById('detected');
+  if (!r || r.error) {
+    detEl.className = 'detected error';
+    detEl.innerHTML = '⚠️ ' + (r ? r.error : 'לא זוהו קורדינאטות');
+    document.getElementById('resultRows').innerHTML = '';
+    document.getElementById('elevationValue').textContent = '—';
+    document.getElementById('elevationSource').textContent = '';
+    currentLatLon = null;
+    return;
+  }
+
+  const [lat, lon] = r.latLon;
+  if (lat < 29 || lat > 34 || lon < 33 || lon > 36) {
+    detEl.className = 'detected warn';
+    detEl.innerHTML = `⚠️ זוהה: <b>${r.type}</b> · מחוץ לטווח ישראל`;
+  } else {
+    detEl.className = 'detected';
+    detEl.innerHTML = `✓ זוהה: <b>${r.type}</b>`;
+  }
+
+  currentLatLon = [lat, lon];
+  showResults(lat, lon);
+  loadElevation(lat, lon);
+  updateMapMarker(lat, lon);
+}
+
+function showResults(lat, lon) {
+  const itm = proj4('EPSG:4326', 'EPSG:2039', [lon, lat]);
+  const utm = proj4('EPSG:4326', 'EPSG:32636', [lon, lat]);
+
+  const wgsStr = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+  const itmStr = `${Math.round(itm[0])}, ${Math.round(itm[1])}`;
+  const utmStr = `${Math.round(utm[0])}, ${Math.round(utm[1])}`;
+
+  const rows = [
+    { label: 'WGS84', value: wgsStr, hint: 'lat, lon (קו רוחב, קו אורך)' },
+    { label: 'ITM', value: itmStr, hint: 'east, north (מזרח, צפון)' },
+    { label: 'UTM 36N', value: utmStr, hint: 'east, north (מזרח, צפון)' },
+  ];
+
+  document.getElementById('resultRows').innerHTML = rows.map(r => `
+    <div class="result-row">
+      <div class="result-label">${r.label}</div>
+      <div class="result-main">
+        <div class="result-value">${r.value}</div>
+        <div class="result-hint">${r.hint}</div>
+      </div>
+      <button class="copy-btn" onclick="copyToClipboard('${r.value}', this)">העתק</button>
+    </div>
+  `).join('');
+}
+
+function copyToClipboard(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1300);
+  }).catch(() => toast('לא הצלחתי להעתיק'));
+}
+
+async function loadElevation(lat, lon) {
+  const valEl = document.getElementById('elevationValue');
+  const srcEl = document.getElementById('elevationSource');
+  valEl.innerHTML = '<span class="spinner"></span>';
+  srcEl.textContent = 'טוען נתוני גובה...';
+
+  if (elevationAbortCtrl) elevationAbortCtrl.abort();
+  elevationAbortCtrl = new AbortController();
+
+  try {
+    const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`, { signal: elevationAbortCtrl.signal });
+    if (!res.ok) throw new Error('http');
+    const data = await res.json();
+    const el = data.elevation && data.elevation[0];
+    if (typeof el === 'number') {
+      valEl.innerHTML = `${Math.round(el)} <small>מ׳ מעל פני הים</small>`;
+      srcEl.textContent = 'מקור: Open-Meteo · Copernicus DEM (~90 מ׳ דיוק אופקי)';
+      return;
+    }
+    throw new Error('parse');
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    valEl.textContent = '—';
+    srcEl.textContent = 'לא הצלחתי להביא נתוני גובה';
+  }
+}
+
+function openMap(type) {
+  if (!currentLatLon) return;
+  const [lat, lon] = currentLatLon;
+  const url = type === 'waze'
+    ? `https://waze.com/ul?ll=${lat},${lon}&navigate=yes`
+    : `https://www.google.com/maps?q=${lat},${lon}`;
+  window.open(url, '_blank');
+}
+
+function buildShareUrl() {
+  if (!currentLatLon) return '';
+  return `https://www.google.com/maps?q=${currentLatLon[0]},${currentLatLon[1]}`;
+}
+
+async function shareLink() {
+  const url = buildShareUrl();
+  if (!url) return;
+  const [lat, lon] = currentLatLon;
+  const text = `מיקום: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  if (navigator.share) {
+    try { await navigator.share({ title: 'מיקום', text, url }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('הקישור הועתק ✓');
+  } catch (e) { toast('לא הצלחתי להעתיק'); }
+}
+
+function toggleQR() {
+  const sec = document.getElementById('qrSection');
+  if (sec.style.display === 'none') {
+    sec.style.display = 'block';
+    const url = buildShareUrl();
+    document.getElementById('qrUrl').textContent = url;
+    document.getElementById('qrCode').innerHTML = '';
+    new QRCode(document.getElementById('qrCode'), {
+      text: url, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M
+    });
+  } else {
+    sec.style.display = 'none';
+  }
+}
+
+function useCurrentLocation() {
+  const btn = document.getElementById('locBtn');
+  const accEl = document.getElementById('gpsAccuracy');
+  if (!navigator.geolocation) { toast('הדפדפן לא תומך באיתור מיקום'); return; }
+  btn.innerHTML = '<span class="spinner"></span> מאתר...';
+  btn.disabled = true;
+  accEl.textContent = '';
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude, longitude, accuracy, altitude } = pos.coords;
+    document.getElementById('coordInput').value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+    btn.innerHTML = '📍 מיקום נוכחי';
+    btn.disabled = false;
+    let msg = `דיוק GPS: ±${Math.round(accuracy)} מ׳`;
+    if (typeof altitude === 'number') msg += ` · גובה GPS: ${Math.round(altitude)} מ׳`;
+    accEl.textContent = msg;
+    parse();
+  }, err => {
+    btn.innerHTML = '📍 מיקום נוכחי';
+    btn.disabled = false;
+    const msgs = { 1: 'נדחתה הרשאה למיקום', 2: 'לא זמין', 3: 'תם הזמן' };
+    toast('שגיאה: ' + (msgs[err.code] || err.message));
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+}
+
+// === LEAFLET MAP ===
+function initMap() {
+  if (typeof L === 'undefined') {
+    document.getElementById('leafletMap').innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">לא הצלחתי לטעון את ספריית המפות</div>';
+    return;
+  }
+
+  leafletMap = L.map('leafletMap', { zoomControl: true, attributionControl: true })
+    .setView([31.7857, 35.2007], 9);
+
+  const layers = {
+    'מפת רחובות': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap', maxZoom: 19
+    }),
+    'לוויין': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri World Imagery', maxZoom: 19
+    }),
+    'טופוגרפי': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenTopoMap (CC-BY-SA)', maxZoom: 17, subdomains: 'abc'
+    }),
+    'שבילי ישראל': L.tileLayer('https://israelhiking.osm.org.il/Hebrew/Tiles/{z}/{x}/{y}.png', {
+      attribution: '© Israel Hiking Map', maxZoom: 16
+    })
+  };
+
+  layers['לוויין'].addTo(leafletMap);
+  L.control.layers(null, layers, { collapsed: false, position: 'topleft' }).addTo(leafletMap);
+
+  leafletMap.on('click', (e) => {
+    const { lat, lng } = e.latlng;
+    suppressMapMove = true;
+    document.getElementById('coordInput').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    parse();
+    suppressMapMove = false;
+    const msg = document.getElementById('mapPinMsg');
+    msg.classList.remove('show'); void msg.offsetWidth; msg.classList.add('show');
+  });
+
+  setTimeout(() => leafletMap.invalidateSize(), 100);
+}
+
+function updateMapMarker(lat, lon) {
+  if (!leafletMap) return;
+  if (mapMarker) {
+    mapMarker.setLatLng([lat, lon]);
+  } else {
+    mapMarker = L.marker([lat, lon]).addTo(leafletMap);
+  }
+  if (!suppressMapMove) {
+    leafletMap.setView([lat, lon], Math.max(leafletMap.getZoom(), 14));
+  }
+}
+
+// === QR SCANNER ===
+async function openScanner() {
+  const modal = document.getElementById('qrScannerModal');
+  const errEl = document.getElementById('qrError');
+  errEl.style.display = 'none';
+  modal.classList.add('show');
+
+  if (typeof Html5Qrcode === 'undefined') {
+    errEl.textContent = 'ספריית סריקה לא נטענה (חיבור?). נסה לרענן.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if (!html5QrCode) html5QrCode = new Html5Qrcode('qr-reader');
+
+  try {
+    await html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      (decodedText) => { handleQRSuccess(decodedText); },
+      () => {}
+    );
+  } catch (e) {
+    errEl.innerHTML = 'לא הצלחתי להפעיל מצלמה.<br>בדוק שאתה ב-HTTPS ושהדפדפן קיבל הרשאה למצלמה.<br><br>שגיאה: ' + (e.message || e);
+    errEl.style.display = 'block';
+  }
+}
+
+async function closeScanner() {
+  document.getElementById('qrScannerModal').classList.remove('show');
+  if (html5QrCode && html5QrCode.isScanning) {
+    try { await html5QrCode.stop(); } catch (e) {}
+  }
+}
+
+function handleQRSuccess(text) {
+  closeScanner();
+  const coords = extractCoordsFromText(text);
+  if (coords) {
+    document.getElementById('coordInput').value = `${coords[0]}, ${coords[1]}`;
+    parse();
+    toast('מיקום נטען מ-QR ✓');
+    return;
+  }
+  if (/goo\.gl|maps\.app|maps\/app|short\.gl|bit\.ly|tinyurl/i.test(text)) {
+    document.getElementById('coordInput').value = text;
+    toast('קישור מקוצר - פתח אותו פעם אחת באפליקציית מפות, ואז סרוק את הקישור המלא', 4500);
+    return;
+  }
+  document.getElementById('coordInput').value = text;
+  toast('לא זוהו קואורדינטות - הטקסט הוצב בשדה', 3500);
+}
+
+function extractCoordsFromText(text) {
+  const patterns = [
+    /[?&]q=loc:(-?\d+\.?\d*),(-?\d+\.?\d*)/i,
+    /[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/i,
+    /[?&]ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/i,
+    /[?&]daddr=(-?\d+\.?\d*),(-?\d+\.?\d*)/i,
+    /[?&]destination=(-?\d+\.?\d*),(-?\d+\.?\d*)/i,
+    /\/@(-?\d+\.?\d*),(-?\d+\.?\d*)/,
+    /^geo:(-?\d+\.?\d*),(-?\d+\.?\d*)/i,
+    /(-?\d{1,3}\.\d{3,})[,\s]+(-?\d{1,3}\.\d{3,})/,
+  ];
+  for (const pat of patterns) {
+    const m = text.match(pat);
+    if (m) {
+      const lat = parseFloat(m[1]), lon = parseFloat(m[2]);
+      if (!isNaN(lat) && !isNaN(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+        return [m[1], m[2]];
+      }
+    }
+  }
+  return null;
+}
+
+// === INIT ===
+let parseTimer;
+document.getElementById('coordInput').addEventListener('input', () => {
+  clearTimeout(parseTimer);
+  parseTimer = setTimeout(parse, 350);
+});
+document.getElementById('coordInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { clearTimeout(parseTimer); parse(); document.getElementById('coordInput').blur(); }
+});
+document.getElementById('qrScannerModal').addEventListener('click', (e) => {
+  if (e.target.id === 'qrScannerModal') closeScanner();
+});
+
+window.addEventListener('load', initMap);
+</script>
+</body>
+</html>
