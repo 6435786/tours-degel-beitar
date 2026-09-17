@@ -1112,6 +1112,10 @@ const CONTACT_FIELDS = ['שם מאוחד','שם משפחה','שם פרטי','ת.
 
 function renderContactsTab(container) {
   const td = getTD();
+  // Preserve focus + cursor position of search/filter inputs across re-render
+  const activeEl = document.activeElement;
+  const preserveId = (activeEl && (activeEl.id === 'contactSearchInput' || (activeEl.id||'').startsWith('contactColFilter_'))) ? activeEl.id : null;
+  const preserveCursor = preserveId ? activeEl.selectionStart : null;
   if(!activeTrip||!td){container.innerHTML=`<div class="no-trip"><div class="nt-icon">👥</div><h2>בחר טיול תחילה</h2></div>`;return;}
   let rows = (td.lists.list6||[]).map((row,ri)=>({row,ri}));
 
@@ -1135,7 +1139,7 @@ function renderContactsTab(container) {
     const filterVal = contactFilter[ci]||'';
     return `<th style="cursor:pointer;white-space:nowrap;min-width:80px">
       <div onclick="contactSortBy(${ci})" style="user-select:none">${f} <span style="font-size:10px;opacity:${isActive?1:0.35}">${icon}</span></div>
-      <input class="col-filter" value="${h(filterVal)}" placeholder="סנן..." oninput="contactFilter[${ci}]=this.value;renderContactsTab(document.getElementById('appMain'))" onclick="event.stopPropagation()">
+      <input class="col-filter" id="contactColFilter_${ci}" value="${h(filterVal)}" placeholder="סנן..." oninput="contactFilter[${ci}]=this.value;renderContactsTab(document.getElementById('appMain'))" onclick="event.stopPropagation()">
     </th>`;
   }).join('');
 
@@ -1165,7 +1169,7 @@ function renderContactsTab(container) {
         <span class="row-count">${rows.length}${contactSearch||Object.values(contactFilter).some(Boolean)?'/'+(td.lists.list6||[]).length:''}</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input class="filter-input" placeholder="🔍 חיפוש חופשי..." dir="rtl" value="${h(contactSearch)}"
+        <input class="filter-input" id="contactSearchInput" placeholder="🔍 חיפוש חופשי..." dir="rtl" value="${h(contactSearch)}"
           oninput="contactSearch=this.value;renderContactsTab(document.getElementById('appMain'))">
         <button class="btn btn-secondary btn-sm" onclick="contactSort={col:null,dir:1};contactFilter={};contactSearch='';renderContactsTab(document.getElementById('appMain'))">🔄 אפס</button>
         <button class="btn btn-secondary btn-sm" onclick="exportPhones('list6')">📞 טלפונים</button>
@@ -1179,6 +1183,16 @@ function renderContactsTab(container) {
       </table>
     </div>
   </div>`;
+  // Restore focus + cursor to the search/filter input that was active
+  if(preserveId) {
+    const el = document.getElementById(preserveId);
+    if(el) {
+      el.focus();
+      if(typeof preserveCursor === 'number') {
+        try { el.setSelectionRange(preserveCursor, preserveCursor); } catch(e){}
+      }
+    }
+  }
 }
 
 function contactSortBy(ci) {
