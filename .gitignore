@@ -7,3 +7,9 @@ project-summary.md
 # Local backups
 *.backup-local
 *-backup-old/
+
+# Scratch / working files (Excel exports, temp scripts)
+_sheet*
+_sheets/
+_xlsx/
+tmp_*
