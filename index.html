@@ -626,6 +626,7 @@ const MT_FIELDS = [
   {id:'f6', label:'מלווים',type:'number'},
   {id:'f7', label:'תיקון כמות',type:'number'},
   {id:'f8', label:'קהילה מצורפת',type:'select',source:'list1_col0'},
+  {id:'f8b',label:'קהילה מצורפת 2',type:'select',source:'list1_col0'},
   {id:'f9', label:'סה"כ',type:'calc_total'},
   {id:'f10',label:'אוטובוסים',type:'calc_buses'},
   {id:'f11',label:'שעת יציאה',type:'time'},
@@ -1424,7 +1425,7 @@ function renderMT(container) {
     ?`<tr><td colspan="${visFields.length+1}" style="text-align:center;padding:28px;color:var(--text-muted)">אין שורות</td></tr>`
     :rows.map(row=>{
         const ri=(td.mainTable||[]).indexOf(row);
-        const act=row.f2===true, approved=row.f4===true, mrg=row.f8&&row.f8!=='';
+        const act=row.f2===true, approved=row.f4===true, mrg=(row.f8&&row.f8!=='')||(row.f8b&&row.f8b!=='');
         const statusColor = !act?'#aaa':approved?'var(--success)':'var(--warn)';
         return `<tr style="${!act?'opacity:.55':''}${mrg?';background:#fffbf0':''}">
           <td class="col-num" style="white-space:nowrap;padding:4px 6px">
@@ -1459,7 +1460,7 @@ function renderMT(container) {
 
 function getColWidth(f) {
   const widths = {
-    'f1':140,'f2':50,'f3':90,'f4':50,'f5':70,'f6':60,'f7':60,'f8':130,
+    'f1':140,'f2':50,'f3':90,'f4':50,'f5':70,'f6':60,'f7':60,'f8':130,'f8b':130,
     'f9':70,'f10':110,'f11':75,'f12':75,'f13':100,'f14':90,'f15':60,
     'f16':120,'f17':120,'f18':130,'f19':130,'f20':130,'f21':130,'f22':130,
     'f23':130,'f24':50,'f25':70,'f26':130,'f27':50,'f28':70,'f29':120,
@@ -1576,7 +1577,7 @@ function setMT(ri,fid,val) {
   const td=getTD(); if(!td) return;
   pushU(snap()); td.mainTable[ri][fid]=val;
   if(fid==='f13') td.mainTable[ri].f14=val;
-  if(fid==='f8'&&val) { const mr=td.mainTable.find(r=>r.f1===val); if(mr) mr.f2=false; }
+  if((fid==='f8'||fid==='f8b')&&val) { const mr=td.mainTable.find(r=>r.f1===val); if(mr) mr.f2=false; }
   save(); render();
 }
 function handleMTSel(ri,fid,val,src) {
@@ -1604,6 +1605,7 @@ function countP(name,td) { if(!name||!td) return 0; return (td.lists.list7||[]).
 function calcTotal(row,td) {
   let t=(parseInt(countP(row.f1,td))||0)+(parseInt(row.f6)||0)+(parseInt(row.f7)||0);
   if(row.f8&&td&&td.mainTable) { const mr=td.mainTable.find(r=>r.f1===row.f8); if(mr) t+=(parseInt(countP(mr.f1,td))||0)+(parseInt(mr.f6)||0)+(parseInt(mr.f7)||0); }
+  if(row.f8b&&td&&td.mainTable) { const mr=td.mainTable.find(r=>r.f1===row.f8b); if(mr) t+=(parseInt(countP(mr.f1,td))||0)+(parseInt(mr.f6)||0)+(parseInt(mr.f7)||0); }
   return t;
 }
 function calcBuses(n) {
@@ -2005,7 +2007,7 @@ function openEditRow(ri) {
   const sections = [
     {
       title:'👥 פרטי קהילה וכמויות', icon:'',
-      fields:['f1','f2','f3','f4','f5','f6','f7','f8','f9','f10']
+      fields:['f1','f2','f3','f4','f5','f6','f7','f8','f8b','f9','f10']
     },
     {
       title:'📅 תאריכים, שעות ואוטובוסים', icon:'',
@@ -2214,7 +2216,7 @@ function rebuildEditBody() {
   const td = getTD(); if(!td||!editRowData) return;
   const row = editRowData;
   const sections = [
-    { title:'👥 פרטי קהילה וכמויות', fields:['f1','f2','f3','f4','f5','f6','f7','f8','f9','f10'] },
+    { title:'👥 פרטי קהילה וכמויות', fields:['f1','f2','f3','f4','f5','f6','f7','f8','f8b','f9','f10'] },
     { title:'📅 תאריכים, שעות ואוטובוסים', fields:['f13','f14','f15','f11','f12','f34','f30','f10','f31','f36','f29'] },
     { title:'👤 אחראים', fields:['f16','f17'] },
     { title:'🥾 מסלולים ואתרים', fields:['f18','f19','f20','f21','f22'] },
@@ -2332,7 +2334,7 @@ function refreshCalcs() {
 
 function handleEditSel(fid, val) {
   editRowData[fid] = val;
-  if(fid==='f8'&&val) {
+  if((fid==='f8'||fid==='f8b')&&val) {
     const td=getTD(); const mr=td&&td.mainTable?td.mainTable.find(r=>r.f1===val):null;
     if(mr) mr.f2=false;
   }
@@ -2525,13 +2527,14 @@ function calcBusPrice(row, td, busType) {
 }
 
 function getActiveRows(td) {
-  const attachedTo = new Set((td.mainTable||[]).map(r=>r.f8).filter(Boolean));
+  const attachedTo = new Set([...(td.mainTable||[]).map(r=>r.f8).filter(Boolean), ...(td.mainTable||[]).map(r=>r.f8b).filter(Boolean)]);
   return (td.mainTable||[]).filter(r => r.f2 && !attachedTo.has(r.f1));
 }
 
 // פונקציית עזר — שם קהילה + קהילה מצורפת בסוגרים
 function communityWithAttached(row) {
-  return row.f8 ? `${row.f1} (+ ${row.f8})` : row.f1;
+  const extras = [row.f8, row.f8b].filter(Boolean);
+  return extras.length ? `${row.f1} (+ ${extras.join(' + ')})` : row.f1;
 }
 
 let currentTripFolderCommunity = '';
@@ -2542,8 +2545,8 @@ function compactVals(arr) { return arr.filter(Boolean); }
 function buildReport1(td) {
   const rows = getActiveRows(td);
   if (!rows.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין קהילות פעילות</div></div>';
-  const fields = ['f1','f3','f5','f8','f9','f10','f11','f12','f15','f17','טלפון אחראי','f18','f19','f20','f21','f22','f23','f26','f29'];
-  const labels = {'f1':'שם קהילה','f3':'מס\' אישור','f5':'נרשמים','f8':'קהילה מצורפת','f9':'סה"כ','f10':'אוטובוסים','f11':'שעת יציאה','f12':'שעת חזרה','f15':'יום','f17':'אחראי טיול','טלפון אחראי':'טלפון','f18':'טיול 1','f19':'טיול 2','f20':'טיול 3','f21':'אתר 1','f22':'אתר 2','f23':'אטרקציה 1','f26':'אטרקציה 2','f29':'הערות'};
+  const fields = ['f1','f3','f5','f8','f8b','f9','f10','f11','f12','f15','f17','טלפון אחראי','f18','f19','f20','f21','f22','f23','f26','f29'];
+  const labels = {'f1':'שם קהילה','f3':'מס\' אישור','f5':'נרשמים','f8':'קהילה מצורפת','f8b':'קהילה מצורפת 2','f9':'סה"כ','f10':'אוטובוסים','f11':'שעת יציאה','f12':'שעת חזרה','f15':'יום','f17':'אחראי טיול','טלפון אחראי':'טלפון','f18':'טיול 1','f19':'טיול 2','f20':'טיול 3','f21':'אתר 1','f22':'אתר 2','f23':'אטרקציה 1','f26':'אטרקציה 2','f29':'הערות'};
   const hdrs = fields.map(f=>`<th>${labels[f]||f}</th>`).join('');
   const trs = rows.map((row,ri) => {
     const tripCoord = row.f17 || '';
@@ -2587,7 +2590,7 @@ function buildReport2(td) {
     const coordRow = (td.lists.list6||[]).find(r=>r[0]===tripCoord);
     const total = calcTotal(row,td);
     const cells = [
-      communityWithAttached(row), row.f8,
+      communityWithAttached(row), [row.f8, row.f8b].filter(Boolean).join(', '),
       row.f18, getListCode('list2',row.f18,1),
       row.f19, getListCode('list2',row.f19,1),
       row.f20, getListCode('list2',row.f20,1),
@@ -2723,7 +2726,7 @@ function buildReport4(td) {
     const price = calcAttrPrice(attrName, paxUsed);
     return `<tr>
       <td>${h(communityWithAttached(row))}</td>
-      <td>${h(row.f8||'')}</td>
+      <td>${h([row.f8, row.f8b].filter(Boolean).join(', '))}</td>
       <td>${h(attrName)}</td>
       <td>${h(row[timeField]||'')}</td>
       <td>${total||''}</td>
@@ -3122,7 +3125,7 @@ function renderTripFolders(container) {
   }
   const rows = getActiveRows(td);
   const tableRows = rows.map(row => {
-    const attached = row.f8 || '';
+    const attached = [row.f8, row.f8b].filter(Boolean).join(', ');
     return `<tr>
       <td><strong>${h(communityWithAttached(row))}</strong></td>
       <td>${h(attached)}</td>
@@ -3154,8 +3157,16 @@ async function openTripFolder(communityName) {
   // Collect relevant file names from lists
   const filesToFind = [];
 
-  // מאגר 1 — by community name or trip number
-  filesToFind.push({ archive:'מאגר1', search:[communityName, row.f3||''].filter(Boolean) });
+  // כל הקהילות המצורפות (כולל הראשית) — שמות + מספרי אישור לחיפוש
+  const allCommunityNames = [communityName, row.f8, row.f8b].filter(Boolean);
+  const allApprovalNums = allCommunityNames
+    .map(n => td.mainTable.find(r=>r.f1===n))
+    .filter(Boolean)
+    .map(r => r.f3||'')
+    .filter(Boolean);
+
+  // מאגר 1 — by any community name or approval number (כולל מצורפות)
+  filesToFind.push({ archive:'מאגר1', search:[...allCommunityNames, ...allApprovalNums] });
 
   // מאגר 2 — all files
   filesToFind.push({ archive:'מאגר2', search:[''] });
@@ -3186,8 +3197,8 @@ async function openTripFolder(communityName) {
     }
   });
 
-  // מאגר 4 — by community name or trip number
-  filesToFind.push({ archive:'מאגר4', search:[communityName, row.f3||''].filter(Boolean) });
+  // מאגר 4 — by any community name or approval number (כולל מצורפות)
+  filesToFind.push({ archive:'מאגר4', search:[...allCommunityNames, ...allApprovalNums] });
 
   // Show loading modal
   showTripFolderModal(communityName, null);
@@ -3266,6 +3277,7 @@ function buildParticipantsData(communityName) {
 
   const communities = [communityName];
   if(row.f8) communities.push(row.f8);
+  if(row.f8b) communities.push(row.f8b);
 
   // אחראי טיול
   const coordName = row.f17||'';
@@ -3620,7 +3632,8 @@ function renderContactsFilter(filter) {
 async function buildTripFolderWhatsAppText(communityName, selected) {
   const td = getTD();
   const row = td?.mainTable?.find(r => r.f1 === communityName);
-  const attachedLabel = row?.f8 ? ` ו${row.f8}` : '';
+  const attachedExtras = [row?.f8, row?.f8b].filter(Boolean);
+  const attachedLabel = attachedExtras.length ? ' ו' + attachedExtras.join(' ו') : '';
   const communityLabel = `קהילת ${communityName}${attachedLabel}`;
 
   // Format date as DD/MM/YY
@@ -3762,7 +3775,8 @@ async function emailSelectedFiles() {
 
   const td = getTD();
   const row = td?.mainTable?.find(r => r.f1 === currentTripFolderCommunity);
-  const attachedLabel = row?.f8 ? ` ו${row.f8}` : '';
+  const attachedExtras = [row?.f8, row?.f8b].filter(Boolean);
+  const attachedLabel = attachedExtras.length ? ' ו' + attachedExtras.join(' ו') : '';
   const communityLabel = currentTripFolderCommunity
     ? `קהילת ${currentTripFolderCommunity}${attachedLabel}`
     : 'קהילתכם';
@@ -3773,6 +3787,7 @@ async function emailSelectedFiles() {
   const defaultEmails = [];
   const communities = [currentTripFolderCommunity];
   if(row?.f8) communities.push(row.f8);
+  if(row?.f8b) communities.push(row.f8b);
   communities.forEach(comm => {
     const commRow = td?.mainTable?.find(r => r.f1 === comm);
     const coordName = commRow?.f17 || '';
