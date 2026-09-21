@@ -3574,17 +3574,12 @@ function pickEmail(contacts, defaultEmail='') {
     const sorted = _sortContactsAlpha(contacts.filter(r => r[5]));
     window._emailContacts = sorted;
 
-    const renderContacts = (filter='') => {
-      const filtered = sorted.filter(r => _contactMatches(r, filter));
-      return filtered.map(r => `
-        <label class="email-contact-row" onclick="toggleEmailContact(this)" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;border:1px solid var(--border)">
-          <input type="checkbox" class="email-pick-cb" value="${h(r[5]||'')}" style="width:16px;height:16px;cursor:pointer">
-          <span style="flex:1">
-            <strong>${h(r[0]||'')}</strong>
-            <span style="color:var(--text-muted);font-size:12px;margin-right:8px">${h(r[5]||'')}</span>
-          </span>
-        </label>`).join('') || '<div style="color:var(--text-muted);padding:10px;text-align:center">לא נמצאו תוצאות</div>';
-    };
+    // Split defaultEmail into: those matching known contacts (pre-check) + orphans (manual field)
+    const defaultList = (defaultEmail||'').split(',').map(e=>e.trim()).filter(Boolean);
+    const contactEmailsLower = new Set(sorted.map(r => (r[5]||'').toLowerCase()));
+    const preSelected = new Set(defaultList.filter(e => contactEmailsLower.has(e.toLowerCase())).map(e=>e.toLowerCase()));
+    const manualLeftovers = defaultList.filter(e => !contactEmailsLower.has(e.toLowerCase()));
+    window._emailPreSelected = preSelected;
 
     modal.style.display = 'flex';
     modal.innerHTML = `<div class="modal" style="width:500px">
@@ -3594,11 +3589,11 @@ function pickEmail(contacts, defaultEmail='') {
           oninput="document.getElementById('emailContactList').innerHTML=renderContactsFilter(this.value)"
           style="margin-bottom:10px">
         <div id="emailContactList" style="max-height:280px;overflow-y:auto;margin-bottom:12px">
-          ${renderContacts()}
+          ${renderContactsFilter('')}
         </div>` : ''}
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:8px">
         <label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px">הזן מייל ידנית (אפשר כמה, מופרדים בפסיק):</label>
-        <input type="text" id="emailManualInput" class="form-control" placeholder="email@example.com, email2@example.com" dir="ltr" value="${h(defaultEmail)}">
+        <input type="text" id="emailManualInput" class="form-control" placeholder="email@example.com, email2@example.com" dir="ltr" value="${h(manualLeftovers.join(', '))}">
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="document.getElementById('emailPickerModal').style.display='none';window._emailPickResolve(null)">ביטול</button>
@@ -3627,15 +3622,23 @@ function toggleEmailContact(label) {
 
 function renderContactsFilter(filter) {
   const contacts = window._emailContacts || [];
+  const pre = window._emailPreSelected || new Set();
   const filtered = contacts.filter(r => _contactMatches(r, filter));
-  return filtered.map(r => `
-    <label class="email-contact-row" onclick="toggleEmailContact(this)" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;border:1px solid var(--border)">
-      <input type="checkbox" class="email-pick-cb" value="${h(r[5]||'')}" style="width:16px;height:16px;cursor:pointer">
-      <span style="flex:1">
-        <strong>${h(r[0]||'')}</strong>
-        <span style="color:var(--text-muted);font-size:12px;margin-right:8px">${h(r[5]||'')}</span>
-      </span>
-    </label>`).join('') || '<div style="color:var(--text-muted);padding:10px;text-align:center">לא נמצאו תוצאות</div>';
+  return filtered.map(r => {
+    const email = r[5]||'';
+    const isPre = pre.has(email.toLowerCase());
+    const rowStyle = isPre
+      ? 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;border:1px solid var(--primary);background:var(--primary-light)'
+      : 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;border:1px solid var(--border)';
+    return `
+      <label class="email-contact-row" onclick="toggleEmailContact(this)" style="${rowStyle}">
+        <input type="checkbox" class="email-pick-cb" value="${h(email)}" ${isPre?'checked':''} style="width:16px;height:16px;cursor:pointer">
+        <span style="flex:1">
+          <strong>${h(r[0]||'')}</strong>${isPre?' <span style="font-size:11px;color:var(--primary);font-weight:600">· מומלץ</span>':''}
+          <span style="color:var(--text-muted);font-size:12px;margin-right:8px">${h(email)}</span>
+        </span>
+      </label>`;
+  }).join('') || '<div style="color:var(--text-muted);padding:10px;text-align:center">לא נמצאו תוצאות</div>';
 }
 
 // Build trip-folder WhatsApp message: header + files + Waze links + signature
