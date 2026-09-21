@@ -1403,6 +1403,20 @@ function renderMT(container) {
   const visFields = mtShowAll ? MT_FIELDS : MT_FIELDS.filter(f=>MT_SHORT_COLS.includes(f.id));
   const activeCount = (td.mainTable||[]).filter(r=>r.f2).length;
   const approvedCount = (td.mainTable||[]).filter(r=>r.f4).length;
+  // קהילות ששוייכו לטיול פעיל (כדי לסמן חיווי בשורתן)
+  const attachedToActive = new Set();
+  (td.mainTable||[]).forEach(r => {
+    if(!r.f2) return;
+    if(r.f8) attachedToActive.add(r.f8);
+    if(r.f8b) attachedToActive.add(r.f8b);
+  });
+  // מיפוי הפוך: לכל קהילה משוייכת — לאיזה טיול פעיל היא שייכת
+  const attachedHost = new Map();
+  (td.mainTable||[]).forEach(r => {
+    if(!r.f2) return;
+    if(r.f8) attachedHost.set(r.f8, r.f1);
+    if(r.f8b) attachedHost.set(r.f8b, r.f1);
+  });
 
   const hdrs = visFields.map(f=>{
     const sortIcon = mtSort.col===f.id ? (mtSort.dir===1?'↑':'↓') : '⇅';
@@ -1427,11 +1441,18 @@ function renderMT(container) {
     :rows.map(row=>{
         const ri=(td.mainTable||[]).indexOf(row);
         const act=row.f2===true, approved=row.f4===true, mrg=(row.f8&&row.f8!=='')||(row.f8b&&row.f8b!=='');
-        const statusColor = !act?'#aaa':approved?'var(--success)':'var(--warn)';
-        return `<tr style="${!act?'opacity:.55':''}${mrg?';background:#fffbf0':''}">
+        const isAttached = attachedToActive.has(row.f1);
+        const hostName = attachedHost.get(row.f1) || '';
+        const statusColor = !act?(isAttached?'var(--success)':'#aaa'):approved?'var(--success)':'var(--warn)';
+        const rowBg = isAttached ? ';background:#e6f7ec' : (mrg?';background:#fffbf0':'');
+        const attachedBadge = isAttached
+          ? `<span title="משוייכת לטיול הפעיל של ${h(hostName)}" style="display:inline-block;background:var(--success);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;margin-right:3px;vertical-align:middle">✓ מוצמד</span>`
+          : '';
+        return `<tr style="${!act && !isAttached?'opacity:.55':''}${rowBg}">
           <td class="col-num" style="white-space:nowrap;padding:4px 6px">
             <div style="width:3px;height:32px;background:${statusColor};border-radius:2px;display:inline-block;vertical-align:middle;margin-left:4px"></div>
             <button class="btn btn-primary btn-icon btn-sm" onclick="openEditRow(${ri})" title="ערוך שורה">✏️</button>
+            ${attachedBadge}
             <div style="font-size:10px;color:var(--text-light);margin-top:1px">${ri+1}</div>
           </td>${visFields.map(f=>renderMTCell(f,row,ri,td)).join('')}</tr>`;
       }).join('');
