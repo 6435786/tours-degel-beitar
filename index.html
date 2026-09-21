@@ -3592,15 +3592,19 @@ function pickEmail(contacts, defaultEmail='') {
       document.body.appendChild(modal);
     }
 
-    const sorted = _sortContactsAlpha(contacts.filter(r => r[5]));
-    window._emailContacts = sorted;
+    const alphaSorted = _sortContactsAlpha(contacts.filter(r => r[5]));
 
     // Split defaultEmail into: those matching known contacts (pre-check) + orphans (manual field)
     const defaultList = (defaultEmail||'').split(',').map(e=>e.trim()).filter(Boolean);
-    const contactEmailsLower = new Set(sorted.map(r => (r[5]||'').toLowerCase()));
+    const contactEmailsLower = new Set(alphaSorted.map(r => (r[5]||'').toLowerCase()));
     const preSelected = new Set(defaultList.filter(e => contactEmailsLower.has(e.toLowerCase())).map(e=>e.toLowerCase()));
     const manualLeftovers = defaultList.filter(e => !contactEmailsLower.has(e.toLowerCase()));
     window._emailPreSelected = preSelected;
+
+    // Pre-selected (מומלצים) first, then the rest — each group already alphabetically sorted
+    const recommended = alphaSorted.filter(r => preSelected.has((r[5]||'').toLowerCase()));
+    const others = alphaSorted.filter(r => !preSelected.has((r[5]||'').toLowerCase()));
+    window._emailContacts = [...recommended, ...others];
 
     modal.style.display = 'flex';
     modal.innerHTML = `<div class="modal" style="width:500px">
