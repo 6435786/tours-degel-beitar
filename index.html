@@ -1448,11 +1448,11 @@ function renderMT(container) {
         const statusColor = !act?'#aaa':approved?'var(--success)':'var(--warn)';
         // תג שרשרת: כחול = מארחת (מצרפת אליה קהילות), ירוק = מוצמדת לטיול פעיל
         let linkMark = '';
-        const linkBadge = (bg,tip)=>`<span title="${tip}" style="display:inline-block;background:${bg};border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;font-size:10px;margin-right:2px;vertical-align:middle">🔗</span>`;
+        const linkBadge = (bg,tip)=>`<span title="${tip}" style="display:inline-block;background:${bg};border-radius:50%;width:22px;height:22px;line-height:22px;text-align:center;font-size:13px;margin-right:3px;vertical-align:middle;box-shadow:0 1px 3px rgba(0,0,0,.25)">🔗</span>`;
         if(isHost) {
-          linkMark = linkBadge('var(--primary-light)', `מארחת: ${h(hostedNames.join(', '))}`);
+          linkMark = linkBadge('var(--primary)', `מארחת: ${h(hostedNames.join(', '))}`);
         } else if(isAttached) {
-          linkMark = linkBadge('var(--success-light)', `מוצמדת לטיול הפעיל של ${h(hostName)}`);
+          linkMark = linkBadge('var(--success)', `מוצמדת לטיול הפעיל של ${h(hostName)}`);
         }
         return `<tr style="${!act && !isAttached?'opacity:.55':''}">
           <td class="col-num" style="white-space:nowrap;padding:4px 6px">
