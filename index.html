@@ -2608,14 +2608,79 @@ function buildReport1(td) {
 function buildReport2(td) {
   const rows = getActiveRows(td);
   if (!rows.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין קהילות פעילות</div></div>';
-  const hdrs = ['שם קהילה','קהילה נוספת','טיול 1','הזנה טיול 1','טיול 2','הזנה טיול 2','טיול 3','הזנה טיול 3','אתר 1','הזנה אתר 1','אתר 2','הזנה אתר 2','אטרקציה 1','הזנה אטרקציה 1','אטרקציה 2','הזנה אטרקציה 2','מספר משתתפים','אחראי טיול','ת.ז.','טלפון','מייל','מס\' אישור','טיול מאושר'].map(l=>`<th>${l}</th>`).join('');
 
   function getListCode(listKey, col0val, colIdx) {
     const listRows = td.lists[listKey]||[];
     const found = listRows.find(r=>r[0]===col0val);
     return found ? found[colIdx]||'' : '';
   }
+  const fmtDate = d => { if(!d) return ''; const dt=new Date(d); if(isNaN(dt)) return d; return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`; };
 
+  // ── כרטיסים (תצוגת מסך נוחה להזנה) ──
+  const cardStyle = `<style>
+    .mreport-cards{display:flex;flex-direction:column;gap:14px;padding:4px 2px}
+    .mrc{border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);overflow:hidden;box-shadow:var(--shadow)}
+    .mrc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:var(--primary);color:#fff}
+    .mrc-name{font-size:16px;font-weight:700}
+    .mrc-approved{font-size:11px;font-weight:600;background:rgba(255,255,255,.22);padding:2px 9px;border-radius:4px;white-space:nowrap}
+    .mrc-meta{display:flex;flex-wrap:wrap;gap:6px 22px;padding:10px 14px;font-size:14px;border-bottom:1px solid var(--border)}
+    .mrc-meta .lbl{color:var(--text-muted);font-size:12px;font-weight:600;margin-left:4px}
+    .mrc-meta .val{font-weight:700}
+    .mrc-body{padding:10px 14px;display:flex;flex-direction:column;gap:10px}
+    .mrc-group{display:flex;flex-direction:column;gap:4px}
+    .mrc-glabel{font-size:11px;font-weight:700;color:var(--primary);text-transform:none;letter-spacing:.3px}
+    .mrc-item{display:flex;align-items:baseline;gap:8px;font-size:14px;flex-wrap:wrap;padding-right:6px}
+    .mrc-iname{font-weight:600;min-width:140px}
+    .mrc-arrow{color:var(--text-light);font-size:12px}
+    .mrc-icode{background:var(--warn-light);color:#92400e;padding:2px 9px;border-radius:4px;font-weight:600}
+    .mrc-foot{display:flex;flex-wrap:wrap;gap:6px 22px;padding:10px 14px;font-size:14px;border-top:1px solid var(--border);background:var(--surface2)}
+    .mrc-foot .lbl{color:var(--text-muted);font-size:12px;font-weight:600;margin-left:4px}
+    @media(max-width:768px){.mrc-iname{min-width:0}}
+  </style>`;
+
+  const cards = rows.map(row => {
+    const coordNames = [row.f17, row.f17b].filter(Boolean);
+    const coordRows = coordNames.map(n => (td.lists.list6||[]).find(r=>r[0]===n)).filter(Boolean);
+    const coordDisplay = coordNames.map((n,i)=>{ const cr=coordRows[i]||(td.lists.list6||[]).find(r=>r[0]===n); const ph=cr?cr[4]||'':''; return ph?`${n} (${ph})`:n; }).join(' · ');
+    const total = calcTotal(row,td);
+    const dateStr = fmtDate(row.f13);
+    const dayStr = row.f13 ? getDay(row.f13) : '';
+    const approval = row.f3||'';
+
+    const mkItems = (pairs, listKey) => pairs.filter(Boolean).map(name => {
+      const code = getListCode(listKey, name, 1);
+      return `<div class="mrc-item"><span class="mrc-iname">${h(name)}</span>${code?`<span class="mrc-arrow">◄ להזנה:</span><span class="mrc-icode">${h(code)}</span>`:''}</div>`;
+    }).join('');
+    const routes = mkItems([row.f18,row.f19,row.f20], 'list2');
+    const sites  = mkItems([row.f21,row.f22], 'list3');
+    const attrs  = mkItems([row.f23,row.f26], 'list4');
+    const grp = (label,items) => items ? `<div class="mrc-group"><div class="mrc-glabel">${label}</div>${items}</div>` : '';
+
+    return `<div class="mrc">
+      <div class="mrc-head">
+        <span class="mrc-name">${h(communityWithAttached(row))}</span>
+        ${row.f4?'<span class="mrc-approved">✓ טיול מאושר</span>':''}
+      </div>
+      <div class="mrc-meta">
+        <span><span class="lbl">תאריך יציאה:</span><span class="val">${h(dateStr||'—')}${dayStr?` · יום ${h(dayStr)}`:''}</span></span>
+        <span><span class="lbl">סה"כ משתתפים:</span><span class="val">${total||'—'}</span></span>
+        <span><span class="lbl">מס' אישור:</span><span class="val">${h(approval||'—')}</span></span>
+      </div>
+      <div class="mrc-body">
+        ${grp('מסלולים', routes)}
+        ${grp('אתרים', sites)}
+        ${grp('אטרקציות', attrs)}
+        ${!routes&&!sites&&!attrs?'<div style="color:var(--text-muted);font-size:13px">לא הוזנו מסלולים/אתרים/אטרקציות</div>':''}
+      </div>
+      <div class="mrc-foot">
+        <span><span class="lbl">אחראי טיול:</span>${h(coordDisplay||'—')}</span>
+        ${row.f29?`<span><span class="lbl">הערות:</span>${h(row.f29)}</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── טבלה נסתרת (מזינה את ייצוא Excel וההדפסה, ללא שינוי בפורמט הקיים) ──
+  const hdrs = ['שם קהילה','קהילה נוספת','תאריך יציאה','יום','טיול 1','הזנה טיול 1','טיול 2','הזנה טיול 2','טיול 3','הזנה טיול 3','אתר 1','הזנה אתר 1','אתר 2','הזנה אתר 2','אטרקציה 1','הזנה אטרקציה 1','אטרקציה 2','הזנה אטרקציה 2','מספר משתתפים','אחראי טיול','ת.ז.','טלפון','מייל','מס\' אישור','טיול מאושר'].map(l=>`<th>${l}</th>`).join('');
   const trs = rows.map((row,ri) => {
     const coordNames = [row.f17, row.f17b].filter(Boolean);
     const coordRows = coordNames.map(n => (td.lists.list6||[]).find(r=>r[0]===n)).filter(Boolean);
@@ -2623,6 +2688,7 @@ function buildReport2(td) {
     const total = calcTotal(row,td);
     const cells = [
       communityWithAttached(row), [row.f8, row.f8b].filter(Boolean).join(', '),
+      fmtDate(row.f13), row.f13?getDay(row.f13):'',
       row.f18, getListCode('list2',row.f18,1),
       row.f19, getListCode('list2',row.f19,1),
       row.f20, getListCode('list2',row.f20,1),
@@ -2639,8 +2705,11 @@ function buildReport2(td) {
     ];
     return `<tr>${cells.map((c,ci)=>`<td>${h(String(c||''))}</td>`).join('')}</tr>`;
   }).join('');
+
   return `<h2 class="report-title">הזנות משרד החינוך — ${h(activeTrip)}</h2>
-    <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>`;
+    ${cardStyle}
+    <div class="mreport-cards">${cards}</div>
+    <div class="report-table-wrap" style="display:none"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>`;
 }
 
 function buildReport3(td) {
