@@ -625,6 +625,7 @@ const MT_FIELDS = [
   {id:'f5', label:'נרשמים',type:'calc_participants'},
   {id:'f6', label:'מלווים',type:'number'},
   {id:'f7', label:'תיקון כמות',type:'number'},
+  {id:'f37',label:'כמות משוערת',type:'number'},
   {id:'f8', label:'קהילה מצורפת',type:'select',source:'list1_col0'},
   {id:'f8b',label:'קהילה מצורפת 2',type:'select',source:'list1_col0'},
   {id:'f9', label:'סה"כ',type:'calc_total'},
@@ -662,6 +663,18 @@ const CALC_TYPES = ['calc_total','calc_buses','calc_hebrew','calc_day','calc_con
 
 const DEF_CLONE_LISTS = {list1:true,list2:true,list3:true,list4:true,list5:true,list6:true,list7:false,list8:true,list9:true,list10:true};
 const DEF_CLONE_MT = {f1:true,f18:true,f19:true,f20:true,f21:true,f22:true,f23:true,f26:true};
+
+// כללי חישוב אוטובוסים — עד X משתתפים → שילוב. מעל הסף הגבוה ביותר → 'חריג'
+const DEF_BUS_RULES = [
+  { max:20,  combo:[{type:'מיניבוס',count:1}] },
+  { max:23,  combo:[{type:'מיניבוס23',count:1}] },
+  { max:54,  combo:[{type:'רגיל',count:1}] },
+  { max:60,  combo:[{type:'אוטובוס60',count:1}] },
+  { max:74,  combo:[{type:'רגיל',count:1},{type:'מיניבוס',count:1}] },
+  { max:108, combo:[{type:'רגיל',count:2}] },
+  { max:114, combo:[{type:'רגיל',count:1},{type:'אוטובוס60',count:1}] },
+  { max:120, combo:[{type:'אוטובוס60',count:2}] },
+];
 
 // ── FIREBASE CONFIG ──
 const FIREBASE_CONFIG = {
@@ -1470,6 +1483,7 @@ function renderMT(container) {
           <span class="counter-badge" style="background:var(--success-light);color:var(--success)">✅ ${approvedCount} מאושרים</span>
           <span class="counter-badge" style="background:var(--primary-light);color:var(--primary)">🟢 ${activeCount} פעילים</span>
           <span class="counter-badge" style="background:var(--surface2);color:var(--text-muted)">📋 ${(td.mainTable||[]).length} סה"כ</span>
+          ${(state.global.settings.busMode==='estimate')?`<span class="counter-badge" style="background:#fef3c7;color:#92400e;cursor:pointer" onclick="toggleBusMode()" title="לחץ להחלפה לאמיתי">🔴 אוטובוסים לפי משוער</span>`:''}
         </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1487,7 +1501,7 @@ function renderMT(container) {
 
 function getColWidth(f) {
   const widths = {
-    'f1':140,'f2':50,'f3':90,'f4':50,'f5':70,'f6':60,'f7':60,'f8':130,'f8b':130,
+    'f1':140,'f2':50,'f3':90,'f4':50,'f5':70,'f6':60,'f7':60,'f37':85,'f8':130,'f8b':130,
     'f9':70,'f10':110,'f11':75,'f12':75,'f13':100,'f14':90,'f15':60,
     'f16':120,'f17':120,'f17b':120,'f18':130,'f19':130,'f20':130,'f21':130,'f22':130,
     'f23':130,'f24':50,'f25':70,'f26':130,'f27':50,'f28':70,'f29':120,
@@ -1513,7 +1527,7 @@ function exportMTExcel() {
     return [ri+1, ...visFields.map(f => {
       switch(f.type) {
         case 'calc_total':        return calcTotal(row,td)||'';
-        case 'calc_buses':        return calcBuses(calcTotal(row,td))||'';
+        case 'calc_buses':        return calcBuses(busBasis(row,td))||'';
         case 'calc_hebrew':       return row.f13 ? toHeb(row.f13) : '';
         case 'calc_day':          return row.f13 ? getDay(row.f13) : '';
         case 'calc_contact':      return getContact(row.f1,td);
@@ -1577,7 +1591,7 @@ function renderMTCell(f,row,ri,td) {
       return `<td><select class="cell-select" onchange="handleMTSel(${ri},'${f.id}',this.value,'${f.source||''}')">${optsHtml}</select></td>`;
     }
     case 'calc_total': { const t=calcTotal(row,td); return `<td><strong>${t||''}</strong></td>`; }
-    case 'calc_buses': { const t=calcTotal(row,td); const b=calcBuses(t); return `<td>${b?`<span class="${b==='חריג'?'badge-exception':'badge-bus'}">${b}</span>`:''}</td>`; }
+    case 'calc_buses': { const t=busBasis(row,td); const b=calcBuses(t); return `<td>${b?`<span class="${b==='חריג'?'badge-exception':'badge-bus'}">${b}</span>`:''}</td>`; }
     case 'calc_hebrew': return `<td class="hebrew-date">${v?toHeb(v):''}</td>`;
     case 'calc_day': return `<td style="font-size:11px">${row.f13?getDay(row.f13):''}</td>`;
     case 'calc_contact': return `<td style="font-size:11px">${h(getContact(row.f1,td))}</td>`;
@@ -1609,6 +1623,13 @@ function setMT(ri,fid,val) {
 }
 // שמירה שקטה — מעדכן נתון ושומר בלי לבנות מחדש את המסך (שומר על מיקום הגלילה)
 function setMTQuiet(ri,fid,val){ const td=getTD(); if(!td) return; pushU(snap()); td.mainTable[ri][fid]=val; save(); }
+// החלפת מצב חישוב אוטובוסים (אמיתי ⇄ משוער) — משפיע גלובלית
+function toggleBusMode(){
+  const cur = (state.global && state.global.settings && state.global.settings.busMode) || 'real';
+  state.global.settings.busMode = cur==='real' ? 'estimate' : 'real';
+  save(); render();
+  showToast(state.global.settings.busMode==='estimate' ? 'עברת לתצוגת כמות משוערת' : 'עברת לתצוגת כמות אמיתית','info');
+}
 function handleMTSel(ri,fid,val,src) {
   if((fid==='f23'||fid==='f26')&&val) {
     const td=getTD(); const a=(td.lists.list4||[]).find(r=>r[0]===val);
@@ -1637,17 +1658,28 @@ function calcTotal(row,td) {
   if(row.f8b&&td&&td.mainTable) { const mr=td.mainTable.find(r=>r.f1===row.f8b); if(mr) t+=(parseInt(countP(mr.f1,td))||0)+(parseInt(mr.f6)||0)+(parseInt(mr.f7)||0); }
   return t;
 }
+function busRules() {
+  const r = state.global && state.global.settings && state.global.settings.busRules;
+  return (Array.isArray(r) && r.length) ? r : DEF_BUS_RULES;
+}
 function calcBuses(n) {
-  if(!n||n<=0) return '';
-  if(n<=20) return 'מיניבוס 1';
-  if(n<=23) return 'מיניבוס23 1';
-  if(n<=54) return 'רגיל 1';
-  if(n<=60) return 'אוטובוס60 1';
-  if(n<=74) return 'רגיל 1 + מיניבוס 1';
-  if(n<=108) return 'רגיל 2';
-  if(n<=114) return 'רגיל 1 + אוטובוס60 1';
-  if(n<=120) return 'אוטובוס60 2';
+  if(n===null||n===undefined||n===''||isNaN(n)||n<=0) return '';
+  const rules = [...busRules()].filter(r=>r&&r.max).sort((a,b)=>a.max-b.max);
+  for(const rule of rules) {
+    if(n <= rule.max) {
+      return (rule.combo||[]).filter(c=>c.type&&c.count).map(c=>`${c.type} ${c.count}`).join(' + ') || 'חריג';
+    }
+  }
   return 'חריג';
+}
+// מספר המשתתפים שלפיו מחושבים אוטובוסים — לפי מצב (אמיתי/משוער)
+function busBasis(row, td) {
+  const mode = (state.global && state.global.settings && state.global.settings.busMode) || 'real';
+  if(mode === 'estimate') {
+    const est = parseInt(row.f37);
+    return isNaN(est) ? null : est; // אין משוער → ריק
+  }
+  return calcTotal(row, td);
 }
 function getContact(name,td) {
   if(!name||!td) return '';
@@ -1886,6 +1918,8 @@ function expL(lk){
 // ── SETTINGS ──
 function renderSettings(container) {
   if(!isAdmin()) { container.innerHTML='<div class="no-trip"><div class="nt-icon">🔒</div><h2>גישה למנהלים בלבד</h2></div>'; return; }
+  // עותק עבודה של כללי האוטובוסים
+  window._busRulesDraft = JSON.parse(JSON.stringify(busRules()));
   const cl=state.global.settings.cloneLists||DEF_CLONE_LISTS;
   const cm=state.global.settings.cloneMTFields||DEF_CLONE_MT;
   const lg=LIST_KEYS.map(k=>`<label class="clone-item"><input type="checkbox" id="s_cl_${k}" ${cl[k]!==false?'checked':''} onchange="saveSett()"><span>${LIST_DEFS[k].name}</span></label>`).join('');
@@ -1919,6 +1953,29 @@ function renderSettings(container) {
             <input type="email" id="s_officeEmail" class="form-control" dir="ltr" placeholder="office@example.com" value="${h(state.global.settings.officeEmail||'7697539@gmail.com')}" style="flex:1;min-width:220px">
             <button class="btn btn-primary btn-sm" onclick="saveGeneralSett()">💾 שמור</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- כרטיסיית אוטובוסים -->
+    <div class="settings-accordion" id="acc-buses" style="margin-top:10px">
+      <div class="settings-acc-header" onclick="toggleAccordion('acc-buses')">
+        <span>🚌 הגדרות אוטובוסים</span>
+        <span class="acc-arrow">▼</span>
+      </div>
+      <div class="settings-acc-body" style="display:none">
+        <div class="settings-card" style="box-shadow:none;border:1px solid var(--border);margin-bottom:14px">
+          <h4>⚖️ בסיס חישוב אוטובוסים</h4>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">לפי מה יחושבו מספר וסוג האוטובוסים (משפיע על כל האפליקציה)</p>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm ${(state.global.settings.busMode||'real')==='real'?'btn-primary':'btn-secondary'}" onclick="state.global.settings.busMode='real';save();render()">🟢 לפי כמות אמיתית</button>
+            <button class="btn btn-sm ${state.global.settings.busMode==='estimate'?'btn-primary':'btn-secondary'}" onclick="state.global.settings.busMode='estimate';save();render()">🔴 לפי כמות משוערת</button>
+          </div>
+        </div>
+        <div class="settings-card" style="box-shadow:none;border:1px solid var(--border)">
+          <h4>🚌 כללי חישוב (עד X משתתפים → שילוב)</h4>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">מעל הסף הגבוה ביותר → "חריג". סוגי האוטובוס חייבים להתאים למחירון (רשימה 8).</p>
+          <div id="busRulesEditor">${renderBusRulesEditor()}</div>
         </div>
       </div>
     </div>
@@ -1964,6 +2021,61 @@ function saveGeneralSett(){
   const el=document.getElementById('s_officeEmail');
   if(el) state.global.settings.officeEmail = el.value.trim();
   save(); showToast('נשמר ✓');
+}
+
+// ── עורך כללי אוטובוסים ──
+function busTypeOptions(selected){
+  const td=getTD();
+  const fromList8 = td ? (td.lists.list8||[]).map(r=>r[0]||'').filter(Boolean) : [];
+  const fromDefaults = ['מיניבוס','מיניבוס23','רגיל','אוטובוס60'];
+  const all = [...new Set([...fromList8, ...fromDefaults, selected].filter(Boolean))];
+  return ['<option value="">— סוג —</option>', ...all.map(t=>`<option value="${h(t)}" ${t===selected?'selected':''}>${h(t)}</option>`)].join('');
+}
+function renderBusRulesEditor(){
+  const draft = window._busRulesDraft || [];
+  const rows = draft.map((rule,i)=>{
+    const combo = (rule.combo||[]).map((c,j)=>`
+      <span style="display:inline-flex;align-items:center;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 4px">
+        <select onchange="busRuleSetComboType(${i},${j},this.value)" style="font-family:var(--font);font-size:12px;border:none;background:transparent">${busTypeOptions(c.type)}</select>
+        <span style="color:var(--text-muted);font-size:12px">×</span>
+        <input type="number" min="1" value="${h(String(c.count||1))}" onchange="busRuleSetComboCount(${i},${j},this.value)" style="width:42px;text-align:center;border:1px solid var(--border-strong);border-radius:4px;font-size:12px;padding:1px 3px">
+        <button onclick="busRuleDelCombo(${i},${j})" title="הסר סוג" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:13px;padding:0 2px">✕</button>
+      </span>`).join(' ');
+    return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;color:var(--text-muted)">עד</span>
+      <input type="number" min="1" value="${h(String(rule.max||''))}" onchange="busRuleSetMax(${i},this.value)" style="width:64px;text-align:center;border:1px solid var(--border-strong);border-radius:4px;padding:3px 4px;font-weight:700">
+      <span style="font-size:13px;color:var(--text-muted)">משתתפים ◄</span>
+      ${combo}
+      <button class="btn btn-secondary btn-sm" onclick="busRuleAddCombo(${i})">+ סוג</button>
+      <button onclick="busRuleDelRow(${i})" title="מחק שורה" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:15px;margin-right:auto">🗑</button>
+    </div>`;
+  }).join('');
+  return `<div>${rows||'<div style="color:var(--text-muted);font-size:13px;padding:8px">אין כללים</div>'}</div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" onclick="busRuleAddRow()">+ הוסף שורה</button>
+      <button class="btn btn-success btn-sm" onclick="busRulesSave()">💾 שמור כללים</button>
+      <button class="btn btn-secondary btn-sm" onclick="busRulesReset()" style="margin-right:auto">↺ שחזר ברירת מחדל</button>
+    </div>`;
+}
+function busRuleRerender(){ const el=document.getElementById('busRulesEditor'); if(el) el.innerHTML=renderBusRulesEditor(); }
+function busRuleSetMax(i,val){ window._busRulesDraft[i].max = parseInt(val)||0; }
+function busRuleSetComboType(i,j,val){ window._busRulesDraft[i].combo[j].type = val; }
+function busRuleSetComboCount(i,j,val){ window._busRulesDraft[i].combo[j].count = parseInt(val)||1; }
+function busRuleAddCombo(i){ window._busRulesDraft[i].combo.push({type:'',count:1}); busRuleRerender(); }
+function busRuleDelCombo(i,j){ window._busRulesDraft[i].combo.splice(j,1); busRuleRerender(); }
+function busRuleAddRow(){ window._busRulesDraft.push({max:0,combo:[{type:'',count:1}]}); busRuleRerender(); }
+function busRuleDelRow(i){ window._busRulesDraft.splice(i,1); busRuleRerender(); }
+function busRulesReset(){ window._busRulesDraft = JSON.parse(JSON.stringify(DEF_BUS_RULES)); busRuleRerender(); showToast('שוחזר לברירת מחדל (לא נשמר עדיין)','info'); }
+function busRulesSave(){
+  const clean = (window._busRulesDraft||[])
+    .filter(r=>r.max>0)
+    .map(r=>({max:r.max, combo:(r.combo||[]).filter(c=>c.type&&c.count>0)}))
+    .filter(r=>r.combo.length)
+    .sort((a,b)=>a.max-b.max);
+  if(!clean.length){ showToast('אין כללים תקינים לשמירה','danger'); return; }
+  state.global.settings.busRules = clean;
+  save(); render();
+  showToast('כללי האוטובוסים נשמרו ✓');
 }
 
 // ── IMPORT ──
@@ -2061,7 +2173,7 @@ function openEditRow(ri) {
   const sections = [
     {
       title:'👥 פרטי קהילה וכמויות', icon:'',
-      fields:['f1','f2','f3','f4','f5','f6','f7','f8','f8b','f9','f10']
+      fields:['f1','f2','f3','f4','f5','f6','f7','f37','f8','f8b','f9','f10']
     },
     {
       title:'📅 תאריכים, שעות ואוטובוסים', icon:'',
@@ -2270,7 +2382,7 @@ function rebuildEditBody() {
   const td = getTD(); if(!td||!editRowData) return;
   const row = editRowData;
   const sections = [
-    { title:'👥 פרטי קהילה וכמויות', fields:['f1','f2','f3','f4','f5','f6','f7','f8','f8b','f9','f10'] },
+    { title:'👥 פרטי קהילה וכמויות', fields:['f1','f2','f3','f4','f5','f6','f7','f37','f8','f8b','f9','f10'] },
     { title:'📅 תאריכים, שעות ואוטובוסים', fields:['f13','f14','f15','f11','f12','f34','f30','f10','f31','f36','f29'] },
     { title:'👤 אחראים', fields:['f16','f17','f17b'] },
     { title:'🥾 מסלולים ואתרים', fields:['f18','f19','f20','f21','f22'] },
@@ -2315,7 +2427,7 @@ function renderEditField(fdef, row, td) {
   if(isCalc) {
     let calcVal = '';
     if(fdef.type==='calc_total') calcVal = calcTotal(row,td)||'';
-    else if(fdef.type==='calc_buses') { const t=calcTotal(row,td); calcVal=calcBuses(t)||''; }
+    else if(fdef.type==='calc_buses') { const t=busBasis(row,td); calcVal=calcBuses(t)||''; }
     else if(fdef.type==='calc_hebrew') calcVal = v ? toHeb(v) : '';
     else if(fdef.type==='calc_day') calcVal = row.f13 ? getDay(row.f13) : '';
     else if(fdef.type==='calc_contact') calcVal = getContact(row.f1, td);
@@ -2365,7 +2477,7 @@ function refreshCalcs() {
   const busTotal  = calcBusPriceTotal(editRowData,td);
   const calcs = {
     calc_total: total||'',
-    calc_buses: calcBuses(total)||'',
+    calc_buses: calcBuses(busBasis(editRowData,td))||'',
     calc_hebrew: editRowData.f13?toHeb(editRowData.f13):'',
     calc_day: editRowData.f13?getDay(editRowData.f13):'',
     calc_contact: getContact(editRowData.f1,td),
@@ -2537,9 +2649,9 @@ function calcAttrPriceTotal(row, td) {
 
 // ── סה"כ מחיר אוטובוסים לשורה ──
 function calcBusPriceTotal(row, td) {
-  const total = calcTotal(row, td);
-  if(!total) return 0;
-  const busStr = calcBuses(total);
+  const basis = busBasis(row, td);
+  if(!basis) return 0;
+  const busStr = calcBuses(basis);
   const buses  = parseBuses(busStr);
   return buses.reduce((sum, bus) => sum + (calcBusPrice(row, td, bus.type)||0), 0);
 }
@@ -2608,7 +2720,7 @@ function buildReport1(td) {
     const tripCoord = coordNames.join(' + ');
     const phone = coordRows.map(r=>r[4]||'').filter(Boolean).join(' / ');
     const total = calcTotal(row,td);
-    const buses = calcBuses(total);
+    const buses = calcBuses(busBasis(row,td));
     // דחיסת אתרים/מסלולים/אטרקציות
     const sites = compactVals([row.f18,row.f19,row.f20,row.f21,row.f22,row.f23,row.f26]);
     return `<tr>
@@ -2785,17 +2897,31 @@ function buildReport3(td) {
 
   // Parse bus result — uses global parseBuses
 
-  // Expand rows: one per bus
+  const busMode = (state.global && state.global.settings && state.global.settings.busMode) || 'real';
+
+  // Expand rows: one per bus (לפי מצב אמיתי/משוער)
   let expandedRows=[];
   rows.forEach(row=>{
-    const total=calcTotal(row,td);
-    const busStr=calcBuses(total);
+    const basis=busBasis(row,td);
+    const busStr=calcBuses(basis);
     const buses=parseBuses(busStr);
     const totalBuses=buses.length;
     buses.forEach((bus,i)=>{
       expandedRows.push({row, bus, busNum:i+1, totalBuses});
     });
   });
+
+  // באנר מצב בולט + מתג
+  const modeBanner = busMode==='estimate'
+    ? `<div style="display:flex;align-items:center;gap:12px;background:#fef3c7;border:2px solid #d97706;border-radius:8px;padding:10px 16px;margin-bottom:14px">
+        <span style="font-size:15px;font-weight:800;color:#92400e">🔴 תצוגה לפי כמות משוערת</span>
+        <span style="font-size:12px;color:#92400e">מספר האוטובוסים והמחיר מחושבים לפי הכמות המשוערת, לא לפי הנרשמים בפועל</span>
+        <button class="btn btn-sm" style="background:#059669;color:#fff;margin-right:auto" onclick="toggleBusMode()">↔ החלף לאמיתי</button>
+      </div>`
+    : `<div style="display:flex;align-items:center;gap:12px;background:var(--success-light);border:2px solid var(--success);border-radius:8px;padding:10px 16px;margin-bottom:14px">
+        <span style="font-size:15px;font-weight:800;color:#065f46">🟢 תצוגה לפי כמות אמיתית (נרשמים בפועל)</span>
+        <button class="btn btn-sm" style="background:#d97706;color:#fff;margin-right:auto" onclick="toggleBusMode()">↔ החלף למשוער</button>
+      </div>`;
 
   const hdrs=['שם קהילה','סוג רכב','תאריך','יום','שעת יציאה','כתובת','איש קשר','טלפון','אתר 1','אתר 2','אתר 3','אתר 4','אתר 5','אתר 6','אתר 7','כמות משתתפים','שעת חזרה','שעת חזרה בפועל','שעות','שינויים והערות','שינוי בסכום','סיכום עלות'].map(l=>`<th>${l}</th>`).join('');
 
@@ -2806,7 +2932,7 @@ function buildReport3(td) {
     const coordRows = coordNames.map(n => (td.lists.list6||[]).find(r=>r[0]===n)).filter(Boolean);
     const contactRow = coordRows[0] || (td.lists.list6||[]).find(r=>r[0]===contact);
     const coordPhones = coordRows.length ? coordRows.map(r=>r[4]||'').filter(Boolean).join(' / ') : (contactRow?contactRow[4]||'':'');
-    const total=calcTotal(row,td);
+    const total=busBasis(row,td); // הכמות שלפיה חושבו האוטובוסים (אמיתי/משוער)
     const hours=calcHours(row);
     const price=calcBusPrice(row,td,bus.type);
     const communityLabel = totalBuses>1
@@ -2849,6 +2975,7 @@ function buildReport3(td) {
   const grandTotal = expandedRows.reduce((sum,{row,bus})=>sum+(calcBusPrice(row,td,bus.type)||0),0);
 
   return `<h2 class="report-title">דוח אוטובוסים — ${h(activeTrip)}</h2>
+    ${modeBanner}
     <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>
     <div style="margin-top:14px;text-align:left;font-size:15px;font-weight:700;color:var(--primary)">סה"כ עלות אוטובוסים: ${grandTotal.toLocaleString()} ₪</div>`;
 }
@@ -2931,7 +3058,7 @@ function calcBusPriceForRow(communityName) {
   const td = getTD(); if(!td) return '';
   const row = td.mainTable.find(r => r.f1 === communityName);
   if(!row) return '';
-  const busStr = calcBuses(calcTotal(row,td));
+  const busStr = calcBuses(busBasis(row,td));
   const buses = parseBuses(busStr);
   if(!buses.length) return '';
   const price = calcBusPrice(row, td, buses[0].type);
