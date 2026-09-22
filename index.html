@@ -1607,6 +1607,8 @@ function setMT(ri,fid,val) {
   if((fid==='f8'||fid==='f8b')&&val) { const mr=td.mainTable.find(r=>r.f1===val); if(mr) mr.f2=false; }
   save(); render();
 }
+// שמירה שקטה — מעדכן נתון ושומר בלי לבנות מחדש את המסך (שומר על מיקום הגלילה)
+function setMTQuiet(ri,fid,val){ const td=getTD(); if(!td) return; pushU(snap()); td.mainTable[ri][fid]=val; save(); }
 function handleMTSel(ri,fid,val,src) {
   if((fid==='f23'||fid==='f26')&&val) {
     const td=getTD(); const a=(td.lists.list4||[]).find(r=>r[0]===val);
@@ -2723,7 +2725,7 @@ function buildReport2(td) {
       <div class="mrc-zone mrc-zone-a mrc-meta">
         <span><span class="lbl">תאריך יציאה:</span><span class="val">${h(dateStr||'—')}${dayStr?` · יום ${h(dayStr)}`:''}</span></span>
         <span><span class="lbl">סה"כ משתתפים:</span><span class="val">${total||'—'}</span></span>
-        <span><span class="lbl">מס' אישור:</span><input class="cell-input" value="${h(approval)}" onchange="setMT(${ri},'f3',this.value)" placeholder="הזן לאחר הזנה" dir="rtl" style="min-width:120px;font-weight:700;border:1px solid var(--border-strong);border-radius:4px;padding:2px 6px;background:#fff"></span>
+        <span><span class="lbl">מס' אישור:</span><input class="cell-input" value="${h(approval)}" onchange="setMTQuiet(${ri},'f3',this.value)" placeholder="הזן לאחר הזנה" dir="rtl" style="min-width:120px;font-weight:700;border:1px solid var(--border-strong);border-radius:4px;padding:2px 6px;background:#fff"></span>
       </div>
       <div class="mrc-zone mrc-zone-b mrc-body">
         ${grp('מסלולים', routes)}
