@@ -1903,6 +1903,24 @@ function renderSettings(container) {
       </div>
     </div>
 
+    <!-- כרטיסיית הגדרות כלליות -->
+    <div class="settings-accordion" id="acc-general" style="margin-top:10px">
+      <div class="settings-acc-header" onclick="toggleAccordion('acc-general')">
+        <span>📧 הגדרות כלליות</span>
+        <span class="acc-arrow">▼</span>
+      </div>
+      <div class="settings-acc-body" style="display:none">
+        <div class="settings-card" style="box-shadow:none;border:1px solid var(--border)">
+          <h4>📧 מייל קבוע להזנה</h4>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">המייל שמופיע בכרטיסי דוח הזנות משרד החינוך (עם כפתור העתקה)</p>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="email" id="s_officeEmail" class="form-control" dir="ltr" placeholder="office@example.com" value="${h(state.global.settings.officeEmail||'7697539@gmail.com')}" style="flex:1;min-width:220px">
+            <button class="btn btn-primary btn-sm" onclick="saveGeneralSett()">💾 שמור</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- כרטיסיית שכפול -->
     <div class="settings-accordion" id="acc-clone" style="margin-top:10px">
       <div class="settings-acc-header" onclick="toggleAccordion('acc-clone')">
@@ -1939,6 +1957,11 @@ function saveSett(){
   LIST_KEYS.forEach(k=>{const el=document.getElementById('s_cl_'+k);if(el)cl[k]=el.checked;});
   MT_FIELDS.forEach(f=>{const el=document.getElementById('s_cmf_'+f.id);if(el)cm[f.id]=el.checked;});
   state.global.settings.cloneLists=cl;state.global.settings.cloneMTFields=cm;save();showToast('נשמר ✓');
+}
+function saveGeneralSett(){
+  const el=document.getElementById('s_officeEmail');
+  if(el) state.global.settings.officeEmail = el.value.trim();
+  save(); showToast('נשמר ✓');
 }
 
 // ── IMPORT ──
@@ -2621,7 +2644,7 @@ function fallbackCopy(t,ok){
 function buildReport2(td) {
   const rows = getActiveRows(td);
   if (!rows.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין קהילות פעילות</div></div>';
-  const OFFICE_EMAIL = '7697539@gmail.com';
+  const OFFICE_EMAIL = (state.global && state.global.settings && state.global.settings.officeEmail) || '7697539@gmail.com';
 
   function getListCode(listKey, col0val, colIdx) {
     const listRows = td.lists[listKey]||[];
@@ -2666,6 +2689,7 @@ function buildReport2(td) {
   const copyField = (label, val) => val ? `<span class="mrc-field"><span class="lbl">${label}:</span><span class="fval">${h(val)}</span><button class="mrc-copy" data-copy="${h(val)}" onclick="copyFromBtn(this)" title="העתק">⧉</button></span>` : '';
 
   const cards = rows.map(row => {
+    const ri = (td.mainTable||[]).indexOf(row);
     const coordNames = [row.f17, row.f17b].filter(Boolean);
     const total = calcTotal(row,td);
     const dateStr = fmtDate(row.f13);
@@ -2681,13 +2705,14 @@ function buildReport2(td) {
     const attrs  = mkItems([row.f23,row.f26], 'list4');
     const grp = (label,items) => items ? `<div class="mrc-group"><div class="mrc-glabel">${label}</div>${items}</div>` : '';
 
-    // אחראי טיול — פרטים מלאים + כפתורי העתקה לכל שדה (עד 2 אחראים)
+    // אחראי טיול — פרטים מלאים + כפתורי העתקה לכל שדה (עד 2 אחראים, כל אחד בשורה נפרדת)
     const coordBlocks = coordNames.map((n,i) => {
       const cr = (td.lists.list6||[]).find(r=>r[0]===n);
       const fname = cr?cr[2]||'':'', lname = cr?cr[1]||'':'', tz = cr?cr[3]||'':'', phone = cr?cr[4]||'':'', email = cr?cr[5]||'':'';
       const fields = [copyField('שם פרטי',fname),copyField('שם משפחה',lname),copyField('ת.ז.',tz),copyField('טלפון',phone),copyField('מייל',email)].filter(Boolean).join('');
       const label = coordNames.length>1 ? `אחראי טיול ${i+1}` : 'אחראי טיול';
-      return `<div style="margin-bottom:${i<coordNames.length-1?'10px':'0'}"><div class="mrc-zlabel">${label}: ${h(n)}</div><div class="mrc-fields">${fields||'<span style="color:var(--text-muted);font-size:13px">לא נמצאו פרטים באנשי הקשר</span>'}</div></div>`;
+      const sep = i>0 ? 'border-top:1px dashed var(--border-strong);margin-top:10px;padding-top:10px' : '';
+      return `<div style="${sep}"><div class="mrc-zlabel">${label}: ${h(n)}</div><div class="mrc-fields">${fields||'<span style="color:var(--text-muted);font-size:13px">לא נמצאו פרטים באנשי הקשר</span>'}</div></div>`;
     }).join('');
 
     return `<div class="mrc">
@@ -2698,7 +2723,7 @@ function buildReport2(td) {
       <div class="mrc-zone mrc-zone-a mrc-meta">
         <span><span class="lbl">תאריך יציאה:</span><span class="val">${h(dateStr||'—')}${dayStr?` · יום ${h(dayStr)}`:''}</span></span>
         <span><span class="lbl">סה"כ משתתפים:</span><span class="val">${total||'—'}</span></span>
-        <span><span class="lbl">מס' אישור:</span><span class="val">${h(approval||'—')}</span></span>
+        <span><span class="lbl">מס' אישור:</span><input class="cell-input" value="${h(approval)}" onchange="setMT(${ri},'f3',this.value)" placeholder="הזן לאחר הזנה" dir="rtl" style="min-width:120px;font-weight:700;border:1px solid var(--border-strong);border-radius:4px;padding:2px 6px;background:#fff"></span>
       </div>
       <div class="mrc-zone mrc-zone-b mrc-body">
         ${grp('מסלולים', routes)}
