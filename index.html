@@ -2605,9 +2605,23 @@ function buildReport1(td) {
     <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>`;
 }
 
+function copyFromBtn(btn){
+  const t = btn.getAttribute('data-copy') || '';
+  const ok = ()=>{ showToast('הועתק ✓','success'); btn.textContent='✓'; setTimeout(()=>btn.textContent='⧉',1200); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(ok).catch(()=>fallbackCopy(t,ok));
+  } else fallbackCopy(t,ok);
+}
+function fallbackCopy(t,ok){
+  const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.top='-9999px'; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); ok(); }catch(e){ showToast('שגיאה בהעתקה','danger'); }
+  document.body.removeChild(ta);
+}
+
 function buildReport2(td) {
   const rows = getActiveRows(td);
   if (!rows.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין קהילות פעילות</div></div>';
+  const OFFICE_EMAIL = '7697539@gmail.com';
 
   function getListCode(listKey, col0val, colIdx) {
     const listRows = td.lists[listKey]||[];
@@ -2618,30 +2632,41 @@ function buildReport2(td) {
 
   // ── כרטיסים (תצוגת מסך נוחה להזנה) ──
   const cardStyle = `<style>
-    .mreport-cards{display:flex;flex-direction:column;gap:14px;padding:4px 2px}
+    .mreport-cards{display:flex;flex-direction:column;gap:16px;padding:4px 2px}
     .mrc{border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);overflow:hidden;box-shadow:var(--shadow)}
     .mrc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:var(--primary);color:#fff}
     .mrc-name{font-size:16px;font-weight:700}
     .mrc-approved{font-size:11px;font-weight:600;background:rgba(255,255,255,.22);padding:2px 9px;border-radius:4px;white-space:nowrap}
-    .mrc-meta{display:flex;flex-wrap:wrap;gap:6px 22px;padding:10px 14px;font-size:14px;border-bottom:1px solid var(--border)}
-    .mrc-meta .lbl{color:var(--text-muted);font-size:12px;font-weight:600;margin-left:4px}
+    .mrc-zone{padding:10px 14px;border-bottom:1px solid var(--border)}
+    .mrc-zone:last-child{border-bottom:none}
+    .mrc-zone-a{background:var(--surface)}
+    .mrc-zone-b{background:#f4f7fb}
+    .mrc-meta{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:14px}
+    .mrc-meta .lbl,.mrc-foot .lbl{color:var(--text-muted);font-size:12px;font-weight:600;margin-left:4px}
     .mrc-meta .val{font-weight:700}
-    .mrc-body{padding:10px 14px;display:flex;flex-direction:column;gap:10px}
+    .mrc-body{display:flex;flex-direction:column;gap:10px}
     .mrc-group{display:flex;flex-direction:column;gap:4px}
-    .mrc-glabel{font-size:11px;font-weight:700;color:var(--primary);text-transform:none;letter-spacing:.3px}
+    .mrc-glabel{font-size:11px;font-weight:700;color:var(--primary);letter-spacing:.3px}
     .mrc-item{display:flex;align-items:baseline;gap:8px;font-size:14px;flex-wrap:wrap;padding-right:6px}
     .mrc-iname{font-weight:600;min-width:140px}
     .mrc-arrow{color:var(--text-light);font-size:12px}
     .mrc-icode{background:var(--warn-light);color:#92400e;padding:2px 9px;border-radius:4px;font-weight:600}
-    .mrc-foot{display:flex;flex-wrap:wrap;gap:6px 22px;padding:10px 14px;font-size:14px;border-top:1px solid var(--border);background:var(--surface2)}
-    .mrc-foot .lbl{color:var(--text-muted);font-size:12px;font-weight:600;margin-left:4px}
+    .mrc-zlabel{font-size:11px;font-weight:700;color:var(--primary);margin-bottom:6px}
+    .mrc-fields{display:flex;flex-wrap:wrap;gap:8px 14px}
+    .mrc-field{display:inline-flex;align-items:center;gap:5px;font-size:14px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 4px 3px 9px}
+    .mrc-field .lbl{color:var(--text-muted);font-size:11px;font-weight:600}
+    .mrc-field .fval{font-weight:600}
+    .mrc-copy{cursor:pointer;border:1px solid var(--border-strong);background:var(--surface2);color:var(--text-muted);border-radius:4px;width:22px;height:22px;font-size:12px;line-height:1;padding:0;flex-shrink:0}
+    .mrc-copy:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .mrc-foot{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:14px}
     @media(max-width:768px){.mrc-iname{min-width:0}}
   </style>`;
 
+  // שדה עם כפתור העתקה
+  const copyField = (label, val) => val ? `<span class="mrc-field"><span class="lbl">${label}:</span><span class="fval">${h(val)}</span><button class="mrc-copy" data-copy="${h(val)}" onclick="copyFromBtn(this)" title="העתק">⧉</button></span>` : '';
+
   const cards = rows.map(row => {
     const coordNames = [row.f17, row.f17b].filter(Boolean);
-    const coordRows = coordNames.map(n => (td.lists.list6||[]).find(r=>r[0]===n)).filter(Boolean);
-    const coordDisplay = coordNames.map((n,i)=>{ const cr=coordRows[i]||(td.lists.list6||[]).find(r=>r[0]===n); const ph=cr?cr[4]||'':''; return ph?`${n} (${ph})`:n; }).join(' · ');
     const total = calcTotal(row,td);
     const dateStr = fmtDate(row.f13);
     const dayStr = row.f13 ? getDay(row.f13) : '';
@@ -2656,24 +2681,36 @@ function buildReport2(td) {
     const attrs  = mkItems([row.f23,row.f26], 'list4');
     const grp = (label,items) => items ? `<div class="mrc-group"><div class="mrc-glabel">${label}</div>${items}</div>` : '';
 
+    // אחראי טיול — פרטים מלאים + כפתורי העתקה לכל שדה (עד 2 אחראים)
+    const coordBlocks = coordNames.map((n,i) => {
+      const cr = (td.lists.list6||[]).find(r=>r[0]===n);
+      const fname = cr?cr[2]||'':'', lname = cr?cr[1]||'':'', tz = cr?cr[3]||'':'', phone = cr?cr[4]||'':'', email = cr?cr[5]||'':'';
+      const fields = [copyField('שם פרטי',fname),copyField('שם משפחה',lname),copyField('ת.ז.',tz),copyField('טלפון',phone),copyField('מייל',email)].filter(Boolean).join('');
+      const label = coordNames.length>1 ? `אחראי טיול ${i+1}` : 'אחראי טיול';
+      return `<div style="margin-bottom:${i<coordNames.length-1?'10px':'0'}"><div class="mrc-zlabel">${label}: ${h(n)}</div><div class="mrc-fields">${fields||'<span style="color:var(--text-muted);font-size:13px">לא נמצאו פרטים באנשי הקשר</span>'}</div></div>`;
+    }).join('');
+
     return `<div class="mrc">
       <div class="mrc-head">
         <span class="mrc-name">${h(communityWithAttached(row))}</span>
         ${row.f4?'<span class="mrc-approved">✓ טיול מאושר</span>':''}
       </div>
-      <div class="mrc-meta">
+      <div class="mrc-zone mrc-zone-a mrc-meta">
         <span><span class="lbl">תאריך יציאה:</span><span class="val">${h(dateStr||'—')}${dayStr?` · יום ${h(dayStr)}`:''}</span></span>
         <span><span class="lbl">סה"כ משתתפים:</span><span class="val">${total||'—'}</span></span>
         <span><span class="lbl">מס' אישור:</span><span class="val">${h(approval||'—')}</span></span>
       </div>
-      <div class="mrc-body">
+      <div class="mrc-zone mrc-zone-b mrc-body">
         ${grp('מסלולים', routes)}
         ${grp('אתרים', sites)}
         ${grp('אטרקציות', attrs)}
         ${!routes&&!sites&&!attrs?'<div style="color:var(--text-muted);font-size:13px">לא הוזנו מסלולים/אתרים/אטרקציות</div>':''}
       </div>
-      <div class="mrc-foot">
-        <span><span class="lbl">אחראי טיול:</span>${h(coordDisplay||'—')}</span>
+      <div class="mrc-zone mrc-zone-a">
+        ${coordBlocks || '<span style="color:var(--text-muted);font-size:13px">לא הוגדר אחראי טיול</span>'}
+      </div>
+      <div class="mrc-zone mrc-zone-b mrc-foot">
+        <span class="mrc-field"><span class="lbl">מייל להזנה:</span><span class="fval">${OFFICE_EMAIL}</span><button class="mrc-copy" data-copy="${OFFICE_EMAIL}" onclick="copyFromBtn(this)" title="העתק">⧉</button></span>
         ${row.f29?`<span><span class="lbl">הערות:</span>${h(row.f29)}</span>`:''}
       </div>
     </div>`;
