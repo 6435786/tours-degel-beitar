@@ -1440,17 +1440,24 @@ function renderMT(container) {
     ?`<tr><td colspan="${visFields.length+1}" style="text-align:center;padding:28px;color:var(--text-muted)">אין שורות</td></tr>`
     :rows.map(row=>{
         const ri=(td.mainTable||[]).indexOf(row);
-        const act=row.f2===true, approved=row.f4===true, mrg=(row.f8&&row.f8!=='')||(row.f8b&&row.f8b!=='');
+        const act=row.f2===true, approved=row.f4===true;
         const isAttached = attachedToActive.has(row.f1);
         const hostName = attachedHost.get(row.f1) || '';
+        const hostedNames = [row.f8, row.f8b].filter(Boolean);
+        const isHost = hostedNames.length > 0;
         const statusColor = !act?'#aaa':approved?'var(--success)':'var(--warn)';
-        const attachedMark = isAttached
-          ? `<span title="משוייכת לטיול הפעיל של ${h(hostName)}" style="color:var(--success);font-weight:900;font-size:14px;margin-right:2px;vertical-align:middle">✓</span>`
-          : '';
-        return `<tr style="${!act && !isAttached?'opacity:.55':''}${mrg?';background:#fffbf0':''}">
+        // תג שרשרת: כחול = מארחת (מצרפת אליה קהילות), ירוק = מוצמדת לטיול פעיל
+        let linkMark = '';
+        const linkBadge = (bg,tip)=>`<span title="${tip}" style="display:inline-block;background:${bg};border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;font-size:10px;margin-right:2px;vertical-align:middle">🔗</span>`;
+        if(isHost) {
+          linkMark = linkBadge('var(--primary-light)', `מארחת: ${h(hostedNames.join(', '))}`);
+        } else if(isAttached) {
+          linkMark = linkBadge('var(--success-light)', `מוצמדת לטיול הפעיל של ${h(hostName)}`);
+        }
+        return `<tr style="${!act && !isAttached?'opacity:.55':''}">
           <td class="col-num" style="white-space:nowrap;padding:4px 6px">
             <div style="width:3px;height:32px;background:${statusColor};border-radius:2px;display:inline-block;vertical-align:middle;margin-left:4px"></div>
-            <button class="btn btn-primary btn-icon btn-sm" onclick="openEditRow(${ri})" title="ערוך שורה">✏️</button>${attachedMark}
+            <button class="btn btn-primary btn-icon btn-sm" onclick="openEditRow(${ri})" title="ערוך שורה">✏️</button>${linkMark}
             <div style="font-size:10px;color:var(--text-light);margin-top:1px">${ri+1}</div>
           </td>${visFields.map(f=>renderMTCell(f,row,ri,td)).join('')}</tr>`;
       }).join('');
