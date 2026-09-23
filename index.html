@@ -608,13 +608,12 @@ const LIST_DEFS = {
   list1:{name:'קהילות',fields:['שם קהילה','כתובת']},
   list2:{name:'מסלולים',fields:['שם מסלול','פירוט מספרי מסלולים להזנה','שם קליט','משך זמן משוער','ניהול סיכונים','מפות','קישור וויז']},
   list3:{name:'אתרים',fields:['שם אתר','פירוט להזנה ממשרד החינוך','שם קליט','קישור וויז']},
-  list4:{name:'אטרקציות',fields:['שם אטרקציה מלא','פרטים להזנה משרד החינוך','מיקום בארץ','קישור וויז','משך זמן פעילות','ניהול סיכונים','מפות','מחיר','כמות למחיר','מינימום כמות','מקסימום משתתפים','תמחור לפי','שומר שבת','ספק']},
+  list4:{name:'אטרקציות',fields:['שם אטרקציה מלא','פרטים להזנה משרד החינוך','מיקום בארץ','קישור וויז','משך זמן פעילות','חוזר מנכ"ל','מפות','מחיר','כמות למחיר','מינימום כמות','מקסימום משתתפים','תמחור לפי','שומר שבת','ספק','ניהול סיכונים']},
   list5:{name:'שמות טבלאות ראשיות',fields:['שם טבלה']},
   list6:{name:'אנשי קשר',fields:['שם מאוחד','שם משפחה','שם פרטי','ת.ז.','טלפון','מייל','קהילה','תפקיד']},
   list7:{name:'משתתפים',fields:['שם משפחה','שם פרטי','ת.ז.','טלפון','קהילה']},
   list8:{name:'מחירון אוטובוסים',fields:['סוג','מחיר בסיס','כמות שעות לבסיס','מחיר לשעה נוספת','כביש-6 צד אחד','כביש-6 2 צדדים']},
   list9:{name:'מסמכים כלליים',fields:['שם מסמך']},
-  list10:{name:'מאגר אטרקציות',fields:['שם האטרקציה','חוזר מנכ"ל','מסמך נוסף']},
 };
 const LIST_KEYS = Object.keys(LIST_DEFS);
 
@@ -663,7 +662,7 @@ const MT_FIELDS = [
 
 const CALC_TYPES = ['calc_total','calc_buses','calc_hebrew','calc_day','calc_contact','calc_participants','calc_hours','calc_attr_pp','calc_bus_pp'];
 
-const DEF_CLONE_LISTS = {list1:true,list2:true,list3:true,list4:true,list5:true,list6:true,list7:false,list8:true,list9:true,list10:true};
+const DEF_CLONE_LISTS = {list1:true,list2:true,list3:true,list4:true,list5:true,list6:true,list7:false,list8:true,list9:true};
 const DEF_CLONE_MT = {f1:true,f18:true,f19:true,f20:true,f21:true,f22:true,f23:true,f26:true};
 
 // כללי חישוב אוטובוסים — עד X משתתפים → שילוב. מעל הסף הגבוה ביותר → 'חריג'
@@ -3492,16 +3491,12 @@ async function openTripFolder(communityName) {
   attractions.forEach(attr => {
     const r4 = (td.lists.list4||[]).find(r=>r[0]===attr);
     if(r4) {
-      // ניהול סיכונים — ישירות מעמודת האטרקציה (col 5)
-      if(r4[5]) filesToFind.push({archive:'מאגר3/ניהול-סיכונים', search:[r4[5]]});
+      // חוזר מנכ"ל (col 5) → מאגר3/חוזרי-מנכל
+      if(r4[5]) filesToFind.push({archive:'מאגר3/חוזרי-מנכל', search:[r4[5]]});
       // מפות (col 6) → מאגר3/מפות
       if(r4[6]) filesToFind.push({archive:'מאגר3/מפות', search:[r4[6]]});
-      // חוזר מנכ"ל ומסמך נוסף — ממאגר אטרקציות (list10) עם התאמה חכמה לשם
-      const mRec = findAttrMatch(td, attr);
-      if(mRec) {
-        if(mRec[1]) filesToFind.push({archive:'מאגר3/חוזרי-מנכל', search:[mRec[1]]});
-        if(mRec[2]) filesToFind.push({archive:'מאגר3/חוזרי-מנכל', search:[mRec[2]]});
-      }
+      // ניהול סיכונים (col 14, לאטרקציות עם הליכה למצוק וכד') → מאגר3/ניהול-סיכונים
+      if(r4[14]) filesToFind.push({archive:'מאגר3/ניהול-סיכונים', search:[r4[14]]});
     }
   });
 
