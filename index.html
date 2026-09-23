@@ -7,6 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -626,6 +627,7 @@ const MT_FIELDS = [
   {id:'f6', label:'מלווים',type:'number'},
   {id:'f7', label:'תיקון כמות',type:'number'},
   {id:'f37',label:'כמות משוערת',type:'number'},
+  {id:'f38',label:'סמל מוסד',type:'text'},
   {id:'f8', label:'קהילה מצורפת',type:'select',source:'list1_col0'},
   {id:'f8b',label:'קהילה מצורפת 2',type:'select',source:'list1_col0'},
   {id:'f9', label:'סה"כ',type:'calc_total'},
@@ -1501,7 +1503,7 @@ function renderMT(container) {
 
 function getColWidth(f) {
   const widths = {
-    'f1':140,'f2':50,'f3':90,'f4':50,'f5':70,'f6':60,'f7':60,'f37':85,'f8':130,'f8b':130,
+    'f1':140,'f2':50,'f3':90,'f4':50,'f5':70,'f6':60,'f7':60,'f37':85,'f38':90,'f8':130,'f8b':130,
     'f9':70,'f10':110,'f11':75,'f12':75,'f13':100,'f14':90,'f15':60,
     'f16':120,'f17':120,'f17b':120,'f18':130,'f19':130,'f20':130,'f21':130,'f22':130,
     'f23':130,'f24':50,'f25':70,'f26':130,'f27':50,'f28':70,'f29':120,
@@ -1947,12 +1949,19 @@ function renderSettings(container) {
       </div>
       <div class="settings-acc-body" style="display:none">
         <div class="settings-card" style="box-shadow:none;border:1px solid var(--border)">
-          <h4>📧 מייל קבוע להזנה</h4>
-          <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">המייל שמופיע בכרטיסי דוח הזנות משרד החינוך (עם כפתור העתקה)</p>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="email" id="s_officeEmail" class="form-control" dir="ltr" placeholder="office@example.com" value="${h(state.global.settings.officeEmail||'7697539@gmail.com')}" style="flex:1;min-width:220px">
-            <button class="btn btn-primary btn-sm" onclick="saveGeneralSett()">💾 שמור</button>
-          </div>
+          <h4>📧 מייל קבוע להחזרה / הזנה</h4>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">מופיע בכרטיסי דוח הזנות משרד החינוך ובכתב המינוי (המייל להחזרת הטופס החתום)</p>
+          <input type="email" id="s_officeEmail" class="form-control" dir="ltr" placeholder="office@example.com" value="${h(state.global.settings.officeEmail||'7697539@gmail.com')}" style="width:100%;max-width:360px;margin-bottom:14px">
+
+          <h4>🏫 סמל מוסד — ברירת מחדל</h4>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">משמש בכתב המינוי כשלקהילה אין סמל מוסד משלה בטבלה הראשית</p>
+          <input type="text" id="s_mosadCode" class="form-control" dir="ltr" placeholder="6824" value="${h(state.global.settings.defaultMosadCode||'6824')}" style="width:100%;max-width:200px;margin-bottom:14px">
+
+          <h4>✍️ שם החותם (מתאם טיולים)</h4>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">מופיע בתחתית ההנחיות בכתב המינוי</p>
+          <input type="text" id="s_signature" class="form-control" dir="rtl" placeholder="שלמה רוזנבאום — מתאם טיולים" value="${h(state.global.settings.coordinatorSignature||'שלמה רוזנבאום — מתאם טיולים')}" style="width:100%;max-width:360px;margin-bottom:14px">
+
+          <div><button class="btn btn-primary btn-sm" onclick="saveGeneralSett()">💾 שמור הגדרות</button></div>
         </div>
       </div>
     </div>
@@ -2020,6 +2029,10 @@ function saveSett(){
 function saveGeneralSett(){
   const el=document.getElementById('s_officeEmail');
   if(el) state.global.settings.officeEmail = el.value.trim();
+  const mc=document.getElementById('s_mosadCode');
+  if(mc) state.global.settings.defaultMosadCode = mc.value.trim();
+  const sg=document.getElementById('s_signature');
+  if(sg) state.global.settings.coordinatorSignature = sg.value.trim();
   save(); showToast('נשמר ✓');
 }
 
@@ -2173,7 +2186,7 @@ function openEditRow(ri) {
   const sections = [
     {
       title:'👥 פרטי קהילה וכמויות', icon:'',
-      fields:['f1','f2','f3','f4','f5','f6','f7','f37','f8','f8b','f9','f10']
+      fields:['f1','f2','f3','f4','f5','f6','f7','f37','f38','f8','f8b','f9','f10']
     },
     {
       title:'📅 תאריכים, שעות ואוטובוסים', icon:'',
@@ -2382,7 +2395,7 @@ function rebuildEditBody() {
   const td = getTD(); if(!td||!editRowData) return;
   const row = editRowData;
   const sections = [
-    { title:'👥 פרטי קהילה וכמויות', fields:['f1','f2','f3','f4','f5','f6','f7','f37','f8','f8b','f9','f10'] },
+    { title:'👥 פרטי קהילה וכמויות', fields:['f1','f2','f3','f4','f5','f6','f7','f37','f38','f8','f8b','f9','f10'] },
     { title:'📅 תאריכים, שעות ואוטובוסים', fields:['f13','f14','f15','f11','f12','f34','f30','f10','f31','f36','f29'] },
     { title:'👤 אחראים', fields:['f16','f17','f17b'] },
     { title:'🥾 מסלולים ואתרים', fields:['f18','f19','f20','f21','f22'] },
@@ -3542,6 +3555,7 @@ function showTripFolderModal(communityName, files) {
       <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
         <button class="btn btn-secondary" onclick="printSelectedFiles()">🖨️ הדפס נבחרים</button>
         <button class="btn btn-secondary" onclick="printWazePage(this.dataset.c)" data-c="${communityName}">🧭 דף וויז</button>
+        <button class="btn btn-secondary" onclick="printAppointmentLetters(this.dataset.c)" data-c="${communityName}">📄 כתב מינוי</button>
         <button class="btn btn-primary" onclick="emailSelectedFiles()">✉️ שלח במייל</button>
         <button class="btn" style="background:#25d366;color:#fff" onclick="whatsappSelectedFiles(this.dataset.c)" data-c="${communityName}">📱 וואצאפ</button>
         <button class="btn btn-success" onclick="downloadZip(this.dataset.c)" data-c="${communityName}">📦 הורד ZIP</button>
@@ -3746,6 +3760,10 @@ async function downloadZip(communityName) {
     }
   }
 
+  // הוסף כתבי מינוי (PDF) לכל אחראי טיול
+  const letterFiles = await communityLetterFiles(communityName);
+  letterFiles.forEach(f => files.push(f));
+
   try {
     const res = await fetch(ZIP_WORKER_URL, {
       method: 'POST',
@@ -3831,6 +3849,101 @@ function printWazePage(communityName) {
   if(!html) { showToast('אין קישורי וויז לקהילה זו','warn'); return; }
   const w = window.open('', '_blank');
   w.document.open(); w.document.write(html); w.document.close();
+}
+
+// ── כתב מינוי לאחראי טיול ──
+function _fmtDateHeb(d){ if(!d) return ''; const dt=new Date(d); if(isNaN(dt)) return d; return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`; }
+
+// בלוק כתב מינוי בודד (עבור אחראי אחד) — HTML מעוצב להטמעה בחלון/PDF
+function appointmentLetterBlock(row, coordName, td) {
+  const s = state.global.settings || {};
+  const mosad = (row.f38||'').trim() || (s.defaultMosadCode||'').trim() || '6824';
+  const tripNum = (row.f3||'').trim();
+  const dateStr = _fmtDateHeb(row.f13);
+  const signature = (s.coordinatorSignature||'').trim() || 'שלמה רוזנבאום — מתאם טיולים';
+  const email = (s.officeEmail||'').trim() || '7697539@gmail.com';
+  const cr = (td.lists.list6||[]).find(r=>r[0]===coordName);
+  const fullName = coordName || '';
+  const tz = cr ? (cr[3]||'') : '';
+  const phone = cr ? (cr[4]||'') : '';
+  const line = w => `<span style="display:inline-block;border-bottom:1px solid #333;min-width:${w};height:16px;vertical-align:middle">&nbsp;</span>`;
+  const fill = (v,w) => v ? `<span style="display:inline-block;border-bottom:1px solid #333;min-width:${w};text-align:center;font-weight:700;vertical-align:middle">${h(v)}</span>` : line(w);
+
+  return `<div class="ktav" style="width:100%;max-width:720px;margin:0 auto;font-family:'Heebo',Arial,sans-serif;direction:rtl;color:#111;font-size:14px;line-height:1.7;padding:20px 28px;box-sizing:border-box">
+    <h1 style="text-align:center;font-size:22px;font-weight:800;margin:0 0 22px">כתב מינוי לאחראי טיול</h1>
+    <p style="margin:0 0 4px">הנך מתמנה בזה כאחראי/ת טיול בתאריך ${fill(dateStr,'150px')} &nbsp; סמל מוסד: <strong>${h(mosad)}</strong></p>
+    <p style="margin:0 0 16px">טיול מס' ${fill(tripNum,'150px')}</p>
+    <p style="margin:0 0 12px">כאחראי טיול, האחריות על התנהלות הטיול בהתאם לנהלי משרד החינוך ועל פי אישור הטיול היא באחריותך בלבד. עליך לוודא והנך מתחייב/ת כדלקמן:</p>
+    <ul style="padding-right:22px;margin:0 0 12px">
+      <li style="margin-bottom:5px">לקרוא את ההנחיות המפורטות באישור הטיול ואת נהלי משה"ח לקיום טיולים ולעמוד בכל הנ"ל.</li>
+      <li style="margin-bottom:5px">לפעול בהתאם להוראות הביטחון והבטיחות בפעילות/יות אשר אושרו לטיול.</li>
+      <li style="margin-bottom:5px">שלא לצאת לדרך: ללא צוות הליווי הנדרש ע"פ מסמך האישור ובדיקה כי הציוד הנדרש נמצא מלא ותקין, ללא תיק טיול הכולל את כל המסמכים הנדרשים, ללא רשימת משתתפים עדכנית ואישורי הורים לכל פעילות.</li>
+      <li style="margin-bottom:5px">לתדרך את המטיילים להתנהלות נכונה ובטוחה במסלולים ובפעילות.</li>
+      <li style="margin-bottom:5px">ערב היציאה, ליצור קשר עם חדר מצב ולקבל הנחיות, אם יש, הקשורות לטיול. 02-6222211</li>
+      <li style="margin-bottom:5px">להיות בקשר מתמיד עם חדר מצב במהלך הטיול.</li>
+      <li style="margin-bottom:5px">הנך מתחייב/ת בזאת שלא לשנות ממסלול הטיול שאושר על ידי הלשכה לתיאום טיולים והמופיע באישור הטיול.</li>
+    </ul>
+    <p style="margin:0 0 12px">בכל תקלה ואירוע חריג עליך ליצור קשר מידי עם הלשכה לתיאום טיולים בטל' 02-6222211 – חדר מצב וגם עם הח"מ.</p>
+    <p style="margin:0 0 2px">בברכה</p>
+    <p style="margin:0 0 22px;font-weight:700">${h(signature)}</p>
+    <div style="border-top:1px solid #ccc;padding-top:14px">
+      <p style="margin:0 0 10px;font-weight:700">חתימת אחראי/ת הטיול</p>
+      <p style="margin:0 0 10px">שם מלא: ${fill(fullName,'220px')} &nbsp;&nbsp; ת.ז: ${fill(tz,'150px')}</p>
+      <p style="margin:0 0 10px">טלפון נייד: ${fill(phone,'160px')} &nbsp;&nbsp; תאריך: ${line('110px')} &nbsp;&nbsp; חתימה: ${line('160px')}</p>
+    </div>
+    <p style="margin:18px 0 2px;font-size:13px;color:#333">אישור זה נכנס לתוקפו לאחר חתימת אחראי הטיול והחזרתו חתום לדוא"ל: <span dir="ltr">${h(email)}</span></p>
+    <p style="margin:0;font-size:13px;color:#333">נא לוודא קבלת המסמך לאחר שליחתו</p>
+  </div>`;
+}
+
+// אוסף את שמות האחראים של הקהילה (עד 2)
+function letterCoordNames(row){ return [row.f17, row.f17b].filter(Boolean); }
+
+// חלון תצוגה/הדפסה עם כל כתבי המינוי של הקהילה
+function printAppointmentLetters(communityName) {
+  const td = getTD(); if(!td) return;
+  const row = td.mainTable.find(r=>r.f1===communityName);
+  if(!row) { showToast('קהילה לא נמצאה','danger'); return; }
+  const coords = letterCoordNames(row);
+  if(!coords.length) { showToast('לא הוגדר אחראי טיול לקהילה זו','warn'); return; }
+  const blocks = coords.map((cn,i)=>`<div style="${i>0?'page-break-before:always':''}">${appointmentLetterBlock(row,cn,td)}</div>`).join('');
+  const html = `<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>כתב מינוי — ${h(communityName)}</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap">
+    <style>body{margin:0;background:#fff}@media print{.noprint{display:none}}</style></head><body>
+    ${blocks}
+    <div class="noprint" style="text-align:center;margin:20px 0"><button onclick="window.print()" style="padding:10px 24px;background:#1a56db;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨️ הדפס / שמור PDF</button></div>
+    </body></html>`;
+  const w = window.open('', '_blank');
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
+// יצירת PDF (base64) מכתב מינוי — לצירוף ל-ZIP/מייל
+async function letterPdfBase64(row, coordName, td) {
+  if(typeof html2pdf === 'undefined') return null;
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:760px;background:#fff';
+  holder.innerHTML = appointmentLetterBlock(row, coordName, td);
+  document.body.appendChild(holder);
+  try {
+    const dataUri = await html2pdf().set({
+      margin:[8,6,8,6], image:{type:'jpeg',quality:0.96},
+      html2canvas:{scale:2,useCORS:true}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    }).from(holder).outputPdf('datauristring');
+    return dataUri.split(',')[1] || null; // base64 only
+  } catch(e) { console.warn('letter pdf error', e); return null; }
+  finally { document.body.removeChild(holder); }
+}
+// כל כתבי המינוי של קהילה כקבצי PDF ({base64,name})
+async function communityLetterFiles(communityName) {
+  const td = getTD(); if(!td) return [];
+  const row = td.mainTable.find(r=>r.f1===communityName);
+  if(!row) return [];
+  const out = [];
+  for(const cn of letterCoordNames(row)) {
+    const b64 = await letterPdfBase64(row, cn, td);
+    if(b64) out.push({ base64:b64, name:`כתב מינוי - ${communityName} - ${cn}.pdf` });
+  }
+  return out;
 }
 
 // Sort + match helpers shared between email/WhatsApp pickers
@@ -4146,11 +4259,15 @@ async function emailSelectedFiles() {
   </div>`;
 
   try {
+    showToast('מכין כתבי מינוי...', 'info');
+    // כתבי מינוי כ-PDF מצורפים למייל
+    const letterFiles = await communityLetterFiles(currentTripFolderCommunity);
+    const attachments = letterFiles.map(f => ({ base64:f.base64, name:f.name, mimeType:'application/pdf' }));
     showToast('שולח מייל...', 'info');
     const res = await fetch(ZIP_WORKER_URL + '/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, subject, text, html })
+      body: JSON.stringify({ to, subject, text, html, attachments })
     });
     if(!res.ok) throw new Error('שגיאה בשרת');
     showToast('המייל נשלח ל-' + to + ' ✓');
