@@ -3511,13 +3511,16 @@ async function openTripFolder(communityName) {
   // Show loading modal
   showTripFolderModal(communityName, null);
 
+  // נרמול לצורך התאמה: Cloudinary שומר קו-תחתון במקום רווח, אז משווים אחרי איחוד רווחים/קווים-תחתונים
+  const normMatch = x => String(x||'').toLowerCase().replace(/_/g,' ').replace(/\s+/g,' ').trim();
+
   // Fetch files
   let allFiles = [];
   for(const item of filesToFind) {
     const files = await fetchCloudinaryFiles(item.archive);
     const matched = item.search[0] === ''
       ? files // מאגר2 — all
-      : files.filter(f => item.search.some(s => s && f.public_id.toLowerCase().includes(s.toLowerCase())));
+      : files.filter(f => item.search.some(s => s && normMatch(f.public_id).includes(normMatch(s))));
     matched.forEach(f => { if(!allFiles.find(x=>x.public_id===f.public_id)) allFiles.push({...f, archive:item.archive}); });
   }
 
