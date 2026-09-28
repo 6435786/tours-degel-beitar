@@ -2647,6 +2647,7 @@ function renderReports(container) {
     {id:'report2', label:'הזנות משרד החינוך'},
     {id:'report3', label:'אוטובוסים'},
     {id:'report4', label:'אטרקציות'},
+    {id:'report5', label:'נרשמים'},
   ].map(r => `<button class="report-nav-btn ${activeReport===r.id?'active':''}" onclick="activeReport='${r.id}';render()">${r.label}</button>`).join('');
 
   let reportHtml = '';
@@ -2654,6 +2655,7 @@ function renderReports(container) {
   else if (activeReport === 'report2') reportHtml = buildReport2(td);
   else if (activeReport === 'report3') reportHtml = buildReport3(td);
   else if (activeReport === 'report4') reportHtml = buildReport4(td);
+  else if (activeReport === 'report5') reportHtml = buildReport5(td);
 
   container.innerHTML = `
     <div class="reports-tab">
@@ -2666,7 +2668,7 @@ function renderReports(container) {
           <div class="report-toolbar">
             <div>
               <select class="mobile-report-sel" onchange="activeReport=this.value;render()">
-                ${[{id:'report1',label:'דוח טיולים כללי'},{id:'report2',label:'הזנות משרד החינוך'},{id:'report3',label:'אוטובוסים'},{id:'report4',label:'אטרקציות'}].map(r=>`<option value="${r.id}" ${activeReport===r.id?'selected':''}>${r.label}</option>`).join('')}
+                ${[{id:'report1',label:'דוח טיולים כללי'},{id:'report2',label:'הזנות משרד החינוך'},{id:'report3',label:'אוטובוסים'},{id:'report4',label:'אטרקציות'},{id:'report5',label:'נרשמים'}].map(r=>`<option value="${r.id}" ${activeReport===r.id?'selected':''}>${r.label}</option>`).join('')}
               </select>
             </div>
             <div class="report-actions">
@@ -3125,6 +3127,48 @@ function buildReport4(td) {
     <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>
     ${summaryRows?`<h3 class="report-section-title">סיכום לתשלום לפי ספק</h3>
     <table class="report-table" style="max-width:400px"><thead><tr><th>ספק</th><th>סה"כ לתשלום</th></tr></thead><tbody>${summaryRows}</tbody></table>`:''}`;
+}
+
+function buildReport5(td){
+  const mt = td.mainTable || [];
+  if(!mt.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין נתונים</div></div>';
+  const num = v => parseInt(v)||0;
+  const yn = b => b ? '<span style="color:var(--success);font-weight:700">✓</span>' : '<span style="color:var(--text-light)">✗</span>';
+  const c = v => `<td style="text-align:center">${v||''}</td>`;
+
+  // ── חלק א — לפי קהילה בודדת ──
+  let a1=0,a2=0,a3=0,a4=0;
+  const rowsA = mt.filter(r=>r.f1).map(r=>{
+    const reg=countP(r.f1,td), guides=num(r.f6), corr=num(r.f7), tot=reg+guides+corr;
+    a1+=reg; a2+=guides; a3+=corr; a4+=tot;
+    return `<tr><td>${h(r.f1)}</td>${c(reg)}${c(guides)}${c(corr)}<td style="text-align:center;font-weight:700">${tot||''}</td><td style="text-align:center">${yn(r.f2===true)}</td></tr>`;
+  }).join('');
+
+  // ── חלק ב — לפי טיול (איחוד): קהילות שאינן מצורפות לאחרת ──
+  const attachedTo = new Set([...mt.map(r=>r.f8).filter(Boolean), ...mt.map(r=>r.f8b).filter(Boolean)]);
+  const leads = mt.filter(r=>r.f1 && !attachedTo.has(r.f1));
+  let b1=0,b2=0,b3=0,b4=0;
+  const rowsB = leads.map(r=>{
+    const members=[r.f1, r.f8, r.f8b].filter(Boolean);
+    let reg=0,guides=0,corr=0;
+    members.forEach(nm=>{ reg+=countP(nm,td); const mr=mt.find(x=>x.f1===nm); if(mr){ guides+=num(mr.f6); corr+=num(mr.f7); } });
+    const tot=reg+guides+corr;
+    b1+=reg; b2+=guides; b3+=corr; b4+=tot;
+    return `<tr><td>${h(communityWithAttached(r))}</td>${c(reg)}${c(guides)}${c(corr)}<td style="text-align:center;font-weight:700">${tot||''}</td><td style="text-align:center">${yn(r.f2===true)}</td></tr>`;
+  }).join('');
+
+  const foot = (x1,x2,x3,x4)=>`<tr style="font-weight:700;background:var(--surface2)"><td>סה"כ</td><td style="text-align:center">${x1}</td><td style="text-align:center">${x2}</td><td style="text-align:center">${x3}</td><td style="text-align:center">${x4}</td><td></td></tr>`;
+  const head = `<tr><th>קהילה</th><th>נרשמים</th><th>מלווים</th><th>תיקון</th><th>סה"כ</th><th>פעיל</th></tr>`;
+
+  return `<h2 class="report-title">נרשמים — ${h(activeTrip)}</h2>
+    <h3 class="report-section-title">לפי קהילה</h3>
+    <div class="report-table-wrap"><table class="report-table">
+      <thead>${head}</thead><tbody>${rowsA}</tbody><tfoot>${foot(a1,a2,a3,a4)}</tfoot>
+    </table></div>
+    <h3 class="report-section-title">לפי טיול (איחוד קהילות)</h3>
+    <div class="report-table-wrap"><table class="report-table">
+      <thead>${head.replace('קהילה','טיול')}</thead><tbody>${rowsB}</tbody><tfoot>${foot(b1,b2,b3,b4)}</tfoot>
+    </table></div>`;
 }
 
 function calcBusPriceForRow(communityName) {
