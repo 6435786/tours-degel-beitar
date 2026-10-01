@@ -2480,22 +2480,23 @@ function rebuildEditBody() {
 // ── סדר יום: מספור תחנות (מסלולים + אתרים + אטרקציות) ──
 const STOP_FIELD_IDS = ['f18','f19','f20','f21','f22','f23','f26'];
 function stopOrderOf(row, fid){ return (row && row.stopOrder && row.stopOrder[fid]) || ''; }
-// הכנסה עם דחיפה: קביעת מיקום N דוחפת כל תחנה ממוספרת עם מיקום >= N אחד למעלה
+// הכנסה עם דחיפה + רצף נקי: קביעת מיקום N מכניסה את התחנה למקום N, והתוצאה תמיד 1..k רציף
 function setStopOrder(fid, val){
   if(!editRowData) return;
   if(!editRowData.stopOrder) editRowData.stopOrder = {};
   const so = editRowData.stopOrder;
-  // נקה מיקומי יתומים (תחנות שהתרוקנו)
-  STOP_FIELD_IDS.forEach(id=>{ if(!editRowData[id]) delete so[id]; });
-  delete so[fid];
-  let n = parseInt(val);
-  if(isNaN(n) || n<=0){ rebuildEditBody(); return; }
-  STOP_FIELD_IDS.forEach(id=>{
-    if(id===fid || !editRowData[id]) return;
-    const cur = parseInt(so[id]);
-    if(!isNaN(cur) && cur >= n) so[id] = cur+1;
-  });
-  so[fid] = n;
+  // רשימת התחנות הממוספרות הקיימות (ללא הנוכחית), לפי סדרן
+  let ordered = STOP_FIELD_IDS
+    .filter(id=>id!==fid && editRowData[id] && parseInt(so[id])>0)
+    .sort((a,b)=>parseInt(so[a])-parseInt(so[b]));
+  const n = parseInt(val);
+  if(!isNaN(n) && n>0){
+    const pos = Math.min(Math.max(n-1,0), ordered.length); // הכנסה במיקום הרצוי (עם הצמדה לגבולות)
+    ordered.splice(pos, 0, fid);
+  }
+  // מספור מחדש רציף 1..k
+  STOP_FIELD_IDS.forEach(id=>delete so[id]);
+  ordered.forEach((id,i)=>{ so[id]=i+1; });
   rebuildEditBody();
 }
 // רשימת תחנות מסודרת לפי המיקום (לא-ממוספרות בסוף) — לשימוש בדוח/תצוגה
@@ -3038,7 +3039,25 @@ function buildReport3(td) {
         <button class="btn btn-sm" style="background:#d97706;color:#fff;margin-right:auto" onclick="toggleBusMode()">↔ החלף למשוער</button>
       </div>`;
 
-  const hdrs=['שם קהילה','סוג רכב','תאריך','יום','שעת יציאה','כתובת','איש קשר','טלפון','אתר 1','אתר 2','אתר 3','אתר 4','אתר 5','אתר 6','אתר 7','כמות משתתפים','שעת חזרה','שעת חזרה בפועל','שעות','שינויים והערות','שינוי בסכום','סיכום עלות'].map(l=>`<th>${l}</th>`).join('');
+  // שם תצוגה לתחנה: מסלול/אתר = שם קליט, אטרקציה = שם מלא
+  function stopDisplay(id,row){
+    if(id==='f18'||id==='f19'||id==='f20') return getLC('list2',row[id],2) || row[id];
+    if(id==='f21'||id==='f22') return getLC('list3',row[id],2) || row[id];
+    return row[id];
+  }
+  // שעות משוער — לפי שעת התייצבות (f11) עד חזרה משוערת (f12)
+  function plannedHours(row){
+    const dep=row.f11, ret=row.f12;
+    if(!dep||!ret) return 0;
+    try{ const [dh,dm]=dep.split(':').map(Number); const [rh,rm]=ret.split(':').map(Number); let diff=(rh*60+rm)-(dh*60+dm); if(diff<0)diff+=1440; return Math.round(diff/60*10)/10; }catch(e){return 0;}
+  }
+
+  // מספר עמודות התחנות = המקסימום הנדרש בפועל
+  const maxStops = Math.max(1, ...expandedRows.map(({row})=>getOrderedStops(row).length));
+  const stationHdrs = Array.from({length:maxStops},(_,i)=>`<th>תחנה ${i+1}</th>`).join('');
+  const hdrs = ['שם קהילה','סוג רכב','תאריך','יום','שעת התייצבות','כתובת התייצבות','איש קשר','טלפון'].map(l=>`<th>${l}</th>`).join('')
+    + stationHdrs
+    + ['חזרה משוער','שעות משוער'].map(l=>`<th>${l}</th>`).join('');
 
   const trs=expandedRows.map(({row,bus,busNum,totalBuses})=>{
     const contact=getContact(row.f1,td);
@@ -3047,19 +3066,12 @@ function buildReport3(td) {
     const coordRows = coordNames.map(n => (td.lists.list6||[]).find(r=>r[0]===n)).filter(Boolean);
     const contactRow = coordRows[0] || (td.lists.list6||[]).find(r=>r[0]===contact);
     const coordPhones = coordRows.length ? coordRows.map(r=>r[4]||'').filter(Boolean).join(' / ') : (contactRow?contactRow[4]||'':'');
-    const total=busBasis(row,td); // הכמות שלפיה חושבו האוטובוסים (אמיתי/משוער)
-    const hours=calcHours(row);
-    const price=calcBusPrice(row,td,bus.type);
     const communityLabel = totalBuses>1
       ? `${communityWithAttached(row)} ${busNum}/${totalBuses}`
       : communityWithAttached(row);
-    // דחיסת אתרים/מסלולים/אטרקציות — ללא חורים
-    const siteVals = compactVals([
-      getLC('list2',row.f18,2), getLC('list2',row.f19,2), getLC('list2',row.f20,2),
-      getLC('list3',row.f21,2), getLC('list3',row.f22,2),
-      getLC('list4',row.f23,0), getLC('list4',row.f26,0)
-    ]);
-    const s = i => siteVals[i]||'';
+    // תחנות לפי סדר היום
+    const stops = getOrderedStops(row).map(st=>stopDisplay(st.id,row));
+    const stationCells = Array.from({length:maxStops},(_,i)=>`<td>${h(stops[i]||'')}</td>`).join('');
     return `<tr>
       <td>${h(communityLabel)}</td>
       <td><span class="badge-bus">${h(bus.type)}</span></td>
@@ -3069,30 +3081,19 @@ function buildReport3(td) {
       <td>${h(getAddr(row.f1))}</td>
       <td>${h(tripCoord)}</td>
       <td>${phoneLink(coordPhones)}</td>
-      <td>${h(s(0))}</td>
-      <td>${h(s(1))}</td>
-      <td>${h(s(2))}</td>
-      <td>${h(s(3))}</td>
-      <td>${h(s(4))}</td>
-      <td>${h(s(5))}</td>
-      <td>${h(s(6))}</td>
-      <td style="text-align:center">${total||''}</td>
+      ${stationCells}
       <td>${h(row.f12||'')}</td>
-      <td><input type="time" value="${row.f34&&row.f34.match(/^\d{2}:\d{2}/)?row.f34.slice(0,5):''}" onchange="reportEditByRow('${row.f1}','f34',this.value)" style="border:1px solid var(--border-strong);border-radius:4px;padding:2px 6px;font-family:var(--font);font-size:12px;background:var(--warn-light)"></td>
-      <td>${hours||''}</td>
-      <td>${''}</td>
-      <td>${''}</td>
-      <td style="font-weight:600">${price?price.toLocaleString()+' ₪':''}</td>
+      <td style="text-align:center">${plannedHours(row)||''}</td>
     </tr>`;
   }).join('');
 
-  // Total
+  // סיכום עלות (לתצוגה פנימית בלבד — לא נכלל בהדפסה שהיא הטבלה בלבד)
   const grandTotal = expandedRows.reduce((sum,{row,bus})=>sum+(calcBusPrice(row,td,bus.type)||0),0);
 
   return `<h2 class="report-title">דוח אוטובוסים — ${h(activeTrip)}</h2>
     ${modeBanner}
     <div class="report-table-wrap"><table class="report-table"><thead><tr>${hdrs}</tr></thead><tbody>${trs}</tbody></table></div>
-    <div style="margin-top:14px;text-align:left;font-size:15px;font-weight:700;color:var(--primary)">סה"כ עלות אוטובוסים: ${grandTotal.toLocaleString()} ₪</div>`;
+    <div class="noprint" style="margin-top:14px;text-align:left;font-size:15px;font-weight:700;color:var(--primary)">סה"כ עלות אוטובוסים: ${grandTotal.toLocaleString()} ₪ <span style="font-size:12px;color:var(--text-muted);font-weight:400">(לשימוש פנימי — לא מודפס)</span></div>`;
 }
 
 function buildReport4(td) {
