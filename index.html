@@ -2477,6 +2477,36 @@ function rebuildEditBody() {
   refreshCalcs();
 }
 
+// ── סדר יום: מספור תחנות (מסלולים + אתרים + אטרקציות) ──
+const STOP_FIELD_IDS = ['f18','f19','f20','f21','f22','f23','f26'];
+function stopOrderOf(row, fid){ return (row && row.stopOrder && row.stopOrder[fid]) || ''; }
+// הכנסה עם דחיפה: קביעת מיקום N דוחפת כל תחנה ממוספרת עם מיקום >= N אחד למעלה
+function setStopOrder(fid, val){
+  if(!editRowData) return;
+  if(!editRowData.stopOrder) editRowData.stopOrder = {};
+  const so = editRowData.stopOrder;
+  // נקה מיקומי יתומים (תחנות שהתרוקנו)
+  STOP_FIELD_IDS.forEach(id=>{ if(!editRowData[id]) delete so[id]; });
+  delete so[fid];
+  let n = parseInt(val);
+  if(isNaN(n) || n<=0){ rebuildEditBody(); return; }
+  STOP_FIELD_IDS.forEach(id=>{
+    if(id===fid || !editRowData[id]) return;
+    const cur = parseInt(so[id]);
+    if(!isNaN(cur) && cur >= n) so[id] = cur+1;
+  });
+  so[fid] = n;
+  rebuildEditBody();
+}
+// רשימת תחנות מסודרת לפי המיקום (לא-ממוספרות בסוף) — לשימוש בדוח/תצוגה
+function getOrderedStops(row){
+  const so = row.stopOrder || {};
+  return STOP_FIELD_IDS
+    .filter(id=>row[id])
+    .map(id=>({ id, name:row[id], order: parseInt(so[id])||9999 }))
+    .sort((a,b)=>a.order-b.order);
+}
+
 function renderEditField(fdef, row, td) {
   const v = row[fdef.id] || '';
   const isCalc = CALC_TYPES.includes(fdef.type);
@@ -2525,11 +2555,17 @@ function renderEditField(fdef, row, td) {
     // Determine which list to add to
     const addTarget = fdef.source ? fdef.source.match(/^(list\d+)/)?.[1] : null;
     const addBtn = addTarget ? `<button class="btn-add-new" onclick="openQuickAdd('${addTarget}','ef_${fdef.id}','${fdef.id}')" title="הוסף חדש לרשימה">+ חדש</button>` : '';
+    // מספור סדר-יום לתחנות מלאות (מסלולים/אתרים/אטרקציות)
+    const isStop = STOP_FIELD_IDS.includes(fdef.id);
+    const orderInput = (isStop && v)
+      ? `<input type="number" min="1" value="${h(String(stopOrderOf(row,fdef.id)))}" onchange="setStopOrder('${fdef.id}',this.value)" title="מיקום בסדר היום" placeholder="#" style="width:48px;text-align:center;flex:none;border:1px solid var(--primary);border-radius:6px;padding:4px;font-weight:700;color:var(--primary)">`
+      : '';
     return `<div class="${cls}">
-      <label>${fdef.label}</label>
+      <label>${fdef.label}${isStop&&v?' <span style="color:var(--primary);font-size:10px">· מיקום ביום</span>':''}</label>
       <div class="select-with-add">
         <select id="ef_${fdef.id}" onchange="editRowData['${fdef.id}']=this.value;handleEditSel('${fdef.id}',this.value)">${optsHtml}</select>
         ${addBtn}
+        ${orderInput}
       </div>
     </div>`;
   }
