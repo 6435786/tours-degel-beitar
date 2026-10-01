@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>טיולים-דגל-ביתר</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="vendor/xlsx-js-style.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -1904,6 +1904,33 @@ function makeNiceExcel(wb, ws, data) {
   // Freeze top row
   if(!ws['!sheetViews']) ws['!sheetViews'] = [];
   ws['!sheetViews'][0] = { rightToLeft: true, state: 'frozen', ySplit: 1, topLeftCell: 'A2' };
+
+  // ── עיצוב תאים (xlsx-js-style) ──
+  const thin = { style:'thin', color:{rgb:'D0D7E2'} };
+  const borderAll = { top:thin, bottom:thin, left:thin, right:thin };
+  const headerStyle = {
+    font: { bold:true, color:{rgb:'FFFFFF'}, sz:11, name:'Arial' },
+    fill: { fgColor:{rgb:'1A56DB'} },
+    alignment: { horizontal:'center', vertical:'center', wrapText:true },
+    border: borderAll
+  };
+  if(ws['!ref']) {
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for(let R=range.s.r; R<=range.e.r; R++){
+      for(let C=range.s.c; C<=range.e.c; C++){
+        const cell = ws[XLSX.utils.encode_cell({r:R,c:C})];
+        if(!cell) continue;
+        if(R===0){
+          cell.s = headerStyle;
+        } else {
+          const isNum = cell.t==='n' || /^-?\d+(\.\d+)?\s*₪?$/.test(String(cell.v==null?'':cell.v).trim());
+          cell.s = { alignment:{ vertical:'center', horizontal: isNum?'center':'right' }, border:borderAll, font:{ name:'Arial', sz:10 } };
+        }
+      }
+    }
+    ws['!rows'] = ws['!rows'] || [];
+    ws['!rows'][0] = { hpt: 22 }; // גובה שורת כותרת
+  }
 }
 
 function expL(lk){
