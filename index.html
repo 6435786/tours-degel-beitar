@@ -4300,7 +4300,7 @@ function pickEmail(contacts, defaultEmail='') {
     modal.style.display = 'flex';
     modal.innerHTML = `<div class="modal" style="width:500px">
       <h3>✉️ שליחת מייל</h3>
-      ${sorted.length ? `
+      ${window._emailContacts.length ? `
         <input type="text" id="emailSearchInput" class="form-control" placeholder="🔍 חיפוש: שם / טלפון / מייל / קהילה / תפקיד..." dir="rtl"
           oninput="document.getElementById('emailContactList').innerHTML=renderContactsFilter(this.value)"
           style="margin-bottom:10px">
