@@ -3659,11 +3659,11 @@ function showTripFolderModal(communityName, files) {
       </table>
       <div style="margin-top:14px;display:flex;gap:6px;flex-wrap:nowrap">
         <button class="btn btn-secondary" style="flex:1;justify-content:center" title="הדפס את הקבצים המסומנים" onclick="printSelectedFiles()">🖨️ הדפס</button>
-        <button class="btn btn-secondary" style="flex:1;justify-content:center" title="דף וויז" onclick="printWazePage(this.dataset.c)" data-c="${communityName}">🧭 וויז</button>
-        <button class="btn btn-secondary" style="flex:1;justify-content:center" title="כתב מינוי" onclick="printAppointmentLetters(this.dataset.c)" data-c="${communityName}">📄 כתב מינוי</button>
+        <button class="btn btn-secondary" style="flex:1;justify-content:center" title="דף וויז" onclick="printWazePage(this.dataset.c)" data-c="${h(communityName)}">🧭 וויז</button>
+        <button class="btn btn-secondary" style="flex:1;justify-content:center" title="כתב מינוי" onclick="printAppointmentLetters(this.dataset.c)" data-c="${h(communityName)}">📄 כתב מינוי</button>
         <button class="btn btn-primary" style="flex:1;justify-content:center" title="שלח במייל" onclick="emailSelectedFiles()">✉️ מייל</button>
-        <button class="btn btn-success" style="flex:1;justify-content:center" title="הורד ZIP" onclick="downloadZip(this.dataset.c)" data-c="${communityName}">📦 ZIP</button>
-        <button class="btn btn-success" style="flex:1;justify-content:center" title="PDF מאוחד של כל התיק" onclick="downloadMergedPdf(this.dataset.c)" data-c="${communityName}">📑 PDF מאוחד</button>
+        <button class="btn btn-success" style="flex:1;justify-content:center" title="הורד ZIP" onclick="downloadZip(this.dataset.c)" data-c="${h(communityName)}">📦 ZIP</button>
+        <button class="btn btn-success" style="flex:1;justify-content:center" title="PDF מאוחד של כל התיק" onclick="downloadMergedPdf(this.dataset.c)" data-c="${h(communityName)}">📑 PDF מאוחד</button>
       </div>`;
 
   modal.style.display = 'flex';
