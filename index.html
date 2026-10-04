@@ -1911,7 +1911,7 @@ function makeNiceExcel(wb, ws, data) {
   ws['!sheetViews'][0] = { rightToLeft: true, state: 'frozen', ySplit: 1, topLeftCell: 'A2' };
 
   // ── עיצוב תאים (xlsx-js-style) ──
-  const thin = { style:'thin', color:{rgb:'D0D7E2'} };
+  const thin = { style:'thin', color:{rgb:'8A94A6'} };
   const borderAll = { top:thin, bottom:thin, left:thin, right:thin };
   const headerStyle = {
     font: { bold:true, color:{rgb:'FFFFFF'}, sz:11, name:'Arial' },
@@ -1923,8 +1923,9 @@ function makeNiceExcel(wb, ws, data) {
     const range = XLSX.utils.decode_range(ws['!ref']);
     for(let R=range.s.r; R<=range.e.r; R++){
       for(let C=range.s.c; C<=range.e.c; C++){
-        const cell = ws[XLSX.utils.encode_cell({r:R,c:C})];
-        if(!cell) continue;
+        const addr = XLSX.utils.encode_cell({r:R,c:C});
+        if(!ws[addr]) ws[addr] = { t:'s', v:'' };
+        const cell = ws[addr];
         if(R===0){
           cell.s = headerStyle;
         } else {
