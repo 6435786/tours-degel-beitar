@@ -3611,8 +3611,10 @@ async function openTripFolder(communityName) {
   // Show loading modal
   showTripFolderModal(communityName, null);
 
-  // נרמול לצורך התאמה: Cloudinary שומר קו-תחתון במקום רווח, אז משווים אחרי איחוד רווחים/קווים-תחתונים
-  const normMatch = x => String(x||'').toLowerCase().replace(/_/g,' ').replace(/\s+/g,' ').trim();
+  // נרמול לצורך התאמה: Cloudinary מחליף/מוחק סימנים בשם (רווח→_, גרש ׳/' , מרכאות וכו'),
+  // לכן משווים רק אותיות ומספרים — מול מזהה הקובץ וגם מול שם הקובץ המקורי
+  const normMatch = x => String(x||'').toLowerCase().replace(/\.(pdf|jpe?g|png|docx?|xlsx?)$/i,'').replace(/[^\p{L}\p{N}]+/gu,'');
+  const fileMatches = (f, s) => { const k = normMatch(s); return !!k && [f.public_id, f.original_filename].some(n => normMatch(n).includes(k)); };
 
   // Fetch files
   let allFiles = [];
@@ -3620,7 +3622,7 @@ async function openTripFolder(communityName) {
     const files = await fetchCloudinaryFiles(item.archive);
     const matched = item.search[0] === ''
       ? files // מאגר2 — all
-      : files.filter(f => item.search.some(s => s && normMatch(f.public_id).includes(normMatch(s))));
+      : files.filter(f => item.search.some(s => fileMatches(f, s)));
     matched.forEach(f => { if(!allFiles.find(x=>x.public_id===f.public_id)) allFiles.push({...f, archive:item.archive}); });
   }
 
