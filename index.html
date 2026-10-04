@@ -6,6 +6,7 @@
 <title>טיולים-דגל-ביתר</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
 <script src="vendor/xlsx-js-style.js"></script>
+<script src="vendor/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -3661,6 +3662,7 @@ function showTripFolderModal(communityName, files) {
         <button class="btn btn-primary" onclick="emailSelectedFiles()">✉️ שלח במייל</button>
         <button class="btn" style="background:#25d366;color:#fff" onclick="whatsappSelectedFiles(this.dataset.c)" data-c="${communityName}">📱 וואצאפ</button>
         <button class="btn btn-success" onclick="downloadZip(this.dataset.c)" data-c="${communityName}">📦 הורד ZIP</button>
+        <button class="btn btn-success" onclick="downloadMergedPdf(this.dataset.c)" data-c="${communityName}">📑 PDF מאוחד</button>
       </div>`;
 
   modal.style.display = 'flex';
@@ -3941,6 +3943,109 @@ function printSelectedFiles() {
   if(!selected.length) { showToast('לא נבחרו קבצים','danger'); return; }
   selected.forEach(cb => window.open(cb.dataset.url, '_blank'));
   showToast(`נפתחו ${selected.length} קבצים להדפסה`);
+}
+
+// ── PDF מאוחד של כל תיק הטיול ──
+// דף וויז כ-PDF (base64) — מתוך אותו HTML של דף הוויז, בלי כפתורים
+async function wazePdfBase64(communityName) {
+  if(typeof html2pdf === 'undefined' || typeof QRCode === 'undefined') return null;
+  const html = buildWazePageHtml(communityName);
+  if(!html) return null;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('.noprint, script').forEach(el => el.remove());
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:760px;background:#fff';
+  holder.innerHTML = `<div style="font-family:Arial,sans-serif;direction:rtl;padding:20px;color:#0f172a;background:#fff;letter-spacing:0.01px">
+    <style>.wz h1{font-size:20px;color:#1a56db;margin:0 0 4px}.wz .sub{color:#64748b;font-size:13px;margin-bottom:18px}</style>
+    <div class="wz">${doc.body.innerHTML}</div></div>`;
+  document.body.appendChild(holder);
+  try {
+    const dataUri = await html2pdf().set({
+      margin:[8,6,8,6], image:{type:'jpeg',quality:0.96},
+      html2canvas:{scale:2,useCORS:true}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+      pagebreak:{mode:['css','legacy'], avoid:'div[style*="break-inside"]'}
+    }).from(holder.firstElementChild).outputPdf('datauristring');
+    return dataUri.split(',')[1] || null;
+  } catch(e) { console.warn('waze pdf error', e); return null; }
+  finally { document.body.removeChild(holder); }
+}
+
+function _b64ToBytes(b64) {
+  const bin = atob(b64), out = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+// מוסיף קובץ (PDF או תמונה) למסמך המאוחד. מחזיר true אם נוסף.
+async function _appendToMerged(merged, bytes) {
+  const { PDFDocument } = PDFLib;
+  const head = String.fromCharCode(...bytes.slice(0, 5));
+  if(head.startsWith('%PDF')) {
+    const src = await PDFDocument.load(bytes, { ignoreEncryption:true });
+    const pages = await merged.copyPages(src, src.getPageIndices());
+    pages.forEach(pg => merged.addPage(pg));
+    return true;
+  }
+  const isPng = bytes[0]===0x89 && bytes[1]===0x50;
+  const isJpg = bytes[0]===0xFF && bytes[1]===0xD8;
+  if(!isPng && !isJpg) return false;
+  const img = isPng ? await merged.embedPng(bytes) : await merged.embedJpg(bytes);
+  const W = 595.28, H = 841.89, M = 20; // A4 בנקודות
+  const k = Math.min((W-2*M)/img.width, (H-2*M)/img.height, 1);
+  const w = img.width*k, hh = img.height*k;
+  merged.addPage([W,H]).drawImage(img, { x:(W-w)/2, y:(H-hh)/2, width:w, height:hh });
+  return true;
+}
+
+async function downloadMergedPdf(communityName) {
+  if(typeof PDFLib === 'undefined') { showToast('ספריית PDF לא נטענה — רענן את הדף','danger'); return; }
+  communityName = decodeHtml(communityName);
+  const selected = [...document.querySelectorAll('.trip-file-cb:checked')]
+    .map(cb => ({ url: cb.dataset.url, name: decodeHtml(cb.dataset.name||'') }));
+  const isApproval = f => f.name.startsWith('אישור טיול');
+  showToast('מכין PDF מאוחד...', 'info');
+
+  // סדר: אישור טיול → כתבי מינוי → רשימת משתתפים → שאר המסמכים → דף וויז
+  const parts = [];
+  selected.filter(isApproval).forEach(f => parts.push({ name:f.name, url:f.url }));
+  (await communityLetterFiles(communityName)).forEach(f => parts.push({ name:f.name, b64:f.base64 }));
+  const pl = await participantsPdfBase64(communityName);
+  if(pl) parts.push({ name:'רשימת משתתפים', b64:pl });
+  selected.filter(f => !isApproval(f)).forEach(f => parts.push({ name:f.name, url:f.url }));
+  const wz = await wazePdfBase64(communityName);
+  if(wz) parts.push({ name:'דף וויז', b64:wz });
+
+  if(!parts.length) { showToast('אין מה לאחד','warn'); return; }
+
+  const merged = await PDFLib.PDFDocument.create();
+  const skipped = [];
+  for(const part of parts) {
+    try {
+      let bytes;
+      if(part.b64) bytes = _b64ToBytes(part.b64);
+      else {
+        const res = await fetch(part.url);
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        bytes = new Uint8Array(await res.arrayBuffer());
+      }
+      if(!(await _appendToMerged(merged, bytes))) skipped.push(part.name + ' (סוג קובץ לא נתמך)');
+    } catch(e) {
+      console.warn('merge error', part.name, e);
+      skipped.push(part.name + ' (שגיאה בטעינה)');
+    }
+  }
+  if(!merged.getPageCount()) { showToast('לא נוצר אף עמוד — בדוק חיבור', 'danger'); return; }
+
+  const out = await merged.save();
+  const blob = new Blob([out], { type:'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `תיק-טיול-${communityName}.pdf`.replace(/[\\/:*?"<>|]+/g, ' -');
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  if(skipped.length) alert('ה-PDF המאוחד הורד ✓\n\nלא נכללו:\n• ' + skipped.join('\n• '));
+  else showToast(`PDF מאוחד הורד ✓ (${merged.getPageCount()} עמודים)`);
 }
 
 // Build HTML page with Waze QR codes for a community
