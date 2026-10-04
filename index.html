@@ -3996,6 +3996,54 @@ async function _appendToMerged(merged, bytes) {
   return true;
 }
 
+// עמוד שער לתיק הטיול (PDF base64, עמוד אחד)
+async function coverPdfBase64(communityName, docTitles) {
+  if(typeof html2pdf === 'undefined') return null;
+  const td = getTD(); if(!td) return null;
+  const row = td.mainTable.find(r=>r.f1===communityName) || {};
+  const comms = [communityName, row.f8, row.f8b, row.f8c].filter(Boolean).join(' + ');
+  const tripNum = (row.f3||'').trim();
+  const dateStr = _fmtDateHeb(row.f13);
+  const day = row.f13 ? getDay(row.f13) : '';
+  const heb = row.f13 ? toHeb(row.f13) : '';
+  const items = docTitles.map((t,i) => `<div style="display:flex;align-items:center;gap:12px;padding:9px 14px;${i%2?'':'background:#f1f5fd;'}border-radius:8px">
+      <span style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:#1a56db;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center">${i+1}</span>
+      <span style="font-size:15px">${h(t)}</span></div>`).join('');
+  const card = (label, val, sub) => `<div style="flex:1;background:#fff;border:1px solid #dbe4f5;border-radius:12px;padding:16px;text-align:center;box-shadow:0 2px 6px rgba(26,86,219,.08)">
+      <div style="font-size:13px;color:#64748b;margin-bottom:6px">${label}</div>
+      <div style="font-size:24px;font-weight:800;color:#0f172a">${val}</div>
+      ${sub ? `<div style="font-size:13px;color:#475569;margin-top:4px">${sub}</div>` : ''}</div>`;
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:740px;background:#fff';
+  holder.innerHTML = `<div style="font-family:'Heebo',Arial,sans-serif;direction:rtl;color:#0f172a;background:#fff;letter-spacing:0.01px;width:740px;height:1000px;display:flex;flex-direction:column;overflow:hidden;border:1px solid #dbe4f5;border-radius:18px">
+    <div style="background:linear-gradient(135deg,#1a56db 0%,#1e40af 100%);color:#fff;padding:54px 40px 64px;text-align:center">
+      <div style="font-size:52px;line-height:1;margin-bottom:12px">🎒</div>
+      <div style="font-size:18px;opacity:.85;letter-spacing:2px;margin-bottom:8px">תיק טיול</div>
+      <div style="font-size:36px;font-weight:800">קהילת ${h(comms)}</div>
+    </div>
+    <div style="display:flex;gap:14px;padding:0 40px;margin-top:-34px">
+      ${card("טיול מס'", h(tripNum)||'—', '')}
+      ${card('תאריך', dateStr||'—', [day?'יום '+day:'', heb].filter(Boolean).join(' · '))}
+    </div>
+    <div style="padding:34px 40px 0;flex:1">
+      <div style="font-size:18px;font-weight:800;color:#1a56db;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0">📎 מסמכים מצורפים</div>
+      <div style="display:flex;flex-direction:column;gap:4px">${items}</div>
+    </div>
+    <div style="background:#ecfdf5;border-top:3px solid #059669;padding:30px 40px;text-align:center">
+      <div style="font-size:28px;font-weight:800;color:#047857">🚌 נסיעה טובה ובטוחה!</div>
+    </div>
+  </div>`;
+  document.body.appendChild(holder);
+  try {
+    const dataUri = await html2pdf().set({
+      margin:[10,10,10,10], image:{type:'jpeg',quality:0.96},
+      html2canvas:{scale:2,useCORS:true}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    }).from(holder.firstElementChild).outputPdf('datauristring');
+    return dataUri.split(',')[1] || null;
+  } catch(e) { console.warn('cover pdf error', e); return null; }
+  finally { document.body.removeChild(holder); }
+}
+
 async function downloadMergedPdf(communityName) {
   if(typeof PDFLib === 'undefined') { showToast('ספריית PDF לא נטענה — רענן את הדף','danger'); return; }
   communityName = decodeHtml(communityName);
@@ -4007,7 +4055,7 @@ async function downloadMergedPdf(communityName) {
   // סדר: אישור טיול → כתבי מינוי → רשימת משתתפים → שאר המסמכים → דף וויז
   const parts = [];
   selected.filter(isApproval).forEach(f => parts.push({ name:f.name, url:f.url }));
-  (await communityLetterFiles(communityName)).forEach(f => parts.push({ name:f.name, b64:f.base64 }));
+  (await communityLetterFiles(communityName)).forEach(f => parts.push({ name:f.name, title:'כתב מינוי — ' + f.name.replace(/\.pdf$/i,'').split(' - ').pop(), b64:f.base64 }));
   const pl = await participantsPdfBase64(communityName);
   if(pl) parts.push({ name:'רשימת משתתפים', b64:pl });
   selected.filter(f => !isApproval(f)).forEach(f => parts.push({ name:f.name, url:f.url }));
@@ -4017,7 +4065,7 @@ async function downloadMergedPdf(communityName) {
   if(!parts.length) { showToast('אין מה לאחד','warn'); return; }
 
   const merged = await PDFLib.PDFDocument.create();
-  const skipped = [];
+  const skipped = [], included = [];
   for(const part of parts) {
     try {
       let bytes;
@@ -4027,13 +4075,22 @@ async function downloadMergedPdf(communityName) {
         if(!res.ok) throw new Error('HTTP ' + res.status);
         bytes = new Uint8Array(await res.arrayBuffer());
       }
-      if(!(await _appendToMerged(merged, bytes))) skipped.push(part.name + ' (סוג קובץ לא נתמך)');
+      if(await _appendToMerged(merged, bytes)) included.push(part.title || part.name.replace(/\.(pdf|jpe?g|png)$/i,''));
+      else skipped.push(part.name + ' (סוג קובץ לא נתמך)');
     } catch(e) {
       console.warn('merge error', part.name, e);
       skipped.push(part.name + ' (שגיאה בטעינה)');
     }
   }
   if(!merged.getPageCount()) { showToast('לא נוצר אף עמוד — בדוק חיבור', 'danger'); return; }
+
+  // עמוד שער — בתחילת הקובץ
+  const cover = await coverPdfBase64(communityName, included);
+  if(cover) {
+    const src = await PDFLib.PDFDocument.load(_b64ToBytes(cover));
+    const [pg] = await merged.copyPages(src, [0]);
+    merged.insertPage(0, pg);
+  }
 
   const out = await merged.save();
   const blob = new Blob([out], { type:'application/pdf' });
