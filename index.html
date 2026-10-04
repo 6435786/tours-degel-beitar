@@ -4031,7 +4031,7 @@ async function letterPdfBase64(row, coordName, td) {
     const dataUri = await html2pdf().set({
       margin:[8,6,8,6], image:{type:'jpeg',quality:0.96},
       html2canvas:{scale:2,useCORS:true}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-    }).from(holder).outputPdf('datauristring');
+    }).from(holder.firstElementChild).outputPdf('datauristring');
     return dataUri.split(',')[1] || null; // base64 only
   } catch(e) { console.warn('letter pdf error', e); return null; }
   finally { document.body.removeChild(holder); }
