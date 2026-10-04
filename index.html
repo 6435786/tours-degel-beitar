@@ -653,6 +653,10 @@ const MT_FIELDS = [
   {id:'f33',label:'שעת אטרקציה 2',type:'time'},
   {id:'f27',label:'הוזמן ישירות 2',type:'checkbox'},
   {id:'f28',label:'משתתפים בפועל 2',type:'number'},
+  {id:'f39',label:'אטרקציה 3',type:'select',source:'list4_col0'},
+  {id:'f40',label:'שעת אטרקציה 3',type:'time'},
+  {id:'f41',label:'הוזמן ישירות 3',type:'checkbox'},
+  {id:'f42',label:'משתתפים בפועל 3',type:'number'},
   {id:'f29',label:'הערות',type:'text'},
   {id:'f30',label:'שעות אוטובוס בפועל',type:'calc_hours'},
   {id:'f34',label:'שעת חזרה בפועל',type:'time'},
@@ -664,7 +668,7 @@ const MT_FIELDS = [
 const CALC_TYPES = ['calc_total','calc_buses','calc_hebrew','calc_day','calc_contact','calc_participants','calc_hours','calc_attr_pp','calc_bus_pp'];
 
 const DEF_CLONE_LISTS = {list1:true,list2:true,list3:true,list4:true,list5:true,list6:true,list7:false,list8:true,list9:true};
-const DEF_CLONE_MT = {f1:true,f18:true,f19:true,f20:true,f21:true,f22:true,f23:true,f26:true};
+const DEF_CLONE_MT = {f1:true,f18:true,f19:true,f20:true,f21:true,f22:true,f23:true,f26:true,f39:true};
 
 // כללי חישוב אוטובוסים — עד X משתתפים → שילוב. מעל הסף הגבוה ביותר → 'חריג'
 const DEF_BUS_RULES = [
@@ -724,6 +728,7 @@ function collectWazeEntriesForCommunity(communityName) {
   tryAdd('list3', row.f22, 'אתר');
   tryAdd('list4', row.f23, 'אטרקציה');
   tryAdd('list4', row.f26, 'אטרקציה');
+  tryAdd('list4', row.f39, 'אטרקציה');
   return out;
 }
 // Pretty file display name — adds "אישור טיול:" prefix when the file is a trip-approval doc
@@ -1509,7 +1514,7 @@ function getColWidth(f) {
     'f9':70,'f10':110,'f11':75,'f12':75,'f13':100,'f14':90,'f15':60,
     'f16':120,'f17':120,'f17b':120,'f18':130,'f19':130,'f20':130,'f21':130,'f22':130,
     'f23':130,'f24':50,'f25':70,'f26':130,'f27':50,'f28':70,'f29':120,
-    'f30':70,'f31':80,'f32':75,'f33':75,'f34':75
+    'f30':70,'f31':80,'f32':75,'f33':75,'f34':75,'f39':130,'f40':75,'f41':50,'f42':70
   };
   return widths[f.id]||100;
 }
@@ -1635,7 +1640,7 @@ function toggleBusMode(){
   showToast(state.global.settings.busMode==='estimate' ? 'עברת לתצוגת כמות משוערת' : 'עברת לתצוגת כמות אמיתית','info');
 }
 function handleMTSel(ri,fid,val,src) {
-  if((fid==='f23'||fid==='f26')&&val) {
+  if((fid==='f23'||fid==='f26'||fid==='f39')&&val) {
     const td=getTD(); const a=(td.lists.list4||[]).find(r=>r[0]===val);
     if(a&&a[7]){ const mn=parseInt(a[7]); const tot=calcTotal(td.mainTable[ri],td); if(tot<mn) showToast(`⚠️ מינימום לאטרקציה זו: ${mn} (יש: ${tot})`,'warn'); }
   }
@@ -2293,7 +2298,7 @@ function openEditRow(ri) {
     },
     {
       title:'🎡 אטרקציות', icon:'',
-      fields:['f23','f32','f24','f25','f26','f33','f27','f28','f35']
+      fields:['f23','f32','f24','f25','f26','f33','f27','f28','f39','f40','f41','f42','f35']
     },
     {
       title:'🚌 הערות', icon:'',
@@ -2325,7 +2330,7 @@ const DUP_GROUPS = [
   { key:'times',  icon:'⏰', label:'זמנים',      fields:['f13','f11','f12'] },
   { key:'routes', icon:'🚶', label:'מסלולים',    fields:['f18','f19','f20'] },
   { key:'sites',  icon:'📍', label:'אתרים',      fields:['f21','f22'] },
-  { key:'attrs',  icon:'🎢', label:'אטרקציות',   fields:['f23','f26'] },
+  { key:'attrs',  icon:'🎢', label:'אטרקציות',   fields:['f23','f26','f39'] },
 ];
 function openDuplicateFromCommunity() {
   const td = getTD(); if(!td||editRowIdx===null) return;
@@ -2408,15 +2413,13 @@ function openBulkAddAttr(list4Idx) {
 
   // Communities with analysis: full (both slots taken), has one, empty, already-includes
   const mtAnalysis = (td.mainTable||[]).map((r,i) => {
-    const hasAs23 = r.f23 === attrName;
-    const hasAs26 = r.f26 === attrName;
-    const slot23Empty = !r.f23;
-    const slot26Empty = !r.f26;
+    const already = r.f23 === attrName || r.f26 === attrName || r.f39 === attrName;
+    const hasEmptySlot = !r.f23 || !r.f26 || !r.f39;
     let status;
-    if(hasAs23 || hasAs26) status = 'already';
-    else if(slot23Empty || slot26Empty) status = 'canAdd';
+    if(already) status = 'already';
+    else if(hasEmptySlot) status = 'canAdd';
     else status = 'full';
-    return { idx:i, name:r.f1||'', status, slot23Empty, slot26Empty };
+    return { idx:i, name:r.f1||'', status };
   }).filter(x => x.name);
 
   if(!mtAnalysis.length) { showToast('אין קהילות בטבלה הראשית','warn'); return; }
@@ -2469,17 +2472,18 @@ function applyBulkAddAttr(attrName) {
     .filter(i => !isNaN(i));
   if(!selected.length) { showToast('לא נבחרו קהילות','warn'); return; }
   pushU(snap());
-  let placed23 = 0, placed26 = 0, skipped = 0;
+  let placed = 0, skipped = 0;
   selected.forEach(i => {
     const r = td.mainTable[i]; if(!r) return;
-    if(r.f23 === attrName || r.f26 === attrName) { skipped++; return; }
-    if(!r.f23) { r.f23 = attrName; placed23++; }
-    else if(!r.f26) { r.f26 = attrName; placed26++; }
+    if(r.f23 === attrName || r.f26 === attrName || r.f39 === attrName) { skipped++; return; }
+    if(!r.f23) { r.f23 = attrName; placed++; }
+    else if(!r.f26) { r.f26 = attrName; placed++; }
+    else if(!r.f39) { r.f39 = attrName; placed++; }
     else skipped++;
   });
   save(); render();
   closeModal('bulkAddAttrModal');
-  showToast(`שובצה ב-${placed23+placed26} קהילות (${placed23} בסלוט 1, ${placed26} בסלוט 2)${skipped?' · דילג על '+skipped:''} ✓`);
+  showToast(`שובצה ב-${placed} קהילות${skipped?' · דילג על '+skipped:''} ✓`);
 }
 
 function rebuildEditBody() {
@@ -2490,7 +2494,7 @@ function rebuildEditBody() {
     { title:'📅 תאריכים, שעות ואוטובוסים', fields:['f13','f14','f15','f11','f12','f34','f30','f10','f31','f36','f29'] },
     { title:'👤 אחראים', fields:['f16','f17','f17b'] },
     { title:'🥾 מסלולים ואתרים', fields:['f18','f19','f20','f21','f22'] },
-    { title:'🎡 אטרקציות', fields:['f23','f32','f24','f25','f26','f33','f27','f28','f35'] },
+    { title:'🎡 אטרקציות', fields:['f23','f32','f24','f25','f26','f33','f27','f28','f39','f40','f41','f42','f35'] },
   ];
   let html = `<div style="margin-bottom:10px;display:flex;justify-content:flex-start">
     <button class="btn btn-secondary btn-sm" onclick="openDuplicateFromCommunity()">📋 שכפל טיול מקהילה אחרת</button>
@@ -2505,7 +2509,7 @@ function rebuildEditBody() {
 }
 
 // ── סדר יום: מספור תחנות (מסלולים + אתרים + אטרקציות) ──
-const STOP_FIELD_IDS = ['f18','f19','f20','f21','f22','f23','f26'];
+const STOP_FIELD_IDS = ['f18','f19','f20','f21','f22','f23','f26','f39'];
 function stopOrderOf(row, fid){ return (row && row.stopOrder && row.stopOrder[fid]) || ''; }
 // הכנסה עם דחיפה + רצף נקי: קביעת מיקום N מכניסה את התחנה למקום N, והתוצאה תמיד 1..k רציף
 function setStopOrder(fid, val){
@@ -2645,7 +2649,7 @@ function handleEditSel(fid, val) {
     const td=getTD(); const mr=td&&td.mainTable?td.mainTable.find(r=>r.f1===val):null;
     if(mr) mr.f2=false;
   }
-  if(fid==='f23'||fid==='f26') {
+  if(fid==='f23'||fid==='f26'||fid==='f39') {
     const td=getTD(); const a=(td.lists.list4||[]).find(r=>r[0]===val);
     if(a&&a[7]){ const mn=parseInt(a[7]); const tot=calcTotal(editRowData,td); if(tot<mn) showToast(`⚠️ מינימום לאטרקציה זו: ${mn}`,'warn'); }
   }
@@ -2785,8 +2789,10 @@ function calcAttrPriceTotal(row, td) {
   let sum = 0;
   const pax1 = parseInt(row.f25)||0 || total;
   const pax2 = parseInt(row.f28)||0 || total;
+  const pax3 = parseInt(row.f42)||0 || total;
   if(row.f23) sum += calcSingleAttrPrice(row.f23, pax1, td);
   if(row.f26) sum += calcSingleAttrPrice(row.f26, pax2, td);
+  if(row.f39) sum += calcSingleAttrPrice(row.f39, pax3, td);
   return sum;
 }
 
@@ -2854,8 +2860,8 @@ function compactVals(arr) { return arr.filter(Boolean); }
 function buildReport1(td) {
   const rows = getActiveRows(td);
   if (!rows.length) return '<div class="empty-state"><div class="es-icon">📭</div><div>אין קהילות פעילות</div></div>';
-  const fields = ['f1','f3','f5','f8','f8b','f8c','f9','f10','f11','f12','f15','f17','טלפון אחראי','f18','f19','f20','f21','f22','f23','f26','f29'];
-  const labels = {'f1':'שם קהילה','f3':'מס\' אישור','f5':'נרשמים','f8':'קהילה מצורפת','f8b':'קהילה מצורפת 2','f8c':'קהילה מצורפת 3','f9':'סה"כ','f10':'אוטובוסים','f11':'שעת יציאה','f12':'שעת חזרה','f15':'יום','f17':'אחראי טיול','טלפון אחראי':'טלפון','f18':'טיול 1','f19':'טיול 2','f20':'טיול 3','f21':'אתר 1','f22':'אתר 2','f23':'אטרקציה 1','f26':'אטרקציה 2','f29':'הערות'};
+  const fields = ['f1','f3','f5','f8','f8b','f8c','f9','f10','f11','f12','f15','f17','טלפון אחראי','f18','f19','f20','f21','f22','f23','f26','f39','f29'];
+  const labels = {'f1':'שם קהילה','f3':'מס\' אישור','f5':'נרשמים','f8':'קהילה מצורפת','f8b':'קהילה מצורפת 2','f8c':'קהילה מצורפת 3','f9':'סה"כ','f10':'אוטובוסים','f11':'שעת יציאה','f12':'שעת חזרה','f15':'יום','f17':'אחראי טיול','טלפון אחראי':'טלפון','f18':'טיול 1','f19':'טיול 2','f20':'טיול 3','f21':'אתר 1','f22':'אתר 2','f23':'אטרקציה 1','f26':'אטרקציה 2','f39':'אטרקציה 3','f29':'הערות'};
   const hdrs = fields.map(f=>`<th>${labels[f]||f}</th>`).join('');
   const trs = rows.map((row,ri) => {
     const coordNames = [row.f17, row.f17b].filter(Boolean);
@@ -2865,7 +2871,7 @@ function buildReport1(td) {
     const total = calcTotal(row,td);
     const buses = calcBuses(busBasis(row,td));
     // דחיסת אתרים/מסלולים/אטרקציות
-    const sites = compactVals([row.f18,row.f19,row.f20,row.f21,row.f22,row.f23,row.f26]);
+    const sites = compactVals([row.f18,row.f19,row.f20,row.f21,row.f22,row.f23,row.f26,row.f39]);
     return `<tr>
       ${fields.map((f,fi) => {
         if(f==='טלפון אחראי') return `<td>${phoneLink(phone)}</td>`;
@@ -2873,8 +2879,8 @@ function buildReport1(td) {
         if(f==='f9') return `<td><strong>${total||''}</strong></td>`;
         if(f==='f10') return `<td><span class="${buses==='חריג'?'badge-exception':'badge-bus'}">${buses}</span></td>`;
         if(f==='f17') return `<td>${h(tripCoord)}</td>`;
-        if(['f18','f19','f20','f21','f22','f23','f26'].includes(f)) {
-          const idx = ['f18','f19','f20','f21','f22','f23','f26'].indexOf(f);
+        if(['f18','f19','f20','f21','f22','f23','f26','f39'].includes(f)) {
+          const idx = ['f18','f19','f20','f21','f22','f23','f26','f39'].indexOf(f);
           return `<td>${h(sites[idx]||'')}</td>`;
         }
         return `<td>${h(String(row[f]||''))}</td>`;
@@ -2959,7 +2965,7 @@ function buildReport2(td) {
     }).join('');
     const routes = mkItems([row.f18,row.f19,row.f20], 'list2');
     const sites  = mkItems([row.f21,row.f22], 'list3');
-    const attrs  = mkItems([row.f23,row.f26], 'list4');
+    const attrs  = mkItems([row.f23,row.f26,row.f39], 'list4');
     const grp = (label,items) => items ? `<div class="mrc-group"><div class="mrc-glabel">${label}</div>${items}</div>` : '';
 
     // אחראי טיול — פרטים מלאים + כפתורי העתקה לכל שדה (עד 2 אחראים, כל אחד בשורה נפרדת)
@@ -2999,7 +3005,7 @@ function buildReport2(td) {
   }).join('');
 
   // ── טבלה נסתרת (מזינה את ייצוא Excel וההדפסה, ללא שינוי בפורמט הקיים) ──
-  const hdrs = ['שם קהילה','קהילה נוספת','תאריך יציאה','יום','טיול 1','הזנה טיול 1','טיול 2','הזנה טיול 2','טיול 3','הזנה טיול 3','אתר 1','הזנה אתר 1','אתר 2','הזנה אתר 2','אטרקציה 1','הזנה אטרקציה 1','אטרקציה 2','הזנה אטרקציה 2','מספר משתתפים','אחראי טיול','ת.ז.','טלפון','מייל','מס\' אישור','טיול מאושר'].map(l=>`<th>${l}</th>`).join('');
+  const hdrs = ['שם קהילה','קהילה נוספת','תאריך יציאה','יום','טיול 1','הזנה טיול 1','טיול 2','הזנה טיול 2','טיול 3','הזנה טיול 3','אתר 1','הזנה אתר 1','אתר 2','הזנה אתר 2','אטרקציה 1','הזנה אטרקציה 1','אטרקציה 2','הזנה אטרקציה 2','אטרקציה 3','הזנה אטרקציה 3','מספר משתתפים','אחראי טיול','ת.ז.','טלפון','מייל','מס\' אישור','טיול מאושר'].map(l=>`<th>${l}</th>`).join('');
   const trs = rows.map((row,ri) => {
     const coordNames = [row.f17, row.f17b].filter(Boolean);
     const coordRows = coordNames.map(n => (td.lists.list6||[]).find(r=>r[0]===n)).filter(Boolean);
@@ -3015,6 +3021,7 @@ function buildReport2(td) {
       row.f22, getListCode('list3',row.f22,1),
       row.f23, getListCode('list4',row.f23,1),
       row.f26, getListCode('list4',row.f26,1),
+      row.f39, getListCode('list4',row.f39,1),
       total, tripCoord,
       coordRows.map(r=>r[3]||'').filter(Boolean).join(' / '),
       coordRows.map(r=>r[4]||'').filter(Boolean).join(' / '),
@@ -3132,6 +3139,7 @@ function buildReport4(td) {
   rows.forEach(row => {
     if (row.f23) expandedRows.push({row, attrField:'f23', timeField:'f32', paxField:'f25'});
     if (row.f26) expandedRows.push({row, attrField:'f26', timeField:'f33', paxField:'f28'});
+    if (row.f39) expandedRows.push({row, attrField:'f39', timeField:'f40', paxField:'f42'});
   });
 
   const hdrs = ['שם קהילה','קהילה נוספת','אטרקציה','שעה','כמות משתתפים','משתתפים בפועל','מחיר','ספק'].map(l=>`<th>${l}</th>`).join('');
@@ -3575,7 +3583,7 @@ async function openTripFolder(communityName) {
 
   // מאגר 3 — by routes (list2 cols 4/5) and attractions (list4 cols 11/12/13)
   const routes = [row.f18,row.f19,row.f20].filter(Boolean);
-  const attractions = [row.f23,row.f26].filter(Boolean);
+  const attractions = [row.f23,row.f26,row.f39].filter(Boolean);
 
   routes.forEach(route => {
     const r2 = (td.lists.list2||[]).find(r=>r[0]===route);
