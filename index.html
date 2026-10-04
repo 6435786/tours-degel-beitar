@@ -3848,19 +3848,26 @@ async function participantsPdfBase64(communityName) {
   const communityLabel = d.communities.join(' + ');
   const dateStr = _fmtDateHeb(d.date);
   const th = 'background:#1a56db;color:#fff;padding:7px 10px;text-align:right;font-weight:700';
-  const td = 'padding:6px 10px;border-bottom:1px solid #e2e8f0';
-  const rows = d.participants.map((p,i)=>
-    `<tr style="page-break-inside:avoid;${i%2?'background:#f8fafc':''}"><td style="${td}">${i+1}</td>${d.fields.map((_,ci)=>`<td style="${td}">${h(p[ci]||'')}</td>`).join('')}</tr>`
+  const td = 'padding:6px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap';
+  const rowHtml = (p,i) =>
+    `<tr style="${i%2?'background:#f8fafc':''}"><td style="${td}">${i+1}</td>${d.fields.map((_,ci)=>`<td style="${td}">${h(p[ci]||'')}</td>`).join('')}</tr>`;
+  const thead = `<thead><tr><th style="${th}">#</th>${d.fields.map(f=>`<th style="${th}">${f}</th>`).join('')}</tr></thead>`;
+  // חלוקה לעמודים — כל עמוד טבלה עם שורת כותרת משלו (כותרת חוזרת)
+  const FIRST = 32, PER = 36, chunks = [];
+  for(let i=0; i<d.participants.length; ) {
+    const n = chunks.length ? PER : FIRST;
+    chunks.push(d.participants.slice(i, i+n).map((p,j)=>rowHtml(p, i+j)).join(''));
+    i += n;
+  }
+  const tables = chunks.map((rows,ci) =>
+    `<table style="width:100%;border-collapse:collapse;font-size:12px;${ci?'page-break-before:always;':''}">${thead}<tbody>${rows}</tbody></table>`
   ).join('');
   const holder = document.createElement('div');
   holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:760px;background:#fff';
   holder.innerHTML = `<div style="font-family:Arial,sans-serif;direction:rtl;padding:20px;font-size:13px;color:#111;background:#fff;letter-spacing:0.01px">
     <h2 style="margin:0 0 4px;font-size:20px">רשימת משתתפים — ${h(communityLabel)}</h2>
     <div style="color:#666;font-size:12px;margin-bottom:16px">תאריך: ${dateStr} | מס' טיול: ${h(d.tripNum)} | אחראי: ${h(d.coordName)} ${d.coordPhone?'| '+h(d.coordPhone):''}</div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr><th style="${th}">#</th>${d.fields.map(f=>`<th style="${th}">${f}</th>`).join('')}</tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
+    ${tables}
     <div style="margin-top:14px;font-weight:700">סה"כ: ${d.participants.length} משתתפים</div>
   </div>`;
   document.body.appendChild(holder);
@@ -3868,7 +3875,7 @@ async function participantsPdfBase64(communityName) {
     const dataUri = await html2pdf().set({
       margin:[8,6,8,6], image:{type:'jpeg',quality:0.96},
       html2canvas:{scale:2,useCORS:true}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
-      pagebreak:{mode:['css','legacy'], avoid:'tr'}
+      pagebreak:{mode:['css']}
     }).from(holder.firstElementChild).outputPdf('datauristring');
     return dataUri.split(',')[1] || null;
   } catch(e) { console.warn('participants pdf error', e); return null; }
@@ -3901,6 +3908,13 @@ async function downloadZip(communityName) {
   // הוסף כתבי מינוי (PDF) לכל אחראי טיול
   const letterFiles = await communityLetterFiles(communityName);
   letterFiles.forEach(f => files.push(f));
+
+  // שמות קבצים חוקיים ל-Windows (למשל "אישור טיול: 123" — נקודתיים שוברים את הקובץ בחילוץ)
+  files.forEach(f => {
+    let n = String(f.name||'file').replace(/[\\/:*?"<>|]+/g, ' -').replace(/\s+/g,' ').trim();
+    if(f.url && /\.pdf($|\?)/i.test(f.url) && !/\.pdf$/i.test(n)) n += '.pdf';
+    f.name = n;
+  });
 
   try {
     const res = await fetch(ZIP_WORKER_URL, {
