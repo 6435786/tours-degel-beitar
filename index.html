@@ -3840,6 +3840,41 @@ function printParticipants(communityName) {
   };
 }
 
+// רשימת משתתפים כ-PDF (base64) — באותו עיצוב כמו ההדפסה, לצירוף ל-ZIP
+async function participantsPdfBase64(communityName) {
+  if(typeof html2pdf === 'undefined') return null;
+  const d = buildParticipantsData(communityName);
+  if(!d || !d.participants.length) return null;
+  const communityLabel = d.communities.join(' + ');
+  const dateStr = _fmtDateHeb(d.date);
+  const th = 'background:#1a56db;color:#fff;padding:7px 10px;text-align:right;font-weight:700';
+  const td = 'padding:6px 10px;border-bottom:1px solid #e2e8f0';
+  const rows = d.participants.map((p,i)=>
+    `<tr style="page-break-inside:avoid;${i%2?'background:#f8fafc':''}"><td style="${td}">${i+1}</td>${d.fields.map((_,ci)=>`<td style="${td}">${h(p[ci]||'')}</td>`).join('')}</tr>`
+  ).join('');
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:760px;background:#fff';
+  holder.innerHTML = `<div style="font-family:Arial,sans-serif;direction:rtl;padding:20px;font-size:13px;color:#111;background:#fff;letter-spacing:0.01px">
+    <h2 style="margin:0 0 4px;font-size:20px">רשימת משתתפים — ${h(communityLabel)}</h2>
+    <div style="color:#666;font-size:12px;margin-bottom:16px">תאריך: ${dateStr} | מס' טיול: ${h(d.tripNum)} | אחראי: ${h(d.coordName)} ${d.coordPhone?'| '+h(d.coordPhone):''}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr><th style="${th}">#</th>${d.fields.map(f=>`<th style="${th}">${f}</th>`).join('')}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:14px;font-weight:700">סה"כ: ${d.participants.length} משתתפים</div>
+  </div>`;
+  document.body.appendChild(holder);
+  try {
+    const dataUri = await html2pdf().set({
+      margin:[8,6,8,6], image:{type:'jpeg',quality:0.96},
+      html2canvas:{scale:2,useCORS:true}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+      pagebreak:{mode:['css','legacy'], avoid:'tr'}
+    }).from(holder.firstElementChild).outputPdf('datauristring');
+    return dataUri.split(',')[1] || null;
+  } catch(e) { console.warn('participants pdf error', e); return null; }
+  finally { document.body.removeChild(holder); }
+}
+
 function toggleAllTripFiles(cb) {
   document.querySelectorAll('.trip-file-cb').forEach(el => el.checked = cb.checked);
 }
@@ -3850,9 +3885,9 @@ async function downloadZip(communityName) {
   showToast('מכין ZIP...', 'info');
   const files = selected.map(cb => ({ url: cb.dataset.url, name: cb.dataset.name }));
 
-  // הוסף Excel משתתפים
-  const participantsXlsx = generateParticipantsExcel(communityName);
-  if(participantsXlsx) files.push({ base64: participantsXlsx.base64, name: participantsXlsx.name });
+  // הוסף רשימת משתתפים (PDF — כמו ההדפסה)
+  const participantsPdf = await participantsPdfBase64(communityName);
+  if(participantsPdf) files.push({ base64: participantsPdf, name: `רשימת-משתתפים-${decodeHtml(communityName)}.pdf` });
 
   // הוסף דף וויז (אם יש קישורים וספריית QR נטענה)
   if(typeof QRCode !== 'undefined') {
@@ -3972,7 +4007,7 @@ function appointmentLetterBlock(row, coordName, td) {
   const line = w => `<span style="display:inline-block;border-bottom:1px solid #333;min-width:${w};height:16px;vertical-align:middle">&nbsp;</span>`;
   const fill = (v,w) => v ? `<span style="display:inline-block;border-bottom:1px solid #333;min-width:${w};text-align:center;font-weight:700;vertical-align:middle">${h(v)}</span>` : line(w);
 
-  return `<div class="ktav" style="width:100%;max-width:720px;margin:0 auto;font-family:'Heebo',Arial,sans-serif;direction:rtl;color:#111;font-size:14px;line-height:1.7;padding:20px 28px;box-sizing:border-box">
+  return `<div class="ktav" style="width:100%;max-width:720px;margin:0 auto;font-family:'Heebo',Arial,sans-serif;direction:rtl;letter-spacing:0.01px;color:#111;font-size:14px;line-height:1.7;padding:20px 28px;box-sizing:border-box">
     <h1 style="text-align:center;font-size:22px;font-weight:800;margin:0 0 22px">כתב מינוי לאחראי טיול</h1>
     <p style="margin:0 0 4px">הנך מתמנה בזה כאחראי/ת טיול בתאריך ${fill(dateStr,'150px')} &nbsp; סמל מוסד: <strong>${h(mosad)}</strong></p>
     <p style="margin:0 0 16px">טיול מס' ${fill(tripNum,'150px')}</p>
