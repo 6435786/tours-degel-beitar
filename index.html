@@ -1997,6 +1997,12 @@ function renderSettings(container) {
           <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">מופיע בתחתית ההנחיות בכתב המינוי</p>
           <input type="text" id="s_signature" class="form-control" dir="rtl" placeholder="שלמה רוזנבאום — מתאם טיולים" value="${h(state.global.settings.coordinatorSignature||'שלמה רוזנבאום — מתאם טיולים')}" style="width:100%;max-width:360px;margin-bottom:14px">
 
+          <h4>🚌 טלפון חברת האוטובוסים</h4>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">יופיע בתחתית עמוד השער של תיק הטיול (אם מסומן)</p>
+          <input type="text" id="s_busCoverText" class="form-control" dir="rtl" placeholder="לכל בעיה בנושא האוטובוסים ניתן להתקשר לטל'" value="${h(state.global.settings.busCoverText||'')}" style="width:100%;max-width:360px;margin-bottom:8px">
+          <input type="tel" id="s_busPhone" class="form-control" dir="ltr" placeholder="050-0000000" value="${h(state.global.settings.busPhone||'')}" style="width:100%;max-width:200px;margin-bottom:8px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:14px;cursor:pointer"><input type="checkbox" id="s_busOnCover" ${state.global.settings.busOnCover?'checked':''}> להציג במסמך שער</label>
+
           <div><button class="btn btn-primary btn-sm" onclick="saveGeneralSett()">💾 שמור הגדרות</button></div>
         </div>
       </div>
@@ -2069,6 +2075,12 @@ function saveGeneralSett(){
   if(mc) state.global.settings.defaultMosadCode = mc.value.trim();
   const sg=document.getElementById('s_signature');
   if(sg) state.global.settings.coordinatorSignature = sg.value.trim();
+  const bt=document.getElementById('s_busCoverText');
+  if(bt) state.global.settings.busCoverText = bt.value.trim();
+  const bp=document.getElementById('s_busPhone');
+  if(bp) state.global.settings.busPhone = bp.value.trim();
+  const bc=document.getElementById('s_busOnCover');
+  if(bc) state.global.settings.busOnCover = bc.checked;
   save(); showToast('נשמר ✓');
 }
 
@@ -3657,13 +3669,18 @@ function showTripFolderModal(communityName, files) {
           </tr>`;
         }).join('')}</tbody>
       </table>
-      <div style="margin-top:14px;display:flex;gap:6px;flex-wrap:nowrap">
-        <button class="btn btn-secondary" style="flex:1;justify-content:center" title="הדפס את הקבצים המסומנים" onclick="printSelectedFiles()">🖨️ הדפס</button>
-        <button class="btn btn-secondary" style="flex:1;justify-content:center" title="דף וויז" onclick="printWazePage(this.dataset.c)" data-c="${h(communityName)}">🧭 וויז</button>
-        <button class="btn btn-secondary" style="flex:1;justify-content:center" title="כתב מינוי" onclick="printAppointmentLetters(this.dataset.c)" data-c="${h(communityName)}">📄 כתב מינוי</button>
-        <button class="btn btn-primary" style="flex:1;justify-content:center" title="שלח במייל" onclick="emailSelectedFiles()">✉️ מייל</button>
-        <button class="btn btn-success" style="flex:1;justify-content:center" title="הורד ZIP" onclick="downloadZip(this.dataset.c)" data-c="${h(communityName)}">📦 ZIP</button>
-        <button class="btn btn-success" style="flex:1;justify-content:center" title="PDF מאוחד של כל התיק" onclick="downloadMergedPdf(this.dataset.c)" data-c="${h(communityName)}">📑 PDF מאוחד</button>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary" style="flex:1;justify-content:center" title="הדפס את הקבצים המסומנים" onclick="printSelectedFiles()">🖨️ הדפס</button>
+          <button class="btn btn-primary" style="flex:1;justify-content:center" title="שלח במייל" onclick="emailSelectedFiles()">✉️ מייל</button>
+          <button class="btn btn-success" style="flex:1;justify-content:center" title="הורד ZIP" onclick="downloadZip(this.dataset.c)" data-c="${h(communityName)}">📦 ZIP</button>
+          <button class="btn btn-success" style="flex:1;justify-content:center" title="PDF מאוחד של כל התיק" onclick="downloadMergedPdf(this.dataset.c)" data-c="${h(communityName)}">📑 PDF מאוחד</button>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary" style="flex:1;justify-content:center" title="עמוד שער — צפייה/הדפסה" onclick="printCoverPage(this.dataset.c)" data-c="${h(communityName)}">📋 שער</button>
+          <button class="btn btn-secondary" style="flex:1;justify-content:center" title="כתב מינוי" onclick="printAppointmentLetters(this.dataset.c)" data-c="${h(communityName)}">📄 כתב מינוי</button>
+          <button class="btn btn-secondary" style="flex:1;justify-content:center" title="דף וויז" onclick="printWazePage(this.dataset.c)" data-c="${h(communityName)}">🧭 וויז</button>
+        </div>
       </div>`;
 
   modal.style.display = 'flex';
@@ -3999,9 +4016,9 @@ async function _appendToMerged(merged, bytes) {
 }
 
 // עמוד שער לתיק הטיול (PDF base64, עמוד אחד)
-async function coverPdfBase64(communityName, docTitles) {
-  if(typeof html2pdf === 'undefined') return null;
-  const td = getTD(); if(!td) return null;
+// HTML של עמוד השער (div בגודל עמוד) — משמש גם ל-PDF המאוחד וגם להדפסה נפרדת
+function coverPageHtml(communityName, docTitles) {
+  const td = getTD(); if(!td) return '';
   const row = td.mainTable.find(r=>r.f1===communityName) || {};
   const comms = [communityName, row.f8, row.f8b, row.f8c].filter(Boolean).join(' + ');
   const tripNum = (row.f3||'').trim();
@@ -4013,9 +4030,11 @@ async function coverPdfBase64(communityName, docTitles) {
   const items = docTitles.map((t,i) => `<li style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid #d4d4d4;break-inside:avoid">
       <span style="flex-shrink:0;width:22px;font-weight:700">${i+1}.</span><span>${h(clean(t))}</span></li>`).join('');
   const infoRow = (label, val) => `<tr><td style="padding:7px 0;width:110px;color:#444">${label}</td><td style="padding:7px 0;font-weight:700">${val}</td></tr>`;
-  const holder = document.createElement('div');
-  holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:740px;background:#fff';
-  holder.innerHTML = `<div style="font-family:'Heebo',Arial,sans-serif;direction:rtl;color:#000;background:#fff;letter-spacing:0.01px;width:740px;height:1000px;box-sizing:border-box;padding:56px 64px;display:flex;flex-direction:column">
+  const st = state.global.settings || {};
+  const busPhone = (st.busPhone||'').trim(), busText = (st.busCoverText||'').trim();
+  const busLine = st.busOnCover && (busPhone || busText)
+    ? `${h(busText)}${busPhone ? ` <strong dir="ltr" style="unicode-bidi:isolate">${h(busPhone)}</strong>` : ''}` : '';
+  return `<div style="font-family:'Heebo',Arial,sans-serif;direction:rtl;color:#000;background:#fff;letter-spacing:0.01px;width:740px;height:1000px;box-sizing:border-box;padding:56px 64px;display:flex;flex-direction:column">
     <div class="cv-body" style="font-size:15px;flex:1;display:flex;flex-direction:column">
       <div style="text-align:center;font-size:1em;letter-spacing:6px;margin-bottom:10px">תיק טיול</div>
       <div style="text-align:center;font-size:2.2em;font-weight:800;line-height:1.2">קהילת ${h(comms)}</div>
@@ -4027,9 +4046,52 @@ async function coverPdfBase64(communityName, docTitles) {
       <div style="font-weight:800;font-size:1.05em;padding-bottom:6px;border-bottom:1.5px solid #000">מסמכים מצורפים</div>
       <ol style="list-style:none;margin:0;padding:0;${twoCols ? 'column-count:2;column-gap:36px;' : ''}">${items}</ol>
       <div style="flex:1"></div>
+      ${busLine ? `<div style="border:1.5px solid #000;padding:12px 16px;text-align:center;font-size:1.1em;margin-top:24px">${busLine}</div>` : ''}
       <div style="border-top:1px solid #000;padding-top:16px;margin-top:24px;text-align:center;font-size:1.25em;font-weight:700">נסיעה טובה ובטוחה</div>
     </div>
   </div>`;
+}
+
+// רשימת המסמכים הצפויה בתיק (לפי מה שמסומן) — לשער הנפרד, בלי להוריד קבצים
+function coverTitlesPreview(communityName) {
+  const td = getTD(); if(!td) return [];
+  const row = td.mainTable.find(r=>r.f1===communityName); if(!row) return [];
+  const selected = [...document.querySelectorAll('.trip-file-cb:checked')].map(cb => decodeHtml(cb.dataset.name||''));
+  const isApproval = n => n.startsWith('אישור טיול');
+  const noExt = n => n.replace(/\.(pdf|jpe?g|png)$/i,'');
+  const titles = [];
+  selected.filter(isApproval).forEach(n => titles.push(n));
+  letterCoordNames(row).forEach(cn => titles.push('כתב מינוי — ' + cn));
+  const pd = buildParticipantsData(communityName);
+  if(pd && pd.participants.length) titles.push('רשימת משתתפים');
+  selected.filter(n => !isApproval(n)).forEach(n => titles.push(noExt(n)));
+  if(collectWazeEntriesForCommunity(communityName).length) titles.push('דף וויז');
+  return titles;
+}
+
+// עמוד שער בחלון נפרד — לצפייה/הדפסה
+function printCoverPage(communityName) {
+  communityName = decodeHtml(communityName);
+  const page = coverPageHtml(communityName, coverTitlesPreview(communityName));
+  if(!page) return;
+  const html = `<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>עמוד שער — ${h(communityName)}</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap">
+    <style>body{margin:0;background:#fff}#pg{margin:0 auto}@page{size:A4;margin:10mm}@media print{.noprint{display:none}#pg>div{height:auto!important;min-height:270mm;width:auto!important}}</style></head><body>
+    <div id="pg">${page}</div>
+    <div class="noprint" style="text-align:center;margin:20px 0"><button onclick="window.print()" style="padding:10px 24px;background:#1a56db;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨️ הדפס / שמור PDF</button></div>
+    <script>(function(){var p=document.querySelector('#pg>div'),b=p.querySelector('.cv-body');for(var fs=15;fs>8&&p.scrollHeight>p.clientHeight+1;fs-=0.5)b.style.fontSize=fs+'px';})();<\/script>
+    </body></html>`;
+  const w = window.open('', '_blank');
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
+async function coverPdfBase64(communityName, docTitles) {
+  if(typeof html2pdf === 'undefined') return null;
+  const html = coverPageHtml(communityName, docTitles);
+  if(!html) return null;
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:740px;background:#fff';
+  holder.innerHTML = html;
   document.body.appendChild(holder);
   // הקטנה אוטומטית עד שהכל נכנס בעמוד אחד
   const page = holder.firstElementChild, body = holder.querySelector('.cv-body');
