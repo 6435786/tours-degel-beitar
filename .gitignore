@@ -13,3 +13,12 @@ _sheet*
 _sheets/
 _xlsx/
 tmp_*
+
+# Data files never belong in this public repo (see CLAUDE.md)
+*.csv
+*.xlsx
+*.xls
+*.xlsm
+*.docx
+*.zip
+*.pdf
