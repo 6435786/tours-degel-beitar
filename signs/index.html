@@ -199,6 +199,7 @@ main.home{max-width:760px}
 .lrow.open .lh .chev{transform:rotate(180deg)}
 .lbody{border-top:1px solid var(--line);padding:12px;background:#fcfdff}
 .lbody .cols{display:grid;gap:14px;grid-template-columns:1fr 1fr}
+.more summary{cursor:pointer}
 .hqrow{display:grid;grid-template-columns:56px minmax(240px,1.6fr) 190px minmax(200px,1.4fr);gap:10px;align-items:center;padding:10px 12px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
 .hqrow.has-k{border-inline-start:5px solid var(--ok)}
 .hqrow.has-l{border-inline-start:5px solid var(--bad)}
@@ -1019,7 +1020,7 @@ VIEWS.yossi = function () {
   ${cityChips(cur, y.city, 'yossi.city')}`;
   if (!rows.length) return head + emptyBox('✓', y.tab === 'pending' ? 'אין שלטים שממתינים לאישור' : 'אין שלטים');
   return head + rows.map(s => {
-    const isOpen = y.open === s.id, d = y.tab === 'pending' ? yossiDims(s) : L.execDims(s), p = L.price(d.h, d.w, pricing());
+    const isOpen = y.open === s.id, d = yossiDims(s), p = L.price(d.h, d.w, pricing());
     return `<div class="lrow ${isOpen ? 'open' : ''}">
       <div class="lh" data-act="yopen" data-id="${s.id}">
         <span>${numTag(s)}</span>
@@ -1034,36 +1035,52 @@ VIEWS.yossi = function () {
   }).join('');
 };
 function yossiBody(s, tab) {
+  const log = (s.contactLog || []).slice().sort((a, b) => b.t - a.t);
+  const hist = (s.history || []).slice().sort((a, b) => b.t - a.t).slice(0, 6);
   const info = `<div>
       ${photoStrip(s.photos, { empty: '<div class="mute small" style="margin:6px 0">אין תמונה</div>' })}
       <div class="kv" style="margin-top:6px">
         <span>נמדד</span><span><b dir="ltr">${fmtM(s.height)} × ${fmtM(s.width)}</b> מ' (גובה × רוחב) · ${esc(s.access)}</span>
         <span>הערת מודד</span><span>${s.surveyNote ? esc(s.surveyNote) : '<span class="mute">—</span>'}</span>
+        <span>הערת מטה</span><span>${s.hqNote ? esc(s.hqNote) : '<span class="mute">—</span>'}${s.hqRec ? ` <span class="pill ${s.hqRec === 'כ' ? 'ok' : 'bad'}">${s.hqRec === 'כ' ? 'מטה: כן' : 'מטה: לא'}</span>` : ''}</span>
         ${s.note ? `<span>מיקום</span><span>${esc(s.note)}</span>` : ''}
-        ${s.hqNote ? `<span>הערת מטה</span><span>${esc(s.hqNote)}</span>` : ''}
-        <span>שם</span><span>${esc(s.name) || '—'}</span>
-        ${s.surveyBy ? `<span>מדד</span><span>${esc(s.surveyBy)} · ${fmtT(s.surveyAt)}</span>` : ''}
-      </div></div>`;
-  if (tab !== 'pending') {
-    const p = priceOf(s);
+      </div>
+      <details class="more" style="margin-top:6px"><summary class="small mute">עוד פרטים</summary>
+        <div class="kv small" style="margin-top:4px">
+          <span>שם</span><span>${esc(s.name) || '—'}</span>
+          <span>טלפון</span><span>${esc(s.phone) || '—'}</span>
+          ${s.surveyBy ? `<span>מדד</span><span>${esc(s.surveyBy)} · ${fmtT(s.surveyAt)}</span>` : ''}
+          ${log.length ? `<span>שיחות</span><span>${log.slice(0, 3).map(l => `${esc(l.type)}${l.note ? ' – ' + esc(l.note) : ''} (${fmtT(l.t)})`).join('<br>')}</span>` : ''}
+          ${s.sourceText ? `<span>מקור</span><span>${esc(s.sourceText)}</span>` : ''}
+        </div>
+        <ul class="log">${hist.map(h => `<li>${esc(h.a)} <span class="t">· ${esc(h.by)} · ${fmtT(h.t)}</span></li>`).join('')}</ul>
+      </details></div>`;
+  if (s.toExecute) {
+    const p = priceOf(s), d = L.execDims(s);
     return `<div class="cols">${info}<div>
-      <div class="price">${p ? (p.special ? 'דרוש מחיר מיוחד' : `<div class="g">${ils(p.gross)} <span class="small mute">כולל מע"מ</span></div>`) : ''}</div>
+      <div class="price">לביצוע: <b dir="ltr">${fmtM(d.h)} × ${fmtM(d.w)}</b>${p && !p.special ? `<div class="g">${ils(p.gross)} <span class="small mute">כולל מע"מ</span></div>` : ''}</div>
       ${s.yossiNote ? `<div class="small" style="margin-top:6px">הערת יוסי: ${esc(s.yossiNote)}</div>` : ''}
-      ${!s.toExecute ? `<button class="btn sm" style="margin-top:8px" data-act="yundo" data-id="${s.id}">החזר להחלטה</button>` : ''}
-      <button class="btn sm" style="margin-top:8px" data-act="open" data-id="${s.id}">כרטיס מלא</button></div></div>`;
+      <div class="mute small" style="margin-top:8px">השלט כבר נשלח לדפוס – שינוי רק דרך שלמה.</div></div></div>`;
   }
   const change = s.yossiMode === 'change';
+  const status = s.yossiDecision === 'approved' ? `<div class="small" style="margin-bottom:6px"><span class="pill ok">אושר</span> ${s.yossiAt ? fmtT(s.yossiAt) : ''} – אפשר לשנות ולאשר מחדש</div>`
+    : s.yossiDecision === 'rejected' ? `<div class="small" style="margin-bottom:6px"><span class="pill bad">לא אושר</span> ${s.yossiAt ? fmtT(s.yossiAt) : ''}</div>` : '';
   return `<div class="cols">${info}<div>
+    ${status}
     <div class="seg"><button class="${!change ? 'on' : ''}" data-act="ymode" data-v="approve" data-id="${s.id}">מאשר מידות</button><button class="${change ? 'on' : ''}" data-act="ymode" data-v="change" data-id="${s.id}">שנה מידות</button></div>
     ${change ? `<div class="row2" style="margin-top:8px">
       <div><label class="f">גובה חדש</label><input id="yh-${s.id}" inputmode="decimal" value="${s.execHeight ? esc(s.execHeight) : ''}" data-inp="ydim" data-chg="ydim" data-id="${s.id}"></div>
       <div><label class="f">רוחב חדש</label><input id="yw-${s.id}" inputmode="decimal" value="${s.execWidth ? esc(s.execWidth) : ''}" data-inp="ydim" data-chg="ydim" data-id="${s.id}"></div></div>` : ''}
     <div id="yp-${s.id}" style="margin-top:8px">${yossiPriceBox(s)}</div>
     <div style="margin-top:8px"><input id="yn-${s.id}" placeholder="הערה (לא חובה)" value="${esc(s.yossiNote)}" data-chg="sf" data-f="yossiNote" data-id="${s.id}"></div>
-    <div class="flex" style="margin-top:10px"><button class="btn ok sp" data-act="yapprove" data-id="${s.id}">✓ אישור</button><button class="btn bad" data-act="yreject" data-id="${s.id}">לא מאשר</button></div>
+    <div class="flex" style="margin-top:10px">
+      <button class="btn ok sp" data-act="yapprove" data-id="${s.id}">${s.yossiDecision === 'approved' ? '✓ עדכן ואשר' : s.yossiDecision === 'rejected' ? '✓ אשר בכל זאת' : '✓ אישור'}</button>
+      ${s.yossiDecision === 'rejected' ? `<button class="btn" data-act="yundo" data-id="${s.id}">החזר לממתינים</button>` : `<button class="btn bad" data-act="yreject" data-id="${s.id}">לא מאשר</button>`}
+    </div>
   </div></div>`;
 }
 function yossiOpenNext(s) {
+  if (ui.yossi.tab !== 'pending') return;
   const y = ui.yossi, rows = yossiLists().pending.filter(x => !y.city || x.city === y.city);
   const i = rows.findIndex(x => x.id === s.id), next = rows[i + 1] || rows[i - 1];
   y.open = next && next.id !== s.id ? next.id : '';
@@ -1366,7 +1383,7 @@ const ACTIONS = {
     }
     const p = L.price(d.h, d.w, pricing());
     yossiOpenNext(s);
-    upd(s.id, patch, { hist: `יוסי אישר: ${fmtM(d.h)}×${fmtM(d.w)}${d.changed ? ' (מידות שונו)' : ''}${p && !p.special ? ` · ${ils(p.gross)}` : ''}` }).then(() => toast(`שלט ${s.num} אושר`));
+    upd(s.id, patch, { hist: `${s.yossiDecision === 'approved' ? 'יוסי עדכן אישור' : 'יוסי אישר'}: ${fmtM(d.h)}×${fmtM(d.w)}${d.changed ? ' (מידות שונו)' : ''}${p && !p.special ? ` · ${ils(p.gross)}` : ''}` }).then(() => toast(`שלט ${s.num} אושר`));
   },
   yreject: el => { const s = S.signs[el.dataset.id]; if (confirm(`לסמן ששלט ${s.num} לא מאושר?`)) yossiOpenNext(s), upd(s.id, { yossiDecision: 'rejected', yossiAt: Date.now(), yossiBy: S.me.name }, { hist: 'יוסי לא אישר' }); },
 
