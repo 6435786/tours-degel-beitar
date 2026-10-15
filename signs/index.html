@@ -141,6 +141,37 @@ pre.code{direction:ltr;text-align:left;background:#0f172a;color:#e2e8f0;padding:
 table.s{width:100%;border-collapse:collapse;font-size:14px}
 table.s td,table.s th{padding:6px;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle}
 table.s input:not([type=checkbox]){padding:6px 8px}
+.menu-btn{display:none!important}
+.cur-tab{display:none}
+.menu-bg{position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.45)}
+.menu{position:fixed;top:0;right:0;bottom:0;width:min(300px,85vw);background:#fff;z-index:61;padding:14px 10px calc(14px + env(safe-area-inset-bottom));overflow-y:auto;box-shadow:-6px 0 24px rgba(0,0,0,.2)}
+.menu .mh{display:flex;align-items:center;justify-content:space-between;padding:0 6px 10px;border-bottom:1px solid var(--line);margin-bottom:6px}
+.menu .mh b{font-size:17px;color:var(--pri)}
+.menu .mi{display:flex;width:100%;align-items:center;justify-content:space-between;padding:13px 12px;border:0;background:none;font:inherit;font-size:16px;border-radius:10px;cursor:pointer;text-align:right;color:var(--ink)}
+.menu .mi.on{background:var(--pri2);color:var(--pri);font-weight:700}
+.n{display:inline-block;min-width:20px;text-align:center;background:var(--bad);color:#fff;border-radius:999px;padding:0 6px;font-size:12px;font-weight:700}
+.num.demo{background:#7c3aed}
+.ulist{display:grid;gap:8px}
+.urow{border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:8px;grid-template-columns:minmax(190px,1.1fr) minmax(130px,1fr) 2.6fr;align-items:center}
+.uhead{display:flex;gap:8px;align-items:center;justify-content:space-between;min-width:0}
+.uemail{overflow-wrap:anywhere}
+.roles{display:flex;gap:6px;flex-wrap:wrap}
+.rchip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:13px;cursor:pointer;background:#fff}
+.rchip.on{background:var(--pri2);border-color:var(--pri);color:var(--pri);font-weight:600}
+.rchip input{width:16px;height:16px}
+.trow{display:grid;gap:8px;grid-template-columns:120px 140px 1fr auto;align-items:end;padding:6px 0;border-bottom:1px solid var(--line)}
+@media (max-width:760px){
+  .tabs{display:none}
+  .menu-btn{display:inline-flex!important;align-items:center;gap:5px;font-size:19px!important;padding:3px 10px!important}
+  .cur-tab{display:inline;font-weight:400;opacity:.9;font-size:15px}
+  .top .who{display:none}
+  .top .ttl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .top > [data-act=logout]{display:none}
+  .bulk{top:56px}
+  .urow{grid-template-columns:1fr}
+  .trow{grid-template-columns:1fr 1fr}
+  .trow .tdesc{grid-column:1/-1}
+}
 .warn{background:var(--warn2);color:#78350f;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:14px}
 </style>
 <script src="logic.js"></script>
@@ -157,7 +188,8 @@ table.s input:not([type=checkbox]){padding:6px 8px}
 
 <div id="app" hidden>
   <header class="top">
-    <span class="ttl">שלטים – דגל</span>
+    <button class="menu-btn" id="menuBtn" data-act="menuOpen" aria-label="תפריט">☰</button>
+    <span class="ttl">שלטים – דגל <span class="cur-tab" id="curTab"></span></span>
     <span class="who" id="who"></span>
     <span id="demoRole"></span>
     <button data-act="logout">יציאה</button>
@@ -166,6 +198,7 @@ table.s input:not([type=checkbox]){padding:6px 8px}
   <main id="view"></main>
 </div>
 
+<div id="menu"></div>
 <div id="modal"></div>
 <div id="toast" class="toast" hidden></div>
 
@@ -188,6 +221,12 @@ const FIREBASE_CONFIG = {
 const CLOUDINARY = { cloud: 'djahciacr', preset: 'trips_upload', folder: 'signs' };
 
 const ROLE_LABELS = { admin: 'מנהל', entry: 'הזנה והמלצות מטה', surveyor: 'מדידה ותלייה', yossi: 'אישור מקצועי (יוסי)' };
+const ROLE_HELP = {
+  admin: 'רואה ועושה הכל: אישור ראשון, לביצוע, דפוס, מנוף, סיום, הגדרות ומחירון',
+  entry: 'מסכי "הזנה" (הוספת כתובות) ו"המלצות מטה"',
+  surveyor: 'מסכי "תכנון מדידות", "מדידה" ו"תלייה"',
+  yossi: 'מסך "אישור יוסי": מידות, מחיר ואישור'
+};
 const DEFAULT_USERS = {
   [SUPER]: { name: 'שלמה', roles: ['admin'] },
   'a0548475907@gmail.com': { name: 'שלמה בלאט', roles: ['entry'] }
@@ -252,6 +291,9 @@ function matchQ(s, q) {
   if (!q) return true;
   const hay = norm(`${s.num} ${s.city} ${addrOf(s)} ${s.note} ${s.name} ${s.phone} ${s.sourceText}`);
   return norm(q).split(' ').every(w => hay.includes(w));
+}
+function numTag(s, style = '') {
+  return `<span class="num${s.isDemo ? ' demo' : ''}"${style ? ` style="${style}"` : ''}${s.isDemo ? ' title="שלט דמה לבדיקה"' : ''}>${s.num}${s.isDemo ? ' דמה' : ''}</span>`;
 }
 function statusBadge(s) { const m = L.STATUS_MAP[st(s)]; return `<span class="badge" style="--c:${m.color}">${m.label}</span>`; }
 function phoneLinks(s) {
@@ -334,7 +376,7 @@ function FirebaseStore() {
     },
     createSign(data, hist) {
       const cRef = db.doc('signsMeta/counter');
-      const maxNum = Math.max(0, ...Object.values(S.signs).map(s => s.num || 0));
+      const maxNum = Math.max(0, ...Object.values(S.signs).filter(s => !s.isDemo).map(s => s.num || 0));
       return db.runTransaction(async tx => {
         const c = await tx.get(cRef);
         const n = Math.max(c.exists ? (c.data().next || 1) : 1, maxNum + 1);
@@ -402,7 +444,7 @@ function DemoStore() {
       s.history = [...(s.history || []), { t: Date.now(), by: by(), a: hist }]; emit();
     },
     async createSign(data, hist) {
-      const n = Math.max(next, Math.max(0, ...Object.keys(signs).map(Number)) + 1); next = n + 1;
+      const n = Math.max(next, Math.max(0, ...Object.values(signs).filter(s => !s.isDemo).map(s => s.num)) + 1); next = n + 1;
       signs[n] = { ...JSON.parse(JSON.stringify(data)), num: n, id: String(n), createdAt: Date.now(), createdBy: by(), history: [{ t: Date.now(), by: by(), a: hist || 'נוצר' }] };
       emit(); return n;
     },
@@ -551,10 +593,20 @@ function render() {
   const b = S.loaded ? badgeCounts() : {};
   $('#who').textContent = S.me.name;
   $('#demoRole').innerHTML = DEMO ? `<select data-chg="demoRole" title="תצוגה לפי תפקיד">${[['admin', 'מנהל'], ['entry', 'בלאט'], ['surveyor', 'בנימין'], ['yossi', 'יוסי']].map(([k, l]) => `<option value="${k}" ${roles()[0] === k ? 'selected' : ''}>דמו: ${l}</option>`).join('')}</select>` : '';
+  const totalBadge = tabs.reduce((a, t) => a + (b[t.key] || 0), 0);
+  const curLabel = (tabs.find(t => t.key === ui.tab) || {}).label || '';
+  $('#curTab').textContent = '· ' + curLabel;
+  $('#menuBtn').innerHTML = '☰' + (totalBadge ? `<span class="n">${totalBadge}</span>` : '');
+  $('#menu').innerHTML = ui.menuOpen ? `<div class="menu-bg" data-act="menuBg"></div><nav class="menu" aria-label="תפריט">
+    <div class="mh"><b>שלטים – דגל</b><button class="btn sm" data-act="menuClose" aria-label="סגור">✕</button></div>
+    <div class="mute small" style="padding:0 12px 8px">${esc(S.me.name)}</div>
+    ${tabs.map(t => `<button class="mi ${t.key === ui.tab ? 'on' : ''}" data-act="tab" data-k="${t.key}"><span>${t.label}</span>${b[t.key] ? `<span class="n">${b[t.key]}</span>` : ''}</button>`).join('')}
+    <button class="mi" data-act="logout"><span>יציאה</span></button></nav>` : '';
   $('#tabs').innerHTML = tabs.map(t => `<button class="tab ${t.key === ui.tab ? 'on' : ''}" data-act="tab" data-k="${t.key}">${t.label}${b[t.key] ? `<span class="n">${b[t.key]}</span>` : ''}</button>`).join('');
   $('#view').innerHTML = S.loaded ? (VIEWS[ui.tab] || (() => ''))() : emptyBox('⏳', 'טוען נתונים…');
   if (render._tab !== ui.tab) { render._tab = ui.tab; const on = $('#tabs .tab.on'); if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' }); }
   renderModal();
+  document.body.style.overflow = (ui.modal || ui.menuOpen) ? 'hidden' : '';
   if (fid) { const el = document.getElementById(fid); if (el) { el.focus({ preventScroll: true }); try { if (ss != null) el.setSelectionRange(ss, se); } catch (e) {} } }
 }
 
@@ -600,7 +652,7 @@ VIEWS.manage = function () {
       const p = priceOf(s), d = L.execDims(s);
       return `<div class="r ${m.sel.has(s.id) ? 'sel' : ''}" data-act="open" data-id="${s.id}">
         <span class="csel"><input type="checkbox" data-act="sel" data-id="${s.id}" ${m.sel.has(s.id) ? 'checked' : ''}></span>
-        <span class="cnum"><span class="num">${s.num}</span></span>
+        <span class="cnum">${numTag(s)}</span>
         <span class="caddr"><span class="mute small">${esc(s.city)}</span> <span class="addr">${esc(addrOf(s))}</span>${s.name ? ` <span class="mute small">· ${esc(s.name)}</span>` : ''}${s.note ? `<div class="mute small">${esc(s.note)}</div>` : ''}</span>
         <span class="cph small">${esc(s.phone)}</span>
         <span class="meta">
@@ -637,7 +689,7 @@ function renderModal() {
   const hist = (s.history || []).slice().sort((a, b) => b.t - a.t);
   box.innerHTML = `<div class="modal-bg" data-act="closeBg"><div class="modal" role="dialog" aria-modal="true">
     <button class="x" data-act="close" aria-label="סגור">×</button>
-    <div class="flex" style="padding-inline-end:40px"><span class="num" style="font-size:16px">${s.num}</span><span class="addr" style="font-size:17px">${esc(s.city)} · ${esc(addrOf(s))}</span>${statusBadge(s)}</div>
+    <div class="flex" style="padding-inline-end:40px">${numTag(s, 'font-size:16px')}<span class="addr" style="font-size:17px">${esc(s.city)} · ${esc(addrOf(s))}</span>${statusBadge(s)}</div>
 
     <div class="sec"><h3>פרטים</h3>
       ${canDet ? `<div class="row2">${inp('city', 'עיר')}${inp('street', 'רחוב')}${inp('houseNo', 'מספר')}${inp('floor', 'קומה')}${inp('name', 'שם')}${inp('phone', 'טלפון', 'inputmode="tel"')}</div>
@@ -730,7 +782,7 @@ VIEWS.entry = function () {
   return `<div class="card"><h2>הוספת כתובת חדשה</h2>${addrForm('e', f, 'entry')}
     <div style="margin-top:12px"><button class="btn pri big" data-act="entrySave" ${ui.entry.saving ? 'disabled' : ''}>${ui.entry.saving ? 'שומר…' : '＋ הוסף שלט'}</button></div></div>
   <h3 style="margin-top:14px">נוספו לאחרונה</h3>
-  ${recent.map(s => `<button class="pick" data-act="open" data-id="${s.id}"><span class="num">${s.num}</span><span class="sp"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span> <span class="mute small">${esc(s.name)} · ${fmtT(s.createdAt)}</span></span>${statusBadge(s)}</button>`).join('')}`;
+  ${recent.map(s => `<button class="pick" data-act="open" data-id="${s.id}">${numTag(s)}<span class="sp"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span> <span class="mute small">${esc(s.name)} · ${fmtT(s.createdAt)}</span></span>${statusBadge(s)}</button>`).join('')}`;
 };
 
 // ═════════ המלצות מטה (בלאט) ═════════
@@ -742,7 +794,7 @@ VIEWS.hq = function () {
     <label class="flex small"><input type="checkbox" data-act="setb" data-k="hq.onlyOpen" ${h.onlyOpen ? 'checked' : ''}> רק ללא המלצה</label></div>
   ${cityChips(base, h.city, 'hq.city')}
   ${rows.length ? `<div class="grid">${rows.map(s => `<div class="card">
-      <div class="flex"><span class="num">${s.num}</span><span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span></div>
+      <div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span></div>
       <div class="mute small">${esc(s.name)}${s.note ? ' · ' + esc(s.note) : ''}</div>
       <div class="flex" style="margin-top:8px"><div class="seg sp"><button class="${s.hqRec === 'כ' ? 'on' : ''}" data-act="hqRec" data-v="כ" data-id="${s.id}">כן ✓</button><button class="${s.hqRec === 'ל' ? 'on' : ''}" data-act="hqRec" data-v="ל" data-id="${s.id}">לא ✗</button></div></div>
       <div style="margin-top:8px"><input id="hqn-${s.id}" placeholder="הערת מטה" value="${esc(s.hqNote)}" data-chg="sf" data-f="hqNote" data-id="${s.id}"></div>
@@ -763,7 +815,7 @@ VIEWS.plan = function () {
   ${rows.length ? `<div class="grid">${rows.map(s => {
     const log = (s.contactLog || []).slice().sort((a, b) => b.t - a.t), l = log[0];
     return `<div class="card">
-      <div class="flex"><span class="num">${s.num}</span><span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span></div>
+      <div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span></div>
       <div class="small">${esc(s.name) || '<span class="mute">ללא שם</span>'}${s.note ? ` <span class="mute">· ${esc(s.note)}</span>` : ''}</div>
       ${s.hqNote ? `<div class="small mute">מטה: ${esc(s.hqNote)}</div>` : ''}
       <div style="margin-top:6px">${phoneLinks(s)}</div>
@@ -796,13 +848,13 @@ VIEWS.measure = function () {
       ${cityChips(base, m.city, 'measure.city')}
       <div class="toolbar"><input id="ms-q" type="search" placeholder="חיפוש כתובת / שם / מספר" value="${esc(m.q)}" data-inp="setv" data-k="measure.q">
       ${m.mode === 'list' ? `<label class="flex small"><input type="checkbox" data-act="setb" data-k="measure.includeMeasured" ${m.includeMeasured ? 'checked' : ''}> כולל שכבר נמדדו</label>` : ''}</div>
-      ${rows.slice(0, 150).map(s => `<button class="pick" data-act="mPick" data-id="${s.id}"><span class="num">${s.num}</span><span class="sp"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span> <span class="mute small">${esc(s.name)}</span>
+      ${rows.slice(0, 150).map(s => `<button class="pick" data-act="mPick" data-id="${s.id}">${numTag(s)}<span class="sp"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span> <span class="mute small">${esc(s.name)}</span>
         ${m.mode === 'list' && !s.approved1 ? ' <span class="pill">טרם אושר</span>' : ''}${L.isMeasured(s) ? ' <span class="pill">נמדד</span>' : ''}</span>${m.mode === 'extra' ? statusBadge(s) : ''}</button>`).join('') || emptyBox('🔍', 'לא נמצאו שלטים')}`;
   }
   // טופס מדידה
   const s = m.signId ? S.signs[m.signId] : null, b = m.baseId ? S.signs[m.baseId] : null;
   const head = m.mode === 'new' ? `<div class="card"><h3>פרטי השלט החדש</h3>${addrForm('mn', m.addr, 'measure.addr')}</div>`
-    : `<div class="card"><div class="flex"><span class="num">${(s || b).num}</span><span class="addr sp">${esc((s || b).city)} · ${esc(addrOf(s || b))}</span>${m.mode === 'extra' ? '<span class="pill">שלט נוסף</span>' : ''}</div>
+    : `<div class="card"><div class="flex">${numTag(s || b)}<span class="addr sp">${esc((s || b).city)} · ${esc(addrOf(s || b))}</span>${m.mode === 'extra' ? '<span class="pill">שלט נוסף</span>' : ''}</div>
        <div class="small">${esc((s || b).name)} ${phoneLinks(s || b)}</div>${(s || b).note ? `<div class="mute small">${esc((s || b).note)}</div>` : ''}
        ${s && s.photos && s.photos.length ? `<div class="mute small" style="margin-top:6px">תמונות קיימות:</div>${photoStrip(s.photos)}` : ''}</div>`;
   return `<div class="flex" style="margin-bottom:8px">${back}<h2 style="margin:0">${m.mode === 'new' ? 'שלט חדש' : m.mode === 'extra' ? 'שלט נוסף לכתובת' : 'מדידה'}</h2></div>
@@ -840,7 +892,7 @@ VIEWS.yossi = function () {
   if (!rows.length) return head + emptyBox('✓', y.tab === 'pending' ? 'אין שלטים שממתינים לאישור' : 'אין שלטים');
   if (y.tab !== 'pending') return head + `<div class="grid">${rows.map(s => {
     const p = priceOf(s), d = L.execDims(s);
-    return `<div class="card"><div class="flex"><span class="num">${s.num}</span><span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span>${statusBadge(s)}</div>
+    return `<div class="card"><div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span>${statusBadge(s)}</div>
       <div style="margin-top:6px"><span class="dims">${fmtM(d.h)} × ${fmtM(d.w)}</span> מ' ${d.changed ? '<span class="mute small">(שונה)</span>' : ''} ${accessPill(s)}</div>
       <div><b>${p ? (p.special ? 'מחיר מיוחד' : ils(p.gross)) : ''}</b> <span class="mute small">כולל מע"מ</span></div>
       ${s.yossiNote ? `<div class="small mute">הערה: ${esc(s.yossiNote)}</div>` : ''}
@@ -849,7 +901,7 @@ VIEWS.yossi = function () {
   return head + `<div class="grid">${rows.map(s => {
     const change = s.yossiMode === 'change';
     return `<div class="card">
-      <div class="flex"><span class="num">${s.num}</span><span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span>${accessPill(s)}</div>
+      <div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span>${accessPill(s)}</div>
       ${photoStrip(s.photos, { empty: '<div class="mute small" style="margin:6px 0">אין תמונה</div>' })}
       <div>נמדד: <span class="dims">${fmtM(s.height)} × ${fmtM(s.width)}</span> מ'</div>
       ${s.surveyNote ? `<div class="small mute">הערת מודד: ${esc(s.surveyNote)}</div>` : ''}
@@ -893,7 +945,7 @@ VIEWS.hang = function () {
     const d = L.execDims(s), f = h.form[s.id] || { photos: [], note: '', uploading: 0 };
     const grp = s.city !== lastCity ? `<div class="citygrp" style="grid-column:1/-1">${esc(lastCity = s.city)}</div>` : '';
     return grp + `<div class="card">
-      <div class="flex"><span class="num">${s.num}</span><span class="addr sp">${esc(addrOf(s))}</span>${accessPill(s)}</div>
+      <div class="flex">${numTag(s)}<span class="addr sp">${esc(addrOf(s))}</span>${accessPill(s)}</div>
       <div class="small">${esc(s.name)}${s.note ? ` <span class="mute">· ${esc(s.note)}</span>` : ''}</div>
       <div style="margin-top:4px">${phoneLinks(s)}</div>
       <div style="margin-top:6px">לתלייה: <span class="dims">${fmtM(d.h)} × ${fmtM(d.w)}</span> מ'</div>
@@ -911,7 +963,7 @@ VIEWS.hang = function () {
   ${cityChips(ready, h.city, 'hang.city')}
   ${rows.length ? `<div class="grid">${cards}</div>` : emptyBox('🪧', 'אין כרגע שלטים שמוכנים לתלייה')}
   ${done.length ? `<details class="card" style="margin-top:12px" ${h.showDone ? 'open' : ''}><summary data-act="setb" data-k="hang.showDone"><b>בוצעו (${done.length})</b></summary>
-    ${done.map(s => `<button class="pick" data-act="open" data-id="${s.id}"><span class="num">${s.num}</span><span class="sp">${esc(s.city)} · ${esc(addrOf(s))} <span class="mute small">${fmtT(s.doneAt)}</span></span>${statusBadge(s)}</button>`).join('')}</details>` : ''}`;
+    ${done.map(s => `<button class="pick" data-act="open" data-id="${s.id}">${numTag(s)}<span class="sp">${esc(s.city)} · ${esc(addrOf(s))} <span class="mute small">${fmtT(s.doneAt)}</span></span>${statusBadge(s)}</button>`).join('')}</details>` : ''}`;
 };
 
 // ═════════ הגדרות (שלמה) ═════════
@@ -920,25 +972,27 @@ VIEWS.settings = function () {
   const d = ui.settings, users = Object.entries(d.users).sort((a, b) => (a[0] === SUPER ? -1 : b[0] === SUPER ? 1 : a[1].name.localeCompare(b[1].name, 'he')));
   const tiers = d.pricing.tiers;
   const ip = ui.importPreview;
+  const demoCount = list().filter(x => x.isDemo).length;
   return `<div class="card"><h2>משתמשים והרשאות</h2>
-    <div class="mute small" style="margin-bottom:8px">כל משתמש נכנס עם חשבון הגוגל שלו. התפקיד קובע אילו מסכים הוא רואה.</div>
-    <div style="overflow-x:auto"><table class="s"><tr><th>מייל</th><th>שם</th>${Object.entries(ROLE_LABELS).map(([k, l]) => `<th class="small">${l}</th>`).join('')}<th></th></tr>
-    ${users.map(([email, u]) => `<tr><td dir="ltr" class="small">${esc(email)}</td>
-      <td><input id="su-${esc(email)}" value="${esc(u.name)}" data-inp="suName" data-email="${esc(email)}" style="min-width:110px"></td>
-      ${Object.keys(ROLE_LABELS).map(r => `<td style="text-align:center"><input type="checkbox" data-act="suRole" data-email="${esc(email)}" data-r="${r}" ${(u.roles || []).includes(r) ? 'checked' : ''} ${email === SUPER && r === 'admin' ? 'disabled' : ''}></td>`).join('')}
-      <td>${email !== SUPER ? `<button class="btn sm bad" data-act="suDel" data-email="${esc(email)}">הסר</button>` : ''}</td></tr>`).join('')}
-    </table></div>
-    <div class="flex" style="margin-top:10px"><input id="su-new-email" dir="ltr" placeholder="email@gmail.com" style="flex:2 1 200px;width:auto"><input id="su-new-name" placeholder="שם" style="flex:1 1 120px;width:auto"><button class="btn" data-act="suAdd">＋ הוסף משתמש</button></div>
+    <div class="mute small" style="margin-bottom:8px">כל משתמש נכנס עם חשבון הגוגל שלו. התפקידים קובעים אילו מסכים הוא רואה; אפשר לסמן כמה תפקידים לאותו אדם.</div>
+    <div class="small" style="margin-bottom:10px;line-height:1.7">${Object.entries(ROLE_HELP).map(([r, h]) => `<b>${ROLE_LABELS[r]}</b> – ${h}`).join('<br>')}</div>
+    <div class="ulist">${users.map(([email, u]) => `<div class="urow">
+      <div class="uhead"><span dir="ltr" class="small uemail">${esc(email)}</span>${email !== SUPER && !(u.roles || []).length ? '<span class="pill bad">אין גישה</span>' : ''}${email !== SUPER ? `<button class="btn sm bad" data-act="suDel" data-email="${esc(email)}">הסר</button>` : ''}</div>
+      <input id="su-${esc(email)}" value="${esc(u.name)}" placeholder="שם" data-inp="suName" data-email="${esc(email)}">
+      <div class="roles">${Object.entries(ROLE_LABELS).map(([r, l]) => { const on = (u.roles || []).includes(r) || (email === SUPER && r === 'admin'); return `<label class="rchip ${on ? 'on' : ''}"><input type="checkbox" data-act="suRole" data-email="${esc(email)}" data-r="${r}" ${on ? 'checked' : ''} ${email === SUPER && r === 'admin' ? 'disabled' : ''}>${l}</label>`; }).join('')}</div>
+    </div>`).join('')}</div>
+    <div style="margin-top:12px"><label class="f">הוספת משתמשים – מייל אחד בכל שורה (אפשר גם "שם, מייל")</label>
+      <textarea id="su-new" dir="auto" placeholder="יוסי, yossi@gmail.com&#10;someone@gmail.com"></textarea>
+      <div class="flex" style="margin-top:6px"><button class="btn" data-act="suAdd">＋ הוסף לרשימה</button><span class="mute small">משתמש חדש נוסף בלי תפקיד, ואין לו גישה עד שתסמן לו תפקיד ותשמור.</span></div></div>
   </div>
 
   <div class="card"><h2>מחירון</h2>
-    <div class="mute small" style="margin-bottom:8px">המדרגה נקבעת לפי הצד הצר של השלט; המחיר הוא למטר אורך (הצד הארוך).</div>
-    <div style="overflow-x:auto"><table class="s"><tr><th>צד צר עד (מ')</th><th>מחיר למטר (לפני מע"מ)</th><th>תיאור</th><th></th></tr>
-    ${tiers.map((t, i) => `<tr><td><input id="tp-max-${i}" inputmode="decimal" value="${esc(t.max)}" data-inp="tier" data-i="${i}" data-k="max" style="width:90px"></td>
-      <td><input id="tp-price-${i}" inputmode="decimal" value="${esc(t.price)}" data-inp="tier" data-i="${i}" data-k="price" style="width:100px"></td>
-      <td><input id="tp-desc-${i}" value="${esc(t.desc)}" data-inp="tier" data-i="${i}" data-k="desc" style="min-width:200px"></td>
-      <td><button class="btn sm bad" data-act="tierDel" data-i="${i}">הסר</button></td></tr>`).join('')}
-    </table></div>
+    <div class="mute small" style="margin-bottom:4px">המדרגה נקבעת לפי הצד הצר של השלט; המחיר הוא למטר אורך (הצד הארוך).</div>
+    ${tiers.map((t, i) => `<div class="trow">
+      <div><label class="f">צד צר עד (מ')</label><input id="tp-max-${i}" inputmode="decimal" value="${esc(t.max)}" data-inp="tier" data-i="${i}" data-k="max"></div>
+      <div><label class="f">מחיר למטר (לפני מע"מ)</label><input id="tp-price-${i}" inputmode="decimal" value="${esc(t.price)}" data-inp="tier" data-i="${i}" data-k="price"></div>
+      <div class="tdesc"><label class="f">תיאור</label><input id="tp-desc-${i}" value="${esc(t.desc)}" data-inp="tier" data-i="${i}" data-k="desc"></div>
+      <div><button class="btn sm bad" data-act="tierDel" data-i="${i}">הסר</button></div></div>`).join('')}
     <div class="flex" style="margin-top:8px"><button class="btn sm" data-act="tierAdd">＋ מדרגה</button><span class="sp"></span>
       <label class="small">מע"מ %</label><input id="tp-vat" inputmode="decimal" value="${esc(Math.round(L.num(d.pricing.vat) * 1000) / 10)}" data-inp="vat" style="width:80px"></div>
   </div>
@@ -949,8 +1003,38 @@ VIEWS.settings = function () {
       <button class="btn" data-act="exportAll">⬇ ייצוא כל השלטים לאקסל</button></div>
     ${ip ? `<div class="warn" style="margin-top:10px">בקובץ ${ip.signs.length} שלטים. ${ip.skip.length ? `${ip.skip.length} כבר קיימים במערכת וידולגו (מס' ${ip.skip.slice(0, 12).join(', ')}${ip.skip.length > 12 ? '…' : ''}). ` : ''}ייובאו ${ip.add.length}.
       <div class="flex" style="margin-top:8px"><button class="btn ok" data-act="importRun" ${ip.add.length ? '' : 'disabled'}>ייבא ${ip.add.length} שלטים</button><button class="btn" data-act="importCancel">ביטול</button></div></div>` : ''}
+  </div>
+
+  <div class="card"><h2>שלטי דמה לבדיקה</h2>
+    <div class="mute small" style="margin-bottom:8px">10 שלטים מומצאים בשלבים שונים, כדי לנסות את כל המסכים. הם מסומנים בסגול "דמה", במספרים 9001–9010, ולא משפיעים על המספור של השלטים האמיתיים. כשמסיימים לנסות – מוחקים אותם בלחיצה אחת.</div>
+    <div class="flex"><button class="btn" data-act="demoAdd" ${demoCount ? 'disabled' : ''}>＋ הוסף 10 שלטי דמה</button>
+      <button class="btn bad" data-act="demoDel" ${demoCount ? '' : 'disabled'}>מחק את שלטי הדמה (${demoCount})</button></div>
   </div>`;
 };
+
+// ───────── שלטי דמה ─────────
+function demoSigns() {
+  const now = Date.now(), day = 864e5, by = S.me ? S.me.name : '';
+  const m = (h, w, access) => ({ height: h, width: w, access, surveyBy: 'בנימין (דמה)', surveyAt: now - 2 * day });
+  const yes = { hqRec: 'כ', approved1: true };
+  const rows = [
+    ['בני ברק', 'רחוב הדמה', '1', '3', {}],
+    ['בני ברק', 'רחוב הדמה', '2', 'אחרונה', { hqRec: 'כ', hqNote: 'מקום טוב (דמה)' }],
+    ['ירושלים', 'שדרות הניסיון', '5', '4', { ...yes, contactLog: [{ t: now - day, by: 'בנימין (דמה)', type: 'לא עונים', note: 'לנסות שוב בערב' }] }],
+    ['ירושלים', 'שדרות הניסיון', '9', '2', { ...yes, ...m(2, 3, 'קלה'), surveyNote: 'מרפסת פונה לכביש' }],
+    ['אלעד', 'רחוב הבדיקה', '12', '5', { ...yes, ...m(3, 5, 'מנוף') }],
+    ['אלעד', 'רחוב הבדיקה', '20', '', { ...yes, ...m(2, 4, 'קלה'), yossiDecision: 'approved', yossiMode: 'change', execHeight: 1.6, execWidth: 4, yossiNote: 'הוקטן לחיסכון (דמה)' }],
+    ['מודיעין עילית', 'רחוב המבחן', '3', '1', { ...yes, ...m(1.5, 3, 'קלה'), yossiDecision: 'approved', yossiMode: 'approve', toExecute: true }],
+    ['בית שמש', 'רחוב המבחן', '7', '6', { ...yes, ...m(3, 4, 'מנוף'), yossiDecision: 'approved', yossiMode: 'approve', toExecute: true, printReturned: true }],
+    ['בית שמש', 'רחוב המבחן', '11', '3', { ...yes, ...m(1.2, 3, 'קלה'), yossiDecision: 'approved', yossiMode: 'approve', toExecute: true, printReturned: true }],
+    ['אשדוד', 'רחוב הדוגמה', '4', '2', { ...yes, ...m(1, 2, 'קלה'), yossiDecision: 'approved', yossiMode: 'approve', toExecute: true, printReturned: true, done: true, doneAt: now - 3600e3, doneBy: 'בנימין (דמה)' }]
+  ];
+  return rows.map(([city, street, houseNo, floor, extra], i) => ({
+    ...blankSign(), city, street, houseNo, floor, name: `משפחת דמה ${i + 1}`, phone: '050000000' + i, note: 'שלט דמה לבדיקה',
+    ...extra, num: 9001 + i, isDemo: true, createdAt: now - 5 * day, createdBy: by, updatedAt: now,
+    history: [{ t: now, by, a: 'נוצר כשלט דמה לבדיקה' }]
+  }));
+}
 
 // ───────── ייצוא לאקסל ─────────
 async function exportExcel(rows, name) {
@@ -990,7 +1074,10 @@ const ACTIONS = {
   logout: () => { if (DEMO || confirm('להתנתק?')) Store.signOut(); },
   reload: () => location.reload(),
   copyRules: () => { navigator.clipboard && navigator.clipboard.writeText(RULES_SNIPPET).then(() => toast('הועתק')); },
-  tab: el => { ui.tab = el.dataset.k; try { localStorage.setItem('signs_tab', ui.tab); } catch (e) {} if (ui.tab !== 'settings') ui.importPreview = null; window.scrollTo(0, 0); render(); },
+  menuOpen: () => { ui.menuOpen = true; render(); },
+  menuClose: () => { ui.menuOpen = false; render(); },
+  menuBg: (el, ev) => { if (ev.target === el) { ui.menuOpen = false; render(); } },
+  tab: el => { ui.menuOpen = false; ui.tab = el.dataset.k; try { localStorage.setItem('signs_tab', ui.tab); } catch (e) {} if (ui.tab !== 'settings') ui.importPreview = null; window.scrollTo(0, 0); render(); },
   setf: el => { setPath(el.dataset.k, getPath(el.dataset.k) === el.dataset.v && el.dataset.k.endsWith('city') ? '' : el.dataset.v); if (el.dataset.k === 'yossi.tab') ui.yossi.city = ''; render(); },
   setb: (el, ev) => { if (el.tagName === 'SUMMARY') { ev.preventDefault(); } setPath(el.dataset.k, !getPath(el.dataset.k)); render(); },
   open: el => { ui.modal = el.dataset.id; ui.histAll = false; ui.modalUp = 0; render(); },
@@ -1136,11 +1223,19 @@ const ACTIONS = {
   suRole: el => { const u = ui.settings.users[el.dataset.email], r = el.dataset.r; u.roles = u.roles || []; u.roles = u.roles.includes(r) ? u.roles.filter(x => x !== r) : [...u.roles, r]; render(); },
   suDel: el => { if (confirm('להסיר את המשתמש?')) { delete ui.settings.users[el.dataset.email]; render(); } },
   suAdd: () => {
-    const email = $('#su-new-email').value.trim().toLowerCase(), name = $('#su-new-name').value.trim();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('כתובת מייל לא תקינה', true); return; }
-    if (ui.settings.users[email]) { toast('המשתמש כבר קיים', true); return; }
-    ui.settings.users[email] = { name: name || email.split('@')[0], roles: [] }; render();
-    toast('נוסף. סמן תפקיד ולחץ "שמור"');
+    const lines = ($('#su-new').value || '').split(/\n+/).map(x => x.trim()).filter(Boolean);
+    let added = 0, bad = [], dup = 0;
+    for (const line of lines) {
+      const m = line.match(/[^\s,;<>]+@[^\s,;<>]+\.[^\s,;<>]+/);
+      if (!m) { bad.push(line); continue; }
+      const email = m[0].toLowerCase();
+      if (ui.settings.users[email]) { dup++; continue; }
+      const name = line.replace(m[0], '').replace(/[<>,;:|\-–]+/g, ' ').replace(/\s+/g, ' ').trim();
+      ui.settings.users[email] = { name: name || email.split('@')[0], roles: [] }; added++;
+    }
+    render();
+    if (bad.length) { $('#su-new').value = bad.join('\n'); toast(`לא זוהה מייל ב-${bad.length} שורות`, true); }
+    else toast(`נוספו ${added}${dup ? `, ${dup} כבר היו ברשימה` : ''}. סמן תפקידים ולחץ "שמור"`);
   },
   tierAdd: () => { const t = ui.settings.pricing.tiers; t.push({ max: (L.num((t[t.length - 1] || {}).max) || 0) + 1, price: 0, desc: '' }); render(); },
   tierDel: el => { ui.settings.pricing.tiers.splice(+el.dataset.i, 1); render(); },
@@ -1152,11 +1247,23 @@ const ACTIONS = {
     const tiers = d.pricing.tiers.map(t => ({ max: parseM(t.max), price: parseM(t.price), desc: String(t.desc || '').trim() })).filter(t => t.max > 0).sort((a, b) => a.max - b.max);
     if (!tiers.length) { toast('המחירון ריק', true); return; }
     try {
-      await Store.saveConfig({ ...S.config, users, userEmails: Object.keys(users), pricing: { vat: parseM(d.pricing.vat), tiers } });
+      // רק משתמש עם תפקיד מקבל גישה לנתונים (כללי Firestore בודקים את userEmails)
+      const userEmails = Object.keys(users).filter(e => e === SUPER || (users[e].roles || []).length);
+      const cfg = { ...S.config, users, userEmails, pricing: { vat: parseM(d.pricing.vat), tiers } };
+      await Store.saveConfig(cfg);
+      S.config = cfg;
       ui.settings = null; toast('ההגדרות נשמרו'); render();
     } catch (e) { fail(e); }
   },
   importCancel: () => { ui.importPreview = null; render(); },
+  demoAdd: async () => {
+    try { await Store.importSigns(demoSigns(), 0); toast('נוספו 10 שלטי דמה'); } catch (e) { fail(e); }
+  },
+  demoDel: async () => {
+    const ids = list().filter(x => x.isDemo).map(x => x.id);
+    if (!ids.length || !confirm(`למחוק ${ids.length} שלטי דמה?`)) return;
+    try { await Promise.all(ids.map(id => Store.deleteSign(id))); toast('שלטי הדמה נמחקו'); } catch (e) { fail(e); }
+  },
   importRun: async () => {
     const ip = ui.importPreview;
     if (!confirm(`לייבא ${ip.add.length} שלטים?`)) return;
@@ -1231,7 +1338,7 @@ document.addEventListener('click', ev => {
 });
 document.addEventListener('change', ev => { const el = ev.target.closest('[data-chg]'); if (el && CHANGES[el.dataset.chg]) CHANGES[el.dataset.chg](el, ev); });
 document.addEventListener('input', ev => { const el = ev.target.closest('[data-inp]'); if (el && INPUTS[el.dataset.inp]) INPUTS[el.dataset.inp](el, ev); });
-document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && ui.modal) { ui.modal = ''; render(); } });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && (ui.modal || ui.menuOpen)) { ui.modal = ''; ui.menuOpen = false; render(); } });
 
 // ───────── הפעלה ─────────
 (async function boot() {
