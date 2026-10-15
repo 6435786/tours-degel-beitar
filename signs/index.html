@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1d4ed8">
+<title>שלטים – דגל</title>
+<style>
+:root{--bg:#f1f5f9;--card:#fff;--ink:#0f172a;--mute:#64748b;--line:#e2e8f0;--pri:#1d4ed8;--pri2:#dbeafe;--ok:#16a34a;--ok2:#dcfce7;--bad:#dc2626;--bad2:#fee2e2;--warn:#b45309;--warn2:#fef3c7;--r:12px}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+a{color:var(--pri)}
+h2{font-size:18px;margin:4px 0 10px}
+h3{font-size:15px;margin:0 0 8px}
+.mute{color:var(--mute)}
+.small{font-size:13px}
+.top{position:sticky;top:0;z-index:30;background:var(--pri);color:#fff;display:flex;align-items:center;gap:10px;padding:8px 14px;padding-top:max(8px,env(safe-area-inset-top));min-height:48px}
+.top .ttl{font-weight:700;font-size:17px;flex:1}
+.top .who{font-size:13px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45vw}
+.top button,.top select{background:rgba(255,255,255,.16);color:#fff;border:0;border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer}
+.top select option{color:#000}
+.tabs{display:flex;gap:4px;overflow-x:auto;background:#fff;border-bottom:1px solid var(--line);padding:6px 10px;position:sticky;top:48px;z-index:29;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{white-space:nowrap;border:0;background:none;padding:8px 13px;border-radius:999px;font:inherit;color:var(--mute);cursor:pointer}
+.tab.on{background:var(--pri2);color:var(--pri);font-weight:700}
+.tab .n{display:inline-block;min-width:20px;text-align:center;background:var(--bad);color:#fff;border-radius:999px;padding:0 6px;font-size:12px;margin-inline-start:5px;font-weight:700}
+main{max-width:1150px;margin:0 auto;padding:12px 12px 80px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-bottom:10px}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+.grid>.card{margin:0}
+.row2{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.flex{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sp{flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:8px 14px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;color:var(--ink);font:inherit;cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn:hover{background:#f8fafc}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.bad{background:#fff;border-color:#fca5a5;color:var(--bad)}
+.btn.on{background:var(--pri2);border-color:var(--pri);color:var(--pri);font-weight:700}
+.btn.big{min-height:52px;font-size:16px;font-weight:600;width:100%}
+.btn.sm{min-height:32px;padding:4px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+label.f{display:block;font-size:13px;color:var(--mute);margin-bottom:3px}
+label.f b{color:var(--bad)}
+input,select,textarea{font:inherit;font-size:16px;padding:9px 10px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:var(--ink);width:100%}
+textarea{min-height:64px;resize:vertical}
+input[type=checkbox]{width:20px;height:20px;padding:0;accent-color:var(--pri)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--pri2);border-color:var(--pri)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:thin}
+.chip{white-space:nowrap;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer;color:var(--ink)}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.chip .c{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-inline-end:5px}
+.chip small{opacity:.7;margin-inline-start:4px}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;color:var(--c);background:color-mix(in srgb,var(--c) 13%,#fff);border:1px solid color-mix(in srgb,var(--c) 35%,#fff);white-space:nowrap}
+.pill{display:inline-block;padding:1px 8px;border-radius:6px;font-size:12px;background:#f1f5f9;color:var(--mute)}
+.pill.crane{background:#ffedd5;color:#c2410c;font-weight:600}
+.pill.ok{background:var(--ok2);color:var(--ok)}
+.pill.bad{background:var(--bad2);color:var(--bad)}
+.num{display:inline-block;min-width:34px;padding:1px 6px;border-radius:6px;background:var(--ink);color:#fff;font-weight:700;font-size:13px;text-align:center}
+.addr{font-weight:600}
+.tel{display:inline-block;margin:2px 0 2px 6px;padding:3px 9px;border-radius:8px;background:var(--ok2);color:#166534;text-decoration:none;font-size:14px;direction:ltr}
+.tel.bad{background:var(--bad2);color:var(--bad)}
+.photos{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.ph{position:relative;width:84px;height:84px;border-radius:9px;overflow:hidden;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--mute)}
+.ph a{display:block;width:100%;height:100%}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph-x{position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;font-size:15px;line-height:1}
+.ph.up{border:2px dashed #94a3b8}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.toolbar>input{flex:2 1 200px}
+.toolbar>select{flex:1 1 130px;width:auto}
+.kpi{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.kpi>div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px;flex:1 1 140px}
+.kpi b{display:block;font-size:19px}
+.bulk{position:sticky;top:96px;z-index:15;background:var(--ink);color:#fff;border-radius:10px;padding:8px 10px;margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.bulk .btn{min-height:34px;padding:4px 10px;font-size:13px}
+.tbl{background:#fff;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.tbl .r{display:grid;grid-template-columns:34px 50px minmax(200px,2.4fr) minmax(130px,1.2fr) 52px 104px 92px 168px;gap:8px;align-items:center;padding:9px 10px;border-top:1px solid var(--line);cursor:pointer}
+.tbl .r:hover{background:#f8fafc}
+.tbl .r.sel{background:#eff6ff}
+.tbl .hd{font-size:12px;color:var(--mute);font-weight:600;border-top:0;cursor:default;background:#f8fafc}
+.tbl .meta{display:contents}
+.tbl .cnum .city-m{display:none}
+@media (max-width:899px){
+  .tbl .hd{display:none}
+  .tbl .r{display:flex;flex-wrap:wrap;gap:4px 8px;padding:10px}
+  .tbl .r>.csel{order:0}
+  .tbl .r>.cnum{order:1}
+  .tbl .r>.caddr{order:2;flex:1 1 55%}
+  .tbl .r>.cst{order:3;margin-inline-start:auto}
+  .tbl .r>.cph{order:4;flex:1 1 100%;padding-inline-start:42px}
+  .tbl .r>.meta{order:5;display:flex;gap:6px;flex:1 1 100%;padding-inline-start:42px;flex-wrap:wrap}
+  .tbl .meta>div:empty{display:none}
+  .tbl .meta>div{font-size:13px;background:#f1f5f9;border-radius:6px;padding:1px 8px}
+  .bulk{top:96px}
+  .tbl .r.hd{display:none}
+  .kpi{gap:6px}
+  .kpi>div{flex:1 1 40%;padding:6px 10px}
+  .kpi b{font-size:17px}
+}
+.empty{text-align:center;color:var(--mute);padding:30px 10px}
+.empty .i{font-size:34px}
+.sec{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:14px}
+.kv>span:nth-child(odd){color:var(--mute)}
+.price{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:14px}
+.price .g{font-size:20px;font-weight:700;color:var(--ink)}
+.advice{background:var(--warn2);color:#78350f;border-radius:8px;padding:6px 9px;font-size:13px;margin-top:6px}
+.advice.ok{background:var(--ok2);color:#166534}
+.seg{display:flex;border:1px solid #cbd5e1;border-radius:10px;overflow:hidden}
+.seg button{flex:1;border:0;background:#fff;padding:10px;font:inherit;cursor:pointer;min-height:44px}
+.seg button+button{border-inline-start:1px solid #cbd5e1}
+.seg button.on{background:var(--pri);color:#fff;font-weight:700}
+.log{font-size:13px;margin:6px 0 0;padding:0;list-style:none}
+.log li{padding:3px 0;border-top:1px dashed var(--line)}
+.log .t{color:var(--mute);font-size:12px}
+.lastlog{font-size:13px;margin-top:4px}
+.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px}
+.modal{background:#fff;border-radius:14px;width:100%;max-width:760px;padding:14px;position:relative}
+.modal .x{position:absolute;top:8px;left:8px;width:36px;height:36px;border-radius:50%;border:0;background:#f1f5f9;font-size:20px;cursor:pointer}
+@media (max-width:600px){.modal-bg{padding:0}.modal{border-radius:0;min-height:100vh}}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;z-index:80;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:90vw}
+.toast.err{background:var(--bad)}
+.auth{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth .card{max-width:380px;width:100%;text-align:center;padding:28px 22px}
+.auth h1{font-size:22px;margin:0 0 6px;color:var(--pri)}
+.gbtn{display:inline-flex;align-items:center;gap:10px;border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:11px 18px;font:inherit;font-size:16px;cursor:pointer;margin-top:14px}
+.err{color:var(--bad);font-size:14px;margin-top:10px}
+pre.code{direction:ltr;text-align:left;background:#0f172a;color:#e2e8f0;padding:10px;border-radius:8px;overflow:auto;font-size:12px;max-height:340px}
+.modes{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.mode{border:2px solid var(--line);border-radius:14px;background:#fff;padding:18px 14px;font:inherit;cursor:pointer;text-align:center}
+.mode:hover{border-color:var(--pri)}
+.mode .i{font-size:30px;display:block}
+.mode b{display:block;font-size:16px;margin:4px 0}
+.pick{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:6px;cursor:pointer;width:100%;font:inherit;text-align:right}
+.pick:hover{border-color:var(--pri)}
+.dims{font-size:22px;font-weight:700;direction:ltr;display:inline-block}
+.citygrp{margin:14px 0 6px;font-weight:700;color:var(--mute)}
+table.s{width:100%;border-collapse:collapse;font-size:14px}
+table.s td,table.s th{padding:6px;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle}
+table.s input:not([type=checkbox]){padding:6px 8px}
+.warn{background:var(--warn2);color:#78350f;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:14px}
+</style>
+<script src="logic.js"></script>
+</head>
+<body>
+
+<div id="auth" class="auth" hidden>
+  <div class="card">
+    <h1>שלטים – דגל</h1>
+    <div class="mute">מעקב תליית שלטים: הזנה, מדידה, אישור ותלייה</div>
+    <div id="authBody"></div>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <span class="ttl">שלטים – דגל</span>
+    <span class="who" id="who"></span>
+    <span id="demoRole"></span>
+    <button data-act="logout">יציאה</button>
+  </header>
+  <nav class="tabs" id="tabs"></nav>
+  <main id="view"></main>
+</div>
+
+<div id="modal"></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+'use strict';
+const L = window.SignsLogic;
+const SUPER = '6435786@gmail.com';
+const DEMO = new URLSearchParams(location.search).has('demo');
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAWvYdozI_PSlZwCKXv1CN1Qoj2YJOt-I0",
+  authDomain: "travel-beitar-degel.firebaseapp.com",
+  projectId: "travel-beitar-degel",
+  storageBucket: "travel-beitar-degel.firebasestorage.app",
+  messagingSenderId: "765811804557",
+  appId: "1:765811804557:web:1e75a1a716836d4eaf95c4"
+};
+// העלאה בלתי חתומה בלבד (preset) — בלי מפתח סודי בדפדפן
+const CLOUDINARY = { cloud: 'djahciacr', preset: 'trips_upload', folder: 'signs' };
+
+const ROLE_LABELS = { admin: 'מנהל', entry: 'הזנה והמלצות מטה', surveyor: 'מדידה ותלייה', yossi: 'אישור מקצועי (יוסי)' };
+const DEFAULT_USERS = {
+  [SUPER]: { name: 'שלמה', roles: ['admin'] },
+  'a0548475907@gmail.com': { name: 'שלמה בלאט', roles: ['entry'] }
+};
+const TABS = [
+  { key: 'manage', label: 'ניהול', roles: ['admin'] },
+  { key: 'entry', label: 'הזנה', roles: ['admin', 'entry'] },
+  { key: 'hq', label: 'המלצות מטה', roles: ['admin', 'entry'] },
+  { key: 'plan', label: 'תכנון מדידות', roles: ['admin', 'surveyor'] },
+  { key: 'measure', label: 'מדידה', roles: ['admin', 'surveyor'] },
+  { key: 'yossi', label: 'אישור יוסי', roles: ['admin', 'yossi'] },
+  { key: 'hang', label: 'תלייה', roles: ['admin', 'surveyor'] },
+  { key: 'settings', label: 'הגדרות', roles: ['admin'] }
+];
+const FIELD_LABELS = {
+  city: 'עיר', street: 'רחוב', houseNo: 'מספר', floor: 'קומה', name: 'שם', phone: 'טלפון', note: 'הערת מיקום',
+  hqRec: 'המלצת מטה', hqNote: 'הערת מטה', approved1: 'אישור ראשון', height: 'גובה', width: 'רוחב', access: 'גישה',
+  surveyNote: 'הערת מדידה', toExecute: 'לביצוע', printReturned: 'חזר מהדפוס', craneDate: 'מנוף תואם', done: 'בוצע',
+  finished: 'הסתיים', rejected: 'נדחה', rejectNote: 'סיבת דחייה', yossiNote: 'הערת יוסי'
+};
+const CONTACT_TYPES = ['לא עונים', 'טלפון לא תקין', 'תואם', 'סירב'];
+const COMMITTED = new Set(['approved', 'printing', 'await_crane', 'ready', 'done', 'finished']);
+
+// ───────── מצב ─────────
+const S = { user: null, me: null, config: null, signs: {}, loaded: false, unsub: [] };
+const blankAddr = () => ({ city: '', street: '', houseNo: '', floor: '', name: '', phone: '', note: '' });
+const blankMeasure = () => ({ mode: '', signId: '', baseId: '', q: '', city: '', includeMeasured: false, addr: blankAddr(), height: '', width: '', access: '', note: '', photos: [], uploading: 0, saving: false });
+const ui = {
+  tab: null,
+  manage: { q: '', city: '', status: '', access: '', sel: new Set() },
+  entry: { form: blankAddr(), saving: false },
+  hq: { city: '', onlyOpen: true },
+  plan: { city: '', q: '' },
+  measure: blankMeasure(),
+  yossi: { tab: 'pending', city: '' },
+  hang: { city: '', open: '', form: {}, showDone: false },
+  settings: null, importPreview: null,
+  modal: ''
+};
+try { ui.tab = localStorage.getItem('signs_tab'); } catch (e) {}
+
+// ───────── עזרים ─────────
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ils = x => '₪' + (Math.round((x || 0) * 100) / 100).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const ilsInt = x => '₪' + Math.round(x || 0).toLocaleString('he-IL');
+const fmtT = t => t ? new Date(t).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+const fmtDay = d => d ? d.split('-').reverse().join('/') : '';
+const fmtM = x => (Math.round(L.num(x) * 100) / 100).toString();
+const list = () => Object.values(S.signs).sort((a, b) => a.num - b.num);
+const st = s => L.status(s);
+const pricing = () => (S.config && S.config.pricing) || L.DEFAULT_PRICING;
+const priceOf = s => { const d = L.execDims(s); return L.price(d.h, d.w, pricing()); };
+const addrOf = s => L.formatAddress(s) || s.sourceText || '(ללא כתובת)';
+const roles = () => (S.me ? S.me.roles : []);
+const isAdmin = () => roles().includes('admin');
+const can = (...rs) => isAdmin() || rs.some(r => roles().includes(r));
+const cities = (arr = list()) => [...new Set(arr.map(s => s.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'he'));
+const norm = s => String(s || '').replace(/["'״׳\-.,]/g, '').replace(/\s+/g, ' ').trim();
+const parseM = v => { const n = parseFloat(String(v || '').replace(',', '.')); return isFinite(n) ? n : 0; };
+function matchQ(s, q) {
+  if (!q) return true;
+  const hay = norm(`${s.num} ${s.city} ${addrOf(s)} ${s.note} ${s.name} ${s.phone} ${s.sourceText}`);
+  return norm(q).split(' ').every(w => hay.includes(w));
+}
+function statusBadge(s) { const m = L.STATUS_MAP[st(s)]; return `<span class="badge" style="--c:${m.color}">${m.label}</span>`; }
+function phoneLinks(s) {
+  const ph = L.phones(s.phone);
+  if (!ph.length) return s.phone ? `<span class="pill bad">${esc(s.phone)}</span>` : '<span class="mute small">אין טלפון</span>';
+  return ph.map(p => `<a class="tel ${L.phoneLooksValid(p) ? '' : 'bad'}" href="tel:${p}" title="${L.phoneLooksValid(p) ? '' : 'מספר נראה לא תקין'}">📞 ${p}</a>`).join('');
+}
+function accessPill(s) { return s.access ? `<span class="pill ${s.access === 'מנוף' ? 'crane' : ''}">${s.access === 'מנוף' ? '🏗 מנוף' : 'גישה קלה'}</span>` : ''; }
+function thumbUrl(p) {
+  if (p.src === 'drive' && p.driveId) return `https://drive.google.com/thumbnail?id=${encodeURIComponent(p.driveId)}&sz=w300`;
+  if (/res\.cloudinary\.com\/.+\/upload\//.test(p.url)) return p.url.replace('/upload/', '/upload/c_fill,w_240,h_240,q_auto/');
+  return p.url;
+}
+function photoStrip(photos, opt = {}) {
+  photos = photos || [];
+  if (!photos.length && !opt.uploading) return opt.empty || '';
+  return `<div class="photos">${photos.map((p, i) => `<div class="ph"><a href="${esc(p.url)}" target="_blank" rel="noopener"><img src="${esc(thumbUrl(p))}" loading="lazy" alt="תמונה ${i + 1}" onerror="this.parentNode.textContent='🖼 פתח תמונה'"></a>${opt.removeAct ? `<button class="ph-x" data-act="${opt.removeAct}" data-i="${i}" data-id="${esc(opt.id || '')}" title="הסר תמונה">×</button>` : ''}</div>`).join('')}${opt.uploading ? Array.from({ length: opt.uploading }, () => '<div class="ph up">מעלה…</div>').join('') : ''}</div>`;
+}
+function photoInput(target, label = '📷 צלם / הוסף תמונה', id = '') {
+  return `<label class="btn"><input type="file" accept="image/*" multiple hidden data-chg="photos" data-target="${target}" data-id="${esc(id)}">${label}</label>`;
+}
+function cityChips(arr, cur, key) {
+  const cs = cities(arr);
+  if (cs.length < 2) return '';
+  return `<div class="chips"><button class="chip ${!cur ? 'on' : ''}" data-act="setf" data-k="${key}" data-v="">הכל <small>${arr.length}</small></button>${cs.map(c => `<button class="chip ${cur === c ? 'on' : ''}" data-act="setf" data-k="${key}" data-v="${esc(c)}">${esc(c)} <small>${arr.filter(s => s.city === c).length}</small></button>`).join('')}</div>`;
+}
+function emptyBox(icon, text) { return `<div class="card empty"><div class="i">${icon}</div>${text}</div>`; }
+function toast(msg, err) {
+  const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (err ? ' err' : ''); t.hidden = false;
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, err ? 5000 : 2500);
+}
+function fail(e) { console.error(e); toast('שגיאה: ' + (e && e.code === 'permission-denied' ? 'אין הרשאה' : (e && e.message) || e), true); }
+function blankSign() {
+  return {
+    city: '', street: '', houseNo: '', floor: '', note: '', name: '', phone: '', sourceText: '',
+    hqRec: '', hqNote: '', approved1: false,
+    height: 0, width: 0, access: '', surveyNote: '', photos: [],
+    yossiMode: '', execHeight: 0, execWidth: 0, yossiDecision: '', yossiNote: '',
+    toExecute: false, printReturned: false, craneDate: '', done: false, donePhotos: [], finished: false, rejected: false, rejectNote: '',
+    contactLog: []
+  };
+}
+function loadScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('לא נטען: ' + src)); document.head.appendChild(s); });
+}
+
+// ───────── שכבת נתונים: Firebase ─────────
+function FirebaseStore() {
+  let db, auth, FV;
+  const by = () => S.me ? S.me.name : '';
+  return {
+    async init() {
+      const base = 'https://www.gstatic.com/firebasejs/9.23.0/';
+      await loadScript(base + 'firebase-app-compat.js');
+      await Promise.all(['firebase-firestore-compat.js', 'firebase-auth-compat.js'].map(f => loadScript(base + f)));
+      firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.firestore(); db.settings({ ignoreUndefinedProperties: true }); auth = firebase.auth(); FV = firebase.firestore.FieldValue;
+    },
+    onAuth(cb) { auth.onAuthStateChanged(u => cb(u ? { email: (u.email || '').toLowerCase(), displayName: u.displayName || '' } : null)); },
+    async signIn() {
+      const p = new firebase.auth.GoogleAuthProvider();
+      p.setCustomParameters({ prompt: 'select_account' });
+      try { await auth.signInWithPopup(p); }
+      catch (e) {
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/cancelled-popup-request'].includes(e.code)) return auth.signInWithRedirect(p);
+        throw e;
+      }
+    },
+    signOut() { return auth.signOut(); },
+    subscribeConfig(cb, err) { return db.doc('signsMeta/config').onSnapshot(d => cb(d.exists ? d.data() : null), err); },
+    subscribeSigns(cb, err) { return db.collection('signs').onSnapshot(q => { const m = {}; q.forEach(d => { m[d.id] = { ...d.data(), id: d.id }; }); cb(m); }, err); },
+    updateSign(id, patch, o = {}) {
+      const data = { ...patch, updatedAt: Date.now() };
+      if (o.hist) data.history = FV.arrayUnion({ t: Date.now(), by: by(), a: o.hist });
+      if (o.push) for (const [k, v] of Object.entries(o.push)) { const arr = [].concat(v); if (arr.length) data[k] = FV.arrayUnion(...arr); }
+      return db.doc('signs/' + id).update(data);
+    },
+    removeFromArray(id, field, item, hist) {
+      return db.doc('signs/' + id).update({ [field]: FV.arrayRemove(item), updatedAt: Date.now(), history: FV.arrayUnion({ t: Date.now(), by: by(), a: hist }) });
+    },
+    createSign(data, hist) {
+      const cRef = db.doc('signsMeta/counter');
+      const maxNum = Math.max(0, ...Object.values(S.signs).map(s => s.num || 0));
+      return db.runTransaction(async tx => {
+        const c = await tx.get(cRef);
+        const n = Math.max(c.exists ? (c.data().next || 1) : 1, maxNum + 1);
+        const now = Date.now();
+        tx.set(cRef, { next: n + 1 });
+        tx.set(db.doc('signs/' + n), { ...data, num: n, createdAt: now, createdBy: by(), updatedAt: now, history: [{ t: now, by: by(), a: hist || 'נוצר' }] });
+        return n;
+      });
+    },
+    saveConfig(cfg) { return db.doc('signsMeta/config').set(cfg); },
+    async importSigns(signs, nextNum) {
+      for (let i = 0; i < signs.length; i += 400) {
+        const b = db.batch();
+        signs.slice(i, i + 400).forEach(s => b.set(db.doc('signs/' + s.num), s));
+        await b.commit();
+      }
+      const cRef = db.doc('signsMeta/counter'); const c = await cRef.get();
+      await cRef.set({ next: Math.max(c.exists ? (c.data().next || 1) : 1, nextNum) });
+    },
+    deleteSign(id) { return db.doc('signs/' + id).delete(); }
+  };
+}
+
+// ───────── שכבת נתונים: דמו (בזיכרון, ?demo) ─────────
+function DemoStore() {
+  let signs = {}, config = null, next = 1, sSub = null, cSub = null;
+  const emit = () => setTimeout(() => { sSub && sSub(JSON.parse(JSON.stringify(signs))); }, 0);
+  const by = () => S.me ? S.me.name : 'דמו';
+  function seed() {
+    const base = [
+      ['בני ברק', 'רבי עקיבא', '100', '4', 'משפחת דוגמה', '0501234567', {}],
+      ['בני ברק', 'חזון איש', '12', 'אחרונה', 'משפחת ניסיון', '0527654321', { hqRec: 'כ' }],
+      ['בני ברק', 'ז\'בוטינסקי', '40', '', 'משפחת בדיקה', '0541112222', { hqRec: 'כ', approved1: true }],
+      ['ירושלים', 'בר אילן', '5', '3', 'משפחת לדוגמה', '0583334444', { hqRec: 'כ', approved1: true, contactLog: [{ t: Date.now() - 864e5, by: 'בנימין', type: 'לא עונים', note: '' }] }],
+      ['ירושלים', 'שמגר', '8', '', 'משפחת המחשה', '0505556666', { hqRec: 'כ', approved1: true, height: 2, width: 3, access: 'קלה' }],
+      ['אלעד', 'רבי יהודה הנשיא', '30', '5', 'משפחת דמו', '0527778888', { hqRec: 'כ', approved1: true, height: 3, width: 5, access: 'מנוף', surveyNote: 'מרפסת גדולה' }],
+      ['אלעד', 'אבן גבירול', '2', '', 'משפחת נסיון', '0549990000', { hqRec: 'כ', approved1: true, height: 1.5, width: 3, access: 'קלה', yossiDecision: 'approved', yossiMode: 'approve' }],
+      ['מודיעין עילית', 'מרומי שדה', '22', '', 'משפחת טסט', '0551231234', { hqRec: 'כ', approved1: true, height: 2, width: 4, access: 'קלה', yossiDecision: 'approved', yossiMode: 'change', execHeight: 1.6, execWidth: 4, toExecute: true }],
+      ['בית שמש', 'נחל שחם', '3', '4', 'משפחת דוגמא', '0534564567', { hqRec: 'כ', approved1: true, height: 1.2, width: 3, access: 'קלה', yossiDecision: 'approved', toExecute: true, printReturned: true }],
+      ['בית שמש', 'הרצוג', '37', '', 'משפחת מדגם', '0527897897', { hqRec: 'כ', approved1: true, height: 3, width: 4, access: 'מנוף', yossiDecision: 'approved', toExecute: true, printReturned: true }],
+      ['אשדוד', 'יד איתמר', '9', '', 'משפחת הדגמה', '0533213213', { hqRec: 'כ', approved1: true, height: 1, width: 2, access: 'קלה', yossiDecision: 'approved', toExecute: true, printReturned: true, done: true }],
+      ['ערד', 'חרוב', '9', '3', '', '050410322', { hqRec: 'ל', hqNote: 'לא מרכזי' }]
+    ];
+    base.forEach(([city, street, houseNo, floor, name, phone, extra]) => {
+      const n = next++;
+      signs[n] = { ...blankSign(), city, street, houseNo, floor, name, phone, ...extra, num: n, id: String(n), createdAt: Date.now() - 3e8 + n * 1e6, createdBy: 'דמו', history: [{ t: Date.now() - 3e8, by: 'דמו', a: 'נוצר (דמו)' }] };
+    });
+    config = { users: { ...DEFAULT_USERS, 'demo@example.com': { name: 'משתמש דמו', roles: ['admin'] } }, userEmails: [], pricing: L.DEFAULT_PRICING };
+    config.userEmails = Object.keys(config.users);
+  }
+  return {
+    async init() { seed(); },
+    onAuth(cb) { this._authCb = cb; setTimeout(() => cb({ email: 'demo@example.com', displayName: 'משתמש דמו' }), 0); },
+    async signIn() {}, async signOut() { toast('במצב דמו אין יציאה'); },
+    subscribeConfig(cb) { cSub = cb; setTimeout(() => cb(JSON.parse(JSON.stringify(config))), 0); return () => {}; },
+    subscribeSigns(cb) { sSub = cb; emit(); return () => {}; },
+    async updateSign(id, patch, o = {}) {
+      const s = signs[id]; Object.assign(s, JSON.parse(JSON.stringify(patch)), { updatedAt: Date.now() });
+      if (o.hist) s.history = [...(s.history || []), { t: Date.now(), by: by(), a: o.hist }];
+      if (o.push) for (const [k, v] of Object.entries(o.push)) s[k] = [...(s[k] || []), ...[].concat(v)];
+      emit();
+    },
+    async removeFromArray(id, field, item, hist) {
+      const s = signs[id]; const j = JSON.stringify(item); s[field] = (s[field] || []).filter(x => JSON.stringify(x) !== j);
+      s.history = [...(s.history || []), { t: Date.now(), by: by(), a: hist }]; emit();
+    },
+    async createSign(data, hist) {
+      const n = Math.max(next, Math.max(0, ...Object.keys(signs).map(Number)) + 1); next = n + 1;
+      signs[n] = { ...JSON.parse(JSON.stringify(data)), num: n, id: String(n), createdAt: Date.now(), createdBy: by(), history: [{ t: Date.now(), by: by(), a: hist || 'נוצר' }] };
+      emit(); return n;
+    },
+    async saveConfig(cfg) { config = JSON.parse(JSON.stringify(cfg)); setTimeout(() => cSub && cSub(JSON.parse(JSON.stringify(config))), 0); },
+    async importSigns(arr, nextNum) { arr.forEach(s => { signs[s.num] = { ...s, id: String(s.num) }; }); next = Math.max(next, nextNum); emit(); },
+    async deleteSign(id) { delete signs[id]; emit(); }
+  };
+}
+
+const Store = DEMO ? DemoStore() : FirebaseStore();
+
+// ───────── העלאת תמונות ─────────
+async function compress(file, max = 1600, q = 0.82) {
+  try {
+    const bmp = await createImageBitmap(file);
+    const sc = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return await new Promise(r => c.toBlob(b => r(b || file), 'image/jpeg', q));
+  } catch (e) { return file; }
+}
+async function uploadPhoto(file) {
+  const blob = await compress(file);
+  const meta = { t: Date.now(), by: S.me ? S.me.name : '' };
+  if (DEMO) {
+    const url = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+    return { url, src: 'demo', ...meta };
+  }
+  const fd = new FormData();
+  fd.append('file', blob, 'sign.jpg');
+  fd.append('upload_preset', CLOUDINARY.preset);
+  fd.append('folder', CLOUDINARY.folder);
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY.cloud}/image/upload`, { method: 'POST', body: fd });
+  const d = await r.json();
+  if (!d.secure_url) throw new Error((d.error && d.error.message) || 'העלאת התמונה נכשלה');
+  return { url: d.secure_url, publicId: d.public_id, src: 'cloudinary', ...meta };
+}
+async function uploadMany(files, onStart, onDone) {
+  const out = [];
+  onStart(files.length);
+  for (const f of files) {
+    try { out.push(await uploadPhoto(f)); } catch (e) { fail(e); }
+    onDone();
+  }
+  return out;
+}
+
+// ───────── כניסה ─────────
+function showAuth(msg = '') {
+  $('#app').hidden = true; $('#auth').hidden = false;
+  $('#authBody').innerHTML = `<button class="gbtn" data-act="login"><svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.1 1.4-4.9 2.3-8.2 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>כניסה עם חשבון גוגל</button>${msg ? `<div class="err">${msg}</div>` : ''}`;
+}
+function showDenied(email) {
+  $('#app').hidden = true; $('#auth').hidden = false;
+  $('#authBody').innerHTML = `<div class="err">החשבון <b dir="ltr">${esc(email)}</b> אינו מורשה במערכת השלטים.<br>יש לבקש משלמה להוסיף אותו בהגדרות.</div><button class="btn" style="margin-top:14px" data-act="logout">כניסה עם חשבון אחר</button>`;
+}
+function showRulesHelp() {
+  $('#app').hidden = true; $('#auth').hidden = false;
+  $('#auth .card').style.maxWidth = '720px';
+  $('#authBody').innerHTML = `<div class="warn" style="text-align:right;margin-top:14px">Firebase חוסם את הגישה לנתוני השלטים. צריך להוסיף פעם אחת הרשאה:<br>
+  1. להיכנס ל-<a href="https://console.firebase.google.com/project/travel-beitar-degel/firestore/rules" target="_blank" rel="noopener">כללי Firestore בפרויקט</a>.<br>
+  2. להדביק את הקטע הבא <b>בתוך</b> הבלוק <span dir="ltr">match /databases/{database}/documents { … }</span>, מתחת לכללים הקיימים של הטיולים (לא למחוק אותם).<br>
+  3. ללחוץ Publish ולרענן את הדף.</div>
+  <pre class="code">${esc(RULES_SNIPPET)}</pre><button class="btn" data-act="copyRules">העתק</button> <button class="btn" data-act="reload">רענן</button>`;
+}
+const RULES_SNIPPET = `    // ===== מערכת השלטים =====
+    function signsSignedIn() { return request.auth != null && request.auth.token.email is string; }
+    function signsEmail() { return request.auth.token.email.lower(); }
+    function signsCfg() { return get(/databases/$(database)/documents/signsMeta/config).data; }
+    function signsSuper() { return signsSignedIn() && signsEmail() == '${SUPER}'; }
+    function signsUser() {
+      return signsSuper() || (signsSignedIn()
+        && exists(/databases/$(database)/documents/signsMeta/config)
+        && signsEmail() in signsCfg().userEmails);
+    }
+    function signsAdmin() {
+      return signsSuper() || (signsUser() && 'admin' in signsCfg().users[signsEmail()].roles);
+    }
+    match /signs/{id} { allow read, write: if signsUser(); }
+    match /signsMeta/counter { allow read, write: if signsUser(); }
+    match /signsMeta/config { allow read: if signsUser(); allow write: if signsAdmin(); }`;
+
+function stopSubs() { S.unsub.forEach(f => { try { f(); } catch (e) {} }); S.unsub = []; S.signs = {}; S.loaded = false; S.me = null; S.config = null; }
+
+function onConfig(cfg) {
+  const email = S.user.email;
+  if (!cfg) {
+    if (email === SUPER) {
+      const users = { ...DEFAULT_USERS };
+      Store.saveConfig({ users, userEmails: Object.keys(users), pricing: L.DEFAULT_PRICING }).catch(onDataError);
+    } else showDenied(email);
+    return;
+  }
+  S.config = cfg;
+  const u = (cfg.users || {})[email];
+  if (!u && email !== SUPER) { stopSubs(); showDenied(email); return; }
+  const rs = new Set((u && u.roles) || []);
+  if (email === SUPER) rs.add('admin');
+  const demoRoles = DEMO && S.me && S.me.demoRoles;
+  S.me = { email, name: (u && u.name) || S.user.displayName || email, roles: demoRoles || [...rs], demoRoles };
+  if (!S.signsSub) {
+    S.signsSub = true;
+    S.unsub.push(Store.subscribeSigns(m => { S.signs = m; S.loaded = true; rerender(); }, onDataError));
+  }
+  $('#auth').hidden = true; $('#app').hidden = false;
+  render();
+}
+function onDataError(e) {
+  console.error(e);
+  if (e && e.code === 'permission-denied') {
+    if (S.user && S.user.email === SUPER) showRulesHelp(); else showDenied(S.user ? S.user.email : '');
+  } else toast('שגיאת חיבור: ' + (e && e.message), true);
+}
+
+// ───────── רינדור ─────────
+let pendingRender = false;
+function isEditing() {
+  const a = document.activeElement;
+  return a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'checkbox' && a.type !== 'file' && (a.closest('#view') || a.closest('#modal'));
+}
+// עדכון מהשרת: לא לדרוס שדה שהמשתמש באמצע הקלדה בו
+function rerender() { if (isEditing()) { pendingRender = true; return; } render(); }
+document.addEventListener('focusout', () => setTimeout(() => { if (pendingRender && !isEditing()) render(); }, 60));
+
+function badgeCounts() {
+  const c = {}; for (const s of list()) { const k = st(s); c[k] = (c[k] || 0) + 1; }
+  return {
+    c,
+    manage: (c.await_admin || 0) + (c.approved || 0) + (c.printing || 0) + (c.await_crane || 0) + (c.done || 0),
+    hq: list().filter(s => !s.hqRec && !s.rejected && !s.finished && !s.done).length,
+    plan: c.await_survey || 0, yossi: c.await_yossi || 0, hang: c.ready || 0
+  };
+}
+
+function render() {
+  pendingRender = false;
+  if (!S.me) return;
+  const ae = document.activeElement, fid = ae && ae.id && ae.closest && (ae.closest('#view') || ae.closest('#modal')) ? ae.id : '';
+  let ss = null, se = null; try { ss = ae.selectionStart; se = ae.selectionEnd; } catch (e) {}
+  const tabs = TABS.filter(t => t.roles.some(r => roles().includes(r)));
+  if (!tabs.length) { $('#view').innerHTML = emptyBox('🔒', 'לא הוגדר לך תפקיד. פנה לשלמה.'); return; }
+  if (!tabs.find(t => t.key === ui.tab)) ui.tab = tabs[0].key;
+  const b = S.loaded ? badgeCounts() : {};
+  $('#who').textContent = S.me.name;
+  $('#demoRole').innerHTML = DEMO ? `<select data-chg="demoRole" title="תצוגה לפי תפקיד">${[['admin', 'מנהל'], ['entry', 'בלאט'], ['surveyor', 'בנימין'], ['yossi', 'יוסי']].map(([k, l]) => `<option value="${k}" ${roles()[0] === k ? 'selected' : ''}>דמו: ${l}</option>`).join('')}</select>` : '';
+  $('#tabs').innerHTML = tabs.map(t => `<button class="tab ${t.key === ui.tab ? 'on' : ''}" data-act="tab" data-k="${t.key}">${t.label}${b[t.key] ? `<span class="n">${b[t.key]}</span>` : ''}</button>`).join('');
+  $('#view').innerHTML = S.loaded ? (VIEWS[ui.tab] || (() => ''))() : emptyBox('⏳', 'טוען נתונים…');
+  if (render._tab !== ui.tab) { render._tab = ui.tab; const on = $('#tabs .tab.on'); if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' }); }
+  renderModal();
+  if (fid) { const el = document.getElementById(fid); if (el) { el.focus({ preventScroll: true }); try { if (ss != null) el.setSelectionRange(ss, se); } catch (e) {} } }
+}
+
+const VIEWS = {};
+
+// ═════════ ניהול (שלמה) ═════════
+VIEWS.manage = function () {
+  const m = ui.manage, all = list(), c = badgeCounts().c;
+  const rows = all.filter(s => (!m.status || st(s) === m.status) && (!m.city || s.city === m.city)
+    && (!m.access || (m.access === 'none' ? !s.access : s.access === m.access)) && matchQ(s, m.q));
+  [...m.sel].forEach(id => { if (!S.signs[id]) m.sel.delete(id); });
+  const committed = all.filter(s => COMMITTED.has(st(s)));
+  const total = committed.reduce((a, s) => a + ((priceOf(s) || {}).gross || 0), 0);
+  const chips = [{ key: '', label: 'הכל', n: all.length }, ...L.STATUSES.map(x => ({ key: x.key, label: x.label, n: c[x.key] || 0, color: x.color }))]
+    .filter(x => x.key === '' || x.n > 0 || x.key === m.status);
+  const allSel = rows.length && rows.every(s => m.sel.has(s.id));
+  return `
+  <div class="kpi">
+    <div><span class="mute small">סה"כ שלטים</span><b>${all.length}</b></div>
+    <div><span class="mute small">ממתינים לאישורך</span><b>${c.await_admin || 0}</b></div>
+    <div><span class="mute small">אושרו ע"י יוסי ומעלה</span><b>${committed.length}</b></div>
+    <div><span class="mute small">עלות מאושרים (כולל מע"מ)</span><b>${ilsInt(total)}</b></div>
+    <div><span class="mute small">בוצעו / הסתיימו</span><b>${(c.done || 0) + (c.finished || 0)}</b></div>
+  </div>
+  <div class="chips">${chips.map(x => `<button class="chip ${m.status === x.key ? 'on' : ''}" data-act="setf" data-k="manage.status" data-v="${x.key}">${x.color ? `<span class="c" style="--c:${x.color}"></span>` : ''}${x.label}<small>${x.n}</small></button>`).join('')}</div>
+  <div class="toolbar">
+    <input id="m-q" type="search" placeholder="חיפוש: מספר, כתובת, שם, טלפון…" value="${esc(m.q)}" data-inp="setv" data-k="manage.q">
+    <select id="m-city" data-chg="setv" data-k="manage.city"><option value="">כל הערים</option>${cities().map(x => `<option ${m.city === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
+    <select id="m-acc" data-chg="setv" data-k="manage.access"><option value="">כל סוגי הגישה</option><option value="קלה" ${m.access === 'קלה' ? 'selected' : ''}>גישה קלה</option><option value="מנוף" ${m.access === 'מנוף' ? 'selected' : ''}>מנוף</option><option value="none" ${m.access === 'none' ? 'selected' : ''}>טרם נמדד</option></select>
+    <button class="btn" data-act="exportView">⬇ ייצוא לאקסל</button>
+  </div>
+  ${m.sel.size ? `<div class="bulk"><span>נבחרו ${m.sel.size}:</span>
+    <button class="btn" data-act="bulk" data-k="approve1">✓ אישור ראשון</button>
+    <button class="btn" data-act="bulk" data-k="toExecute">✓ לביצוע</button>
+    <button class="btn" data-act="bulk" data-k="printReturned">✓ חזר מהדפוס</button>
+    <button class="btn" data-act="bulk" data-k="finished">✓ הסתיים</button>
+    <button class="btn bad" data-act="bulk" data-k="reject">✗ דחה</button>
+    <span class="sp"></span><button class="btn" data-act="selClear">נקה בחירה</button></div>` : ''}
+  <div class="tbl">
+    <div class="r hd"><span><input type="checkbox" data-act="selAll" ${allSel ? 'checked' : ''} title="בחר הכל"></span><span>מס'</span><span>עיר וכתובת</span><span>טלפון</span><span>מטה</span><span>מידות לביצוע</span><span>מחיר</span><span>סטטוס</span></div>
+    ${rows.map(s => {
+      const p = priceOf(s), d = L.execDims(s);
+      return `<div class="r ${m.sel.has(s.id) ? 'sel' : ''}" data-act="open" data-id="${s.id}">
+        <span class="csel"><input type="checkbox" data-act="sel" data-id="${s.id}" ${m.sel.has(s.id) ? 'checked' : ''}></span>
+        <span class="cnum"><span class="num">${s.num}</span></span>
+        <span class="caddr"><span class="mute small">${esc(s.city)}</span> <span class="addr">${esc(addrOf(s))}</span>${s.name ? ` <span class="mute small">· ${esc(s.name)}</span>` : ''}${s.note ? `<div class="mute small">${esc(s.note)}</div>` : ''}</span>
+        <span class="cph small">${esc(s.phone)}</span>
+        <span class="meta">
+          <div>${s.hqRec ? `<span class="pill ${s.hqRec === 'כ' ? 'ok' : 'bad'}">${s.hqRec === 'כ' ? 'כן' : 'לא'}</span>` : ''}</div>
+          <div>${d.h ? `<span dir="ltr">${fmtM(d.h)}×${fmtM(d.w)}</span>${d.changed ? ' <span class="mute small">(יוסי)</span>' : ''} ${s.access === 'מנוף' ? '🏗' : ''}` : ''}</div>
+          <div>${p ? (p.special ? 'מחיר מיוחד' : ilsInt(p.gross)) : ''}</div>
+        </span>
+        <span class="cst">${statusBadge(s)}${s.craneDate ? ` <span class="pill crane">${fmtDay(s.craneDate)}</span>` : ''}</span>
+      </div>`;
+    }).join('') || '<div class="empty">אין שלטים התואמים לסינון</div>'}
+  </div>
+  <div class="mute small" style="margin-top:6px">מוצגים ${rows.length} מתוך ${all.length}. לחיצה על שורה פותחת את כרטיס השלט.</div>`;
+};
+
+const BULK = {
+  approve1: { ok: s => !s.approved1 && !s.rejected, patch: { approved1: true }, hist: 'אישור ראשון ✓' },
+  toExecute: { ok: s => st(s) === 'approved', patch: { toExecute: true }, hist: 'לביצוע ✓ (נשלח לדפוס)' },
+  printReturned: { ok: s => st(s) === 'printing', patch: { printReturned: true }, hist: 'חזר מהדפוס ✓' },
+  finished: { ok: s => st(s) === 'done', patch: { finished: true }, hist: 'הסתיים ✓' },
+  reject: { ok: s => !s.rejected && !s.finished, patch: { rejected: true }, hist: 'נדחה', confirm: 'לדחות את השלטים שנבחרו?' }
+};
+
+// ═════════ כרטיס שלט (חלון) ═════════
+function renderModal() {
+  const box = $('#modal');
+  const s = ui.modal && S.signs[ui.modal];
+  if (!s) { if (box.innerHTML) box.innerHTML = ''; ui.modal = ''; document.body.style.overflow = ''; return; }
+  document.body.style.overflow = 'hidden';
+  const A = isAdmin(), canDet = can('entry'), canHq = can('entry'), p = priceOf(s), d = L.execDims(s), adv = d.h ? L.advice(d.h, d.w, pricing()) : null;
+  const inp = (f, label, extra = '') => `<div><label class="f">${label}</label><input id="md-${f}" value="${esc(s[f])}" data-chg="sf" data-f="${f}" data-id="${s.id}" ${extra}></div>`;
+  const ro = (label, v) => `<span>${label}</span><span>${v || '<span class="mute">—</span>'}</span>`;
+  const tog = (f, label, enabled = A) => `<button class="btn ${s[f] ? 'on' : ''}" data-act="tog" data-f="${f}" data-id="${s.id}" ${enabled ? '' : 'disabled'}>${s[f] ? '☑' : '☐'} ${label}</button>`;
+  const log = (s.contactLog || []).slice().sort((a, b) => b.t - a.t);
+  const hist = (s.history || []).slice().sort((a, b) => b.t - a.t);
+  box.innerHTML = `<div class="modal-bg" data-act="closeBg"><div class="modal" role="dialog" aria-modal="true">
+    <button class="x" data-act="close" aria-label="סגור">×</button>
+    <div class="flex" style="padding-inline-end:40px"><span class="num" style="font-size:16px">${s.num}</span><span class="addr" style="font-size:17px">${esc(s.city)} · ${esc(addrOf(s))}</span>${statusBadge(s)}</div>
+
+    <div class="sec"><h3>פרטים</h3>
+      ${canDet ? `<div class="row2">${inp('city', 'עיר')}${inp('street', 'רחוב')}${inp('houseNo', 'מספר')}${inp('floor', 'קומה')}${inp('name', 'שם')}${inp('phone', 'טלפון', 'inputmode="tel"')}</div>
+        <div style="margin-top:8px">${inp('note', 'הערת מיקום')}</div>`
+      : `<div class="kv">${ro('שם', esc(s.name))}${ro('הערה', esc(s.note))}</div>`}
+      <div style="margin-top:6px">${phoneLinks(s)}</div>
+      ${s.sourceText ? `<div class="mute small" style="margin-top:6px">טקסט מקורי: ${esc(s.sourceText)}</div>` : ''}
+    </div>
+
+    <div class="sec"><h3>המלצת מטה ואישור ראשון</h3>
+      <div class="flex">
+        <div class="seg" style="min-width:160px"><button class="${s.hqRec === 'כ' ? 'on' : ''}" data-act="hqRec" data-v="כ" data-id="${s.id}" ${canHq ? '' : 'disabled'}>כן</button><button class="${s.hqRec === 'ל' ? 'on' : ''}" data-act="hqRec" data-v="ל" data-id="${s.id}" ${canHq ? '' : 'disabled'}>לא</button></div>
+        ${tog('approved1', 'אישור ראשון (שלמה)')}
+      </div>
+      <div style="margin-top:8px">${canHq ? inp('hqNote', 'הערת מטה') : `<span class="mute">הערת מטה:</span> ${esc(s.hqNote)}`}</div>
+    </div>
+
+    <div class="sec"><h3>מדידה</h3>
+      ${A ? `<div class="row2">${inp('height', 'גובה (מ\')', 'inputmode="decimal"')}${inp('width', 'רוחב (מ\')', 'inputmode="decimal"')}
+        <div><label class="f">גישה</label><div class="seg"><button class="${s.access === 'קלה' ? 'on' : ''}" data-act="setAccess" data-v="קלה" data-id="${s.id}">קלה</button><button class="${s.access === 'מנוף' ? 'on' : ''}" data-act="setAccess" data-v="מנוף" data-id="${s.id}">מנוף</button></div></div></div>
+        <div style="margin-top:8px">${inp('surveyNote', 'הערת מדידה')}</div>`
+      : `<div class="kv">${ro('מידות', L.isMeasured(s) ? `<span dir="ltr">${fmtM(s.height)} × ${fmtM(s.width)}</span> מ'` : '')}${ro('גישה', esc(s.access))}${ro('הערה', esc(s.surveyNote))}</div>`}
+      ${s.surveyBy ? `<div class="mute small" style="margin-top:4px">נמדד ע"י ${esc(s.surveyBy)} · ${fmtT(s.surveyAt)}</div>` : ''}
+      ${photoStrip(s.photos, { removeAct: A ? 'rmPhoto' : '', id: s.id, uploading: ui.modalUp || 0, empty: '<div class="mute small" style="margin:6px 0">אין תמונות</div>' })}
+      ${can('surveyor') ? photoInput('modal-photos', '📷 הוסף תמונה', s.id) : ''}
+    </div>
+
+    <div class="sec"><h3>יוסי ומחיר</h3>
+      <div class="kv">
+        ${ro('החלטה', s.yossiDecision === 'approved' ? '<span class="pill ok">אושר</span>' : s.yossiDecision === 'rejected' ? '<span class="pill bad">לא אושר</span>' : '')}
+        ${ro('מידות לביצוע', d.h ? `<span dir="ltr">${fmtM(d.h)} × ${fmtM(d.w)}</span> מ'${d.changed ? ' (שונה ע"י יוסי)' : ''}` : '')}
+        ${ro('הערת יוסי', esc(s.yossiNote))}
+      </div>
+      ${p ? `<div class="price" style="margin-top:8px">${p.special ? '<b>דרוש מחיר מיוחד</b> (צד צר מעל המדרגה העליונה)' : `צד צר ${fmtM(p.narrow)} · אורך ${fmtM(p.length)} · ${ils(p.perMeter)} למטר · לפני מע"מ ${ils(p.net)}<div class="g">${ils(p.gross)} <span class="small mute">כולל מע"מ</span></div>`}${adv && adv.text ? `<div class="advice ${adv.options.length ? '' : 'ok'}">${esc(adv.text)}</div>` : ''}</div>` : ''}
+      ${A && s.yossiDecision ? `<button class="btn sm" style="margin-top:8px" data-act="yundo" data-id="${s.id}">אפס החלטת יוסי</button>` : ''}
+    </div>
+
+    <div class="sec"><h3>ביצוע</h3>
+      <div class="flex">${tog('toExecute', 'לביצוע (נשלח לדפוס)')}${tog('printReturned', 'חזר מהדפוס')}
+        <div style="min-width:170px"><label class="f">מנוף תואם לתאריך</label><input type="date" id="md-craneDate" value="${esc(s.craneDate)}" data-chg="sf" data-f="craneDate" data-id="${s.id}" ${A ? '' : 'disabled'}></div></div>
+      <div class="flex" style="margin-top:8px">${tog('done', 'בוצע (נתלה)')}${tog('finished', 'הסתיים – אישור סופי')}</div>
+      ${s.doneBy ? `<div class="mute small" style="margin-top:4px">נתלה ע"י ${esc(s.doneBy)} · ${fmtT(s.doneAt)}${s.doneNote ? ' · ' + esc(s.doneNote) : ''}</div>` : ''}
+      ${photoStrip(s.donePhotos, { removeAct: A ? 'rmDonePhoto' : '', id: s.id })}
+      ${can('surveyor') ? photoInput('modal-done', '📷 הוסף תמונת ביצוע', s.id) : ''}
+    </div>
+
+    ${A ? `<div class="sec"><h3>דחייה</h3><div class="flex">${tog('rejected', 'השלט נדחה')}<div class="sp" style="min-width:200px">${s.rejected ? inp('rejectNote', 'סיבה') : ''}</div></div></div>` : ''}
+
+    <div class="sec"><h3>יומן שיחות (${log.length})</h3>
+      ${log.length ? `<ul class="log">${log.map(l => `<li><b>${esc(l.type)}</b>${l.note ? ' – ' + esc(l.note) : ''} <span class="t">· ${esc(l.by)} · ${fmtT(l.t)}</span></li>`).join('')}</ul>` : '<div class="mute small">אין רישומים</div>'}
+    </div>
+
+    <div class="sec"><h3>היסטוריה</h3>
+      <ul class="log">${hist.slice(0, ui.histAll ? 999 : 8).map(h => `<li>${esc(h.a)} <span class="t">· ${esc(h.by)} · ${fmtT(h.t)}</span></li>`).join('')}</ul>
+      ${hist.length > 8 && !ui.histAll ? `<button class="btn sm" data-act="histAll">הצג הכל (${hist.length})</button>` : ''}
+    </div>
+
+    ${A ? `<div class="sec flex"><span class="sp"></span><button class="btn bad sm" data-act="del" data-id="${s.id}">מחק שלט</button></div>` : ''}
+  </div></div>`;
+}
+
+// ═════════ הזנה (בלאט) ═════════
+function addrForm(prefix, f, stateKey) {
+  const field = (k, label, req, extra = '') => `<div><label class="f">${label}${req ? ' <b>*</b>' : ''}</label><input id="${prefix}-${k}" value="${esc(f[k])}" data-inp="form" data-s="${stateKey}" data-k="${k}" ${extra}></div>`;
+  return `<datalist id="dl-cities">${cities().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+  <div class="row2">
+    ${field('city', 'עיר', true, 'list="dl-cities" autocomplete="off"')}
+    ${field('street', 'רחוב', true, 'autocomplete="off"')}
+    ${field('houseNo', 'מספר', false, 'inputmode="numeric" autocomplete="off"')}
+    ${field('floor', 'קומה', false, 'autocomplete="off"')}
+    ${field('name', 'שם', false, 'autocomplete="off"')}
+    ${field('phone', 'טלפון', true, 'inputmode="tel" autocomplete="off"')}
+  </div>
+  <div style="margin-top:8px">${field('note', 'הערת מיקום (לא חובה)', false, 'placeholder="למשל: פינת…, מול הפארק" autocomplete="off"')}</div>`;
+}
+function validateAddr(f) {
+  const miss = [['city', 'עיר'], ['street', 'רחוב'], ['phone', 'טלפון']].filter(([k]) => !String(f[k] || '').trim()).map(x => x[1]);
+  if (miss.length) { toast('חסר: ' + miss.join(', '), true); return false; }
+  const ph = L.phones(f.phone);
+  if (!ph.length || !ph.every(L.phoneLooksValid)) { if (!confirm('מספר הטלפון נראה לא תקין. לשמור בכל זאת?')) return false; }
+  const dup = list().filter(s => norm(s.city) === norm(f.city) && norm(s.street) === norm(f.street) && norm(s.houseNo) === norm(f.houseNo));
+  if (dup.length && !confirm(`כבר קיים שלט בכתובת הזו (מס' ${dup.map(s => s.num).join(', ')}).\nלהוסיף בכל זאת שלט נוסף?`)) return false;
+  return true;
+}
+const trimAddr = f => Object.fromEntries(Object.entries(f).map(([k, v]) => [k, String(v || '').trim()]));
+
+VIEWS.entry = function () {
+  const f = ui.entry.form;
+  const recent = list().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 12);
+  return `<div class="card"><h2>הוספת כתובת חדשה</h2>${addrForm('e', f, 'entry')}
+    <div style="margin-top:12px"><button class="btn pri big" data-act="entrySave" ${ui.entry.saving ? 'disabled' : ''}>${ui.entry.saving ? 'שומר…' : '＋ הוסף שלט'}</button></div></div>
+  <h3 style="margin-top:14px">נוספו לאחרונה</h3>
+  ${recent.map(s => `<button class="pick" data-act="open" data-id="${s.id}"><span class="num">${s.num}</span><span class="sp"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span> <span class="mute small">${esc(s.name)} · ${fmtT(s.createdAt)}</span></span>${statusBadge(s)}</button>`).join('')}`;
+};
+
+// ═════════ המלצות מטה (בלאט) ═════════
+VIEWS.hq = function () {
+  const h = ui.hq;
+  const base = list().filter(s => !s.rejected && !s.finished && !s.done && (!h.onlyOpen || !s.hqRec));
+  const rows = base.filter(s => !h.city || s.city === h.city);
+  return `<div class="flex" style="margin-bottom:8px"><h2 style="margin:0">המלצות ראשי מטה</h2><span class="sp"></span>
+    <label class="flex small"><input type="checkbox" data-act="setb" data-k="hq.onlyOpen" ${h.onlyOpen ? 'checked' : ''}> רק ללא המלצה</label></div>
+  ${cityChips(base, h.city, 'hq.city')}
+  ${rows.length ? `<div class="grid">${rows.map(s => `<div class="card">
+      <div class="flex"><span class="num">${s.num}</span><span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span></div>
+      <div class="mute small">${esc(s.name)}${s.note ? ' · ' + esc(s.note) : ''}</div>
+      <div class="flex" style="margin-top:8px"><div class="seg sp"><button class="${s.hqRec === 'כ' ? 'on' : ''}" data-act="hqRec" data-v="כ" data-id="${s.id}">כן ✓</button><button class="${s.hqRec === 'ל' ? 'on' : ''}" data-act="hqRec" data-v="ל" data-id="${s.id}">לא ✗</button></div></div>
+      <div style="margin-top:8px"><input id="hqn-${s.id}" placeholder="הערת מטה" value="${esc(s.hqNote)}" data-chg="sf" data-f="hqNote" data-id="${s.id}"></div>
+    </div>`).join('')}</div>` : emptyBox('✓', 'אין כתובות שממתינות להמלצה')}`;
+};
+
+// ═════════ תכנון מדידות (בנימין) ═════════
+VIEWS.plan = function () {
+  const p = ui.plan;
+  const base = list().filter(s => st(s) === 'await_survey');
+  const lastOf = s => (s.contactLog || []).slice().sort((a, b) => b.t - a.t)[0];
+  const rank = s => { const l = lastOf(s); return !l ? 1 : l.type === 'תואם' ? 0 : l.type === 'סירב' ? 3 : 2; };
+  const rows = base.filter(s => (!p.city || s.city === p.city) && matchQ(s, p.q))
+    .sort((a, b) => a.city.localeCompare(b.city, 'he') || rank(a) - rank(b) || a.num - b.num);
+  return `<h2>מחכים למדידה <span class="mute small">(${base.length})</span></h2>
+  ${cityChips(base, p.city, 'plan.city')}
+  <div class="toolbar"><input id="p-q" type="search" placeholder="חיפוש כתובת / שם" value="${esc(p.q)}" data-inp="setv" data-k="plan.q"></div>
+  ${rows.length ? `<div class="grid">${rows.map(s => {
+    const log = (s.contactLog || []).slice().sort((a, b) => b.t - a.t), l = log[0];
+    return `<div class="card">
+      <div class="flex"><span class="num">${s.num}</span><span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span></div>
+      <div class="small">${esc(s.name) || '<span class="mute">ללא שם</span>'}${s.note ? ` <span class="mute">· ${esc(s.note)}</span>` : ''}</div>
+      ${s.hqNote ? `<div class="small mute">מטה: ${esc(s.hqNote)}</div>` : ''}
+      <div style="margin-top:6px">${phoneLinks(s)}</div>
+      ${l ? `<div class="lastlog">אחרון: <b>${esc(l.type)}</b>${l.note ? ' – ' + esc(l.note) : ''} <span class="mute small">· ${fmtT(l.t)}</span></div>` : ''}
+      <div style="margin-top:8px"><input id="ln-${s.id}" placeholder="הערה לשיחה (לא חובה)"></div>
+      <div class="flex" style="margin-top:6px">${CONTACT_TYPES.map(t => `<button class="btn sm" data-act="log" data-type="${t}" data-id="${s.id}">${t}</button>`).join('')}<button class="btn sm" data-act="log" data-type="הערה" data-id="${s.id}">רשום הערה</button></div>
+      ${log.length > 1 ? `<details style="margin-top:6px"><summary class="small mute">כל השיחות (${log.length})</summary><ul class="log">${log.map(x => `<li><b>${esc(x.type)}</b>${x.note ? ' – ' + esc(x.note) : ''} <span class="t">· ${fmtT(x.t)}</span></li>`).join('')}</ul></details>` : ''}
+      <button class="btn pri" style="margin-top:8px;width:100%" data-act="goMeasure" data-id="${s.id}">📏 למדידה</button>
+    </div>`;
+  }).join('')}</div>` : emptyBox('✓', base.length ? 'אין תוצאות לסינון' : 'אין שלטים שמחכים למדידה')}`;
+};
+
+// ═════════ מדידה (בנימין) ═════════
+VIEWS.measure = function () {
+  const m = ui.measure;
+  if (!m.mode) return `<h2>מדידה</h2><div class="modes">
+    <button class="mode" data-act="mMode" data-v="list"><span class="i">📋</span><b>שלט מהרשימה</b><span class="mute small">כתובת שכבר קיימת וממתינה למדידה</span></button>
+    <button class="mode" data-act="mMode" data-v="new"><span class="i">＋</span><b>שלט חדש</b><span class="mute small">כתובת שלא ברשימה</span></button>
+    <button class="mode" data-act="mMode" data-v="extra"><span class="i">➕</span><b>שלט נוסף לכתובת</b><span class="mute small">עוד שלט בכתובת קיימת (גם אם כבר בוצע)</span></button>
+  </div>`;
+  const back = `<button class="btn sm" data-act="mReset">→ חזרה</button>`;
+  // בחירת שלט
+  if ((m.mode === 'list' && !m.signId) || (m.mode === 'extra' && !m.baseId)) {
+    const base = m.mode === 'list'
+      ? list().filter(s => !s.rejected && !s.done && !s.finished && !s.yossiDecision && (m.includeMeasured || !L.isMeasured(s)))
+      : list().filter(s => !s.rejected);
+    const rows = base.filter(s => (!m.city || s.city === m.city) && matchQ(s, m.q))
+      .sort((a, b) => (m.mode === 'list' ? (b.approved1 ? 1 : 0) - (a.approved1 ? 1 : 0) : 0) || a.city.localeCompare(b.city, 'he') || a.num - b.num);
+    return `<div class="flex" style="margin-bottom:8px">${back}<h2 style="margin:0">${m.mode === 'list' ? 'בחר שלט למדידה' : 'בחר כתובת לשלט נוסף'}</h2></div>
+      ${cityChips(base, m.city, 'measure.city')}
+      <div class="toolbar"><input id="ms-q" type="search" placeholder="חיפוש כתובת / שם / מספר" value="${esc(m.q)}" data-inp="setv" data-k="measure.q">
+      ${m.mode === 'list' ? `<label class="flex small"><input type="checkbox" data-act="setb" data-k="measure.includeMeasured" ${m.includeMeasured ? 'checked' : ''}> כולל שכבר נמדדו</label>` : ''}</div>
+      ${rows.slice(0, 150).map(s => `<button class="pick" data-act="mPick" data-id="${s.id}"><span class="num">${s.num}</span><span class="sp"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span> <span class="mute small">${esc(s.name)}</span>
+        ${m.mode === 'list' && !s.approved1 ? ' <span class="pill">טרם אושר</span>' : ''}${L.isMeasured(s) ? ' <span class="pill">נמדד</span>' : ''}</span>${m.mode === 'extra' ? statusBadge(s) : ''}</button>`).join('') || emptyBox('🔍', 'לא נמצאו שלטים')}`;
+  }
+  // טופס מדידה
+  const s = m.signId ? S.signs[m.signId] : null, b = m.baseId ? S.signs[m.baseId] : null;
+  const head = m.mode === 'new' ? `<div class="card"><h3>פרטי השלט החדש</h3>${addrForm('mn', m.addr, 'measure.addr')}</div>`
+    : `<div class="card"><div class="flex"><span class="num">${(s || b).num}</span><span class="addr sp">${esc((s || b).city)} · ${esc(addrOf(s || b))}</span>${m.mode === 'extra' ? '<span class="pill">שלט נוסף</span>' : ''}</div>
+       <div class="small">${esc((s || b).name)} ${phoneLinks(s || b)}</div>${(s || b).note ? `<div class="mute small">${esc((s || b).note)}</div>` : ''}
+       ${s && s.photos && s.photos.length ? `<div class="mute small" style="margin-top:6px">תמונות קיימות:</div>${photoStrip(s.photos)}` : ''}</div>`;
+  return `<div class="flex" style="margin-bottom:8px">${back}<h2 style="margin:0">${m.mode === 'new' ? 'שלט חדש' : m.mode === 'extra' ? 'שלט נוסף לכתובת' : 'מדידה'}</h2></div>
+  ${head}
+  <div class="card"><h3>מדידה</h3>
+    <div class="row2">
+      <div><label class="f">גובה (מטר) <b>*</b></label><input id="mm-h" inputmode="decimal" placeholder="לדוגמה 1.5" value="${esc(m.height)}" data-inp="setv" data-k="measure.height"></div>
+      <div><label class="f">רוחב (מטר) <b>*</b></label><input id="mm-w" inputmode="decimal" placeholder="לדוגמה 3" value="${esc(m.width)}" data-inp="setv" data-k="measure.width"></div>
+    </div>
+    <label class="f" style="margin-top:10px">גישה <b>*</b></label>
+    <div class="seg"><button class="${m.access === 'קלה' ? 'on' : ''}" data-act="mAccess" data-v="קלה">גישה קלה</button><button class="${m.access === 'מנוף' ? 'on' : ''}" data-act="mAccess" data-v="מנוף">🏗 צריך מנוף</button></div>
+    <label class="f" style="margin-top:10px">תמונות</label>
+    ${photoStrip(m.photos, { removeAct: 'mRmPhoto', uploading: m.uploading })}
+    ${photoInput('measure')}
+    <div style="margin-top:10px"><label class="f">הערה (לא חובה)</label><textarea id="mm-note" data-inp="setv" data-k="measure.note">${esc(m.note)}</textarea></div>
+    <button class="btn ok big" style="margin-top:12px" data-act="mSave" ${m.saving || m.uploading ? 'disabled' : ''}>${m.uploading ? 'ממתין להעלאת תמונות…' : m.saving ? 'שומר…' : '✓ שמור מדידה'}</button>
+  </div>`;
+};
+
+// ═════════ אישור יוסי ═════════
+VIEWS.yossi = function () {
+  const y = ui.yossi, all = list();
+  const pend = all.filter(s => st(s) === 'await_yossi');
+  const appr = all.filter(s => s.yossiDecision === 'approved' && !s.rejected);
+  const rej = all.filter(s => s.yossiDecision === 'rejected');
+  const sum = arr => arr.reduce((a, s) => a + ((priceOf(s) || {}).gross || 0), 0);
+  const cur = y.tab === 'pending' ? pend : y.tab === 'approved' ? appr : rej;
+  const rows = cur.filter(s => !y.city || s.city === y.city);
+  const head = `<div class="kpi">
+    <div><span class="mute small">ממתינים לאישורך</span><b>${pend.length}</b><span class="small mute">הערכה ${ilsInt(sum(pend))}</span></div>
+    <div><span class="mute small">אושרו</span><b>${appr.length}</b><span class="small mute">סה"כ ${ilsInt(sum(appr))} כולל מע"מ</span></div>
+  </div>
+  <div class="chips">${[['pending', 'ממתינים', pend.length], ['approved', 'אושרו', appr.length], ['rejected', 'לא אושרו', rej.length]].map(([k, l, n]) => `<button class="chip ${y.tab === k ? 'on' : ''}" data-act="setf" data-k="yossi.tab" data-v="${k}">${l}<small>${n}</small></button>`).join('')}</div>
+  ${cityChips(cur, y.city, 'yossi.city')}`;
+  if (!rows.length) return head + emptyBox('✓', y.tab === 'pending' ? 'אין שלטים שממתינים לאישור' : 'אין שלטים');
+  if (y.tab !== 'pending') return head + `<div class="grid">${rows.map(s => {
+    const p = priceOf(s), d = L.execDims(s);
+    return `<div class="card"><div class="flex"><span class="num">${s.num}</span><span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span>${statusBadge(s)}</div>
+      <div style="margin-top:6px"><span class="dims">${fmtM(d.h)} × ${fmtM(d.w)}</span> מ' ${d.changed ? '<span class="mute small">(שונה)</span>' : ''} ${accessPill(s)}</div>
+      <div><b>${p ? (p.special ? 'מחיר מיוחד' : ils(p.gross)) : ''}</b> <span class="mute small">כולל מע"מ</span></div>
+      ${s.yossiNote ? `<div class="small mute">הערה: ${esc(s.yossiNote)}</div>` : ''}
+      ${!s.toExecute ? `<button class="btn sm" style="margin-top:6px" data-act="yundo" data-id="${s.id}">החזר להחלטה</button>` : ''}</div>`;
+  }).join('')}</div>`;
+  return head + `<div class="grid">${rows.map(s => {
+    const change = s.yossiMode === 'change';
+    return `<div class="card">
+      <div class="flex"><span class="num">${s.num}</span><span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span>${accessPill(s)}</div>
+      ${photoStrip(s.photos, { empty: '<div class="mute small" style="margin:6px 0">אין תמונה</div>' })}
+      <div>נמדד: <span class="dims">${fmtM(s.height)} × ${fmtM(s.width)}</span> מ'</div>
+      ${s.surveyNote ? `<div class="small mute">הערת מודד: ${esc(s.surveyNote)}</div>` : ''}
+      <div class="seg" style="margin-top:8px"><button class="${s.yossiMode !== 'change' ? 'on' : ''}" data-act="ymode" data-v="approve" data-id="${s.id}">מאשר מידות</button><button class="${change ? 'on' : ''}" data-act="ymode" data-v="change" data-id="${s.id}">שנה מידות</button></div>
+      ${change ? `<div class="row2" style="margin-top:8px">
+        <div><label class="f">גובה חדש</label><input id="yh-${s.id}" inputmode="decimal" value="${s.execHeight ? esc(s.execHeight) : ''}" data-inp="ydim" data-chg="ydim" data-id="${s.id}"></div>
+        <div><label class="f">רוחב חדש</label><input id="yw-${s.id}" inputmode="decimal" value="${s.execWidth ? esc(s.execWidth) : ''}" data-inp="ydim" data-chg="ydim" data-id="${s.id}"></div></div>` : ''}
+      <div id="yp-${s.id}" style="margin-top:8px">${yossiPriceBox(s)}</div>
+      <div style="margin-top:8px"><input id="yn-${s.id}" placeholder="הערה (לא חובה)" value="${esc(s.yossiNote)}" data-chg="sf" data-f="yossiNote" data-id="${s.id}"></div>
+      <div class="flex" style="margin-top:10px"><button class="btn ok sp" data-act="yapprove" data-id="${s.id}">✓ אישור</button><button class="btn bad" data-act="yreject" data-id="${s.id}">לא מאשר</button></div>
+    </div>`;
+  }).join('')}</div>`;
+};
+function yossiDims(s) {
+  if (s.yossiMode === 'change') {
+    const hi = document.getElementById('yh-' + s.id), wi = document.getElementById('yw-' + s.id);
+    const h = hi ? parseM(hi.value) : L.num(s.execHeight), w = wi ? parseM(wi.value) : L.num(s.execWidth);
+    if (h > 0 && w > 0) return { h, w, changed: true };
+  }
+  return { h: L.num(s.height), w: L.num(s.width), changed: false };
+}
+function yossiPriceBox(s) {
+  const d = yossiDims(s), p = L.price(d.h, d.w, pricing());
+  if (!p) return '<div class="price mute">הזן גובה ורוחב לחישוב</div>';
+  const adv = L.advice(d.h, d.w, pricing());
+  return `<div class="price">${d.changed ? `לפי מידות חדשות <span dir="ltr">${fmtM(d.h)}×${fmtM(d.w)}</span> · ` : ''}${p.special ? '<b>דרוש מחיר מיוחד</b>' : `${ils(p.perMeter)} למטר × ${fmtM(p.length)} מ' · לפני מע"מ ${ils(p.net)}<div class="g">${ils(p.gross)} <span class="small mute">כולל מע"מ</span></div>`}
+    ${adv.text ? `<div class="advice ${adv.options.length ? '' : 'ok'}">${esc(adv.text)}</div>` : ''}</div>`;
+}
+
+// ═════════ תלייה (בנימין) ═════════
+VIEWS.hang = function () {
+  const h = ui.hang, all = list();
+  const ready = all.filter(s => st(s) === 'ready');
+  const crane = all.filter(s => st(s) === 'await_crane');
+  const printing = all.filter(s => st(s) === 'printing').length;
+  const done = all.filter(s => s.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+  const rows = ready.filter(s => !h.city || s.city === h.city)
+    .sort((a, b) => a.city.localeCompare(b.city, 'he') || (a.craneDate || '').localeCompare(b.craneDate || '') || a.num - b.num);
+  let lastCity = '';
+  const cards = rows.map(s => {
+    const d = L.execDims(s), f = h.form[s.id] || { photos: [], note: '', uploading: 0 };
+    const grp = s.city !== lastCity ? `<div class="citygrp" style="grid-column:1/-1">${esc(lastCity = s.city)}</div>` : '';
+    return grp + `<div class="card">
+      <div class="flex"><span class="num">${s.num}</span><span class="addr sp">${esc(addrOf(s))}</span>${accessPill(s)}</div>
+      <div class="small">${esc(s.name)}${s.note ? ` <span class="mute">· ${esc(s.note)}</span>` : ''}</div>
+      <div style="margin-top:4px">${phoneLinks(s)}</div>
+      <div style="margin-top:6px">לתלייה: <span class="dims">${fmtM(d.h)} × ${fmtM(d.w)}</span> מ'</div>
+      ${s.craneDate ? `<div><span class="pill crane">מנוף: ${fmtDay(s.craneDate)}</span></div>` : ''}
+      ${s.surveyNote ? `<div class="small mute">הערת מדידה: ${esc(s.surveyNote)}</div>` : ''}
+      ${photoStrip(s.photos)}
+      ${h.open === s.id ? `<div class="sec"><label class="f">תמונת ביצוע</label>${photoStrip(f.photos, { removeAct: 'hRmPhoto', id: s.id, uploading: f.uploading })}${photoInput('hang', '📷 צלם תמונת ביצוע', s.id)}
+        <div style="margin-top:8px"><input id="hn-${s.id}" placeholder="הערה (לא חובה)" value="${esc(f.note)}" data-inp="hangNote" data-id="${s.id}"></div>
+        <div class="flex" style="margin-top:8px"><button class="btn ok sp" data-act="hangSave" data-id="${s.id}" ${f.uploading ? 'disabled' : ''}>✓ סמן בוצע</button><button class="btn" data-act="hangCancel">ביטול</button></div></div>`
+      : `<button class="btn ok" style="width:100%;margin-top:8px" data-act="hangOpen" data-id="${s.id}">✓ בוצע</button>`}
+    </div>`;
+  }).join('');
+  return `<h2>מוכנים לתלייה <span class="mute small">(${ready.length})</span></h2>
+  ${printing || crane.length ? `<div class="mute small" style="margin-bottom:8px">${printing ? `${printing} שלטים עדיין בדפוס. ` : ''}${crane.length ? `${crane.length} ממתינים לתיאום מנוף.` : ''}</div>` : ''}
+  ${cityChips(ready, h.city, 'hang.city')}
+  ${rows.length ? `<div class="grid">${cards}</div>` : emptyBox('🪧', 'אין כרגע שלטים שמוכנים לתלייה')}
+  ${done.length ? `<details class="card" style="margin-top:12px" ${h.showDone ? 'open' : ''}><summary data-act="setb" data-k="hang.showDone"><b>בוצעו (${done.length})</b></summary>
+    ${done.map(s => `<button class="pick" data-act="open" data-id="${s.id}"><span class="num">${s.num}</span><span class="sp">${esc(s.city)} · ${esc(addrOf(s))} <span class="mute small">${fmtT(s.doneAt)}</span></span>${statusBadge(s)}</button>`).join('')}</details>` : ''}`;
+};
+
+// ═════════ הגדרות (שלמה) ═════════
+VIEWS.settings = function () {
+  if (!ui.settings) ui.settings = JSON.parse(JSON.stringify({ users: S.config.users || {}, pricing: S.config.pricing || L.DEFAULT_PRICING }));
+  const d = ui.settings, users = Object.entries(d.users).sort((a, b) => (a[0] === SUPER ? -1 : b[0] === SUPER ? 1 : a[1].name.localeCompare(b[1].name, 'he')));
+  const tiers = d.pricing.tiers;
+  const ip = ui.importPreview;
+  return `<div class="card"><h2>משתמשים והרשאות</h2>
+    <div class="mute small" style="margin-bottom:8px">כל משתמש נכנס עם חשבון הגוגל שלו. התפקיד קובע אילו מסכים הוא רואה.</div>
+    <div style="overflow-x:auto"><table class="s"><tr><th>מייל</th><th>שם</th>${Object.entries(ROLE_LABELS).map(([k, l]) => `<th class="small">${l}</th>`).join('')}<th></th></tr>
+    ${users.map(([email, u]) => `<tr><td dir="ltr" class="small">${esc(email)}</td>
+      <td><input id="su-${esc(email)}" value="${esc(u.name)}" data-inp="suName" data-email="${esc(email)}" style="min-width:110px"></td>
+      ${Object.keys(ROLE_LABELS).map(r => `<td style="text-align:center"><input type="checkbox" data-act="suRole" data-email="${esc(email)}" data-r="${r}" ${(u.roles || []).includes(r) ? 'checked' : ''} ${email === SUPER && r === 'admin' ? 'disabled' : ''}></td>`).join('')}
+      <td>${email !== SUPER ? `<button class="btn sm bad" data-act="suDel" data-email="${esc(email)}">הסר</button>` : ''}</td></tr>`).join('')}
+    </table></div>
+    <div class="flex" style="margin-top:10px"><input id="su-new-email" dir="ltr" placeholder="email@gmail.com" style="flex:2 1 200px;width:auto"><input id="su-new-name" placeholder="שם" style="flex:1 1 120px;width:auto"><button class="btn" data-act="suAdd">＋ הוסף משתמש</button></div>
+  </div>
+
+  <div class="card"><h2>מחירון</h2>
+    <div class="mute small" style="margin-bottom:8px">המדרגה נקבעת לפי הצד הצר של השלט; המחיר הוא למטר אורך (הצד הארוך).</div>
+    <div style="overflow-x:auto"><table class="s"><tr><th>צד צר עד (מ')</th><th>מחיר למטר (לפני מע"מ)</th><th>תיאור</th><th></th></tr>
+    ${tiers.map((t, i) => `<tr><td><input id="tp-max-${i}" inputmode="decimal" value="${esc(t.max)}" data-inp="tier" data-i="${i}" data-k="max" style="width:90px"></td>
+      <td><input id="tp-price-${i}" inputmode="decimal" value="${esc(t.price)}" data-inp="tier" data-i="${i}" data-k="price" style="width:100px"></td>
+      <td><input id="tp-desc-${i}" value="${esc(t.desc)}" data-inp="tier" data-i="${i}" data-k="desc" style="min-width:200px"></td>
+      <td><button class="btn sm bad" data-act="tierDel" data-i="${i}">הסר</button></td></tr>`).join('')}
+    </table></div>
+    <div class="flex" style="margin-top:8px"><button class="btn sm" data-act="tierAdd">＋ מדרגה</button><span class="sp"></span>
+      <label class="small">מע"מ %</label><input id="tp-vat" inputmode="decimal" value="${esc(Math.round(L.num(d.pricing.vat) * 1000) / 10)}" data-inp="vat" style="width:80px"></div>
+  </div>
+  <div class="flex" style="margin-bottom:14px"><button class="btn pri" style="flex:1;min-height:48px;font-weight:600" data-act="settingsSave">שמור משתמשים ומחירון</button><button class="btn" data-act="settingsReset">בטל שינויים</button></div>
+
+  <div class="card"><h2>ייבוא וייצוא</h2>
+    <div class="flex"><label class="btn"><input type="file" accept=".json,application/json" hidden data-chg="importFile">⬆ ייבוא קובץ נתונים (JSON)</label>
+      <button class="btn" data-act="exportAll">⬇ ייצוא כל השלטים לאקסל</button></div>
+    ${ip ? `<div class="warn" style="margin-top:10px">בקובץ ${ip.signs.length} שלטים. ${ip.skip.length ? `${ip.skip.length} כבר קיימים במערכת וידולגו (מס' ${ip.skip.slice(0, 12).join(', ')}${ip.skip.length > 12 ? '…' : ''}). ` : ''}ייובאו ${ip.add.length}.
+      <div class="flex" style="margin-top:8px"><button class="btn ok" data-act="importRun" ${ip.add.length ? '' : 'disabled'}>ייבא ${ip.add.length} שלטים</button><button class="btn" data-act="importCancel">ביטול</button></div></div>` : ''}
+  </div>`;
+};
+
+// ───────── ייצוא לאקסל ─────────
+async function exportExcel(rows, name) {
+  try {
+    if (!window.XLSX) await loadScript('../vendor/xlsx-js-style.js');
+    const head = ["מס'", 'עיר', 'רחוב', 'מספר', 'קומה', 'הערת מיקום', 'שם', 'טלפון', 'המלצת מטה', 'הערת מטה', 'אישור ראשון', 'גובה', 'רוחב', 'גישה', 'הערת מדידה',
+      'החלטת יוסי', 'גובה לביצוע', 'רוחב לביצוע', 'מחיר לפני מע"מ', 'מחיר כולל מע"מ', 'לביצוע', 'חזר מהדפוס', 'מנוף תואם', 'בוצע', 'הסתיים', 'סטטוס', 'יומן שיחות', 'תמונות', 'תמונות ביצוע'];
+    const yn = v => v ? 'כן' : '';
+    const data = rows.map(s => {
+      const d = L.execDims(s), p = priceOf(s);
+      return [s.num, s.city, s.street, s.houseNo, s.floor, s.note, s.name, s.phone, s.hqRec, s.hqNote, yn(s.approved1),
+        L.num(s.height) || '', L.num(s.width) || '', s.access, s.surveyNote,
+        s.yossiDecision === 'approved' ? 'אושר' : s.yossiDecision === 'rejected' ? 'לא אושר' : '', d.h || '', d.w || '',
+        p && !p.special ? p.net : '', p && !p.special ? p.gross : (p ? 'מחיר מיוחד' : ''),
+        yn(s.toExecute), yn(s.printReturned), fmtDay(s.craneDate), yn(s.done), yn(s.finished), L.STATUS_MAP[st(s)].label,
+        (s.contactLog || []).map(l => `${fmtT(l.t)} ${l.type}${l.note ? ' - ' + l.note : ''}`).join(' | '),
+        (s.photos || []).map(x => x.url).join(' '), (s.donePhotos || []).map(x => x.url).join(' ')];
+    });
+    const ws = XLSX.utils.aoa_to_sheet([head, ...data]);
+    ws['!cols'] = head.map((h, i) => ({ wch: [6, 12, 18, 6, 8, 22, 18, 22][i] || 12 }));
+    head.forEach((h, i) => { const c = ws[XLSX.utils.encode_cell({ r: 0, c: i })]; if (c) c.s = { font: { bold: true }, fill: { fgColor: { rgb: 'DBEAFE' } } }; });
+    const wb = XLSX.utils.book_new();
+    wb.Workbook = { Views: [{ RTL: true }] };
+    XLSX.utils.book_append_sheet(wb, ws, 'שלטים');
+    XLSX.writeFile(wb, `${name}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  } catch (e) { fail(e); }
+}
+
+// ───────── פעולות ─────────
+function setPath(path, v) { const [a, b] = path.split('.'); ui[a][b] = v; }
+function getPath(path) { const [a, b] = path.split('.'); return ui[a][b]; }
+const upd = (id, patch, o) => Store.updateSign(id, patch, o).catch(fail);
+const valStr = v => v === true ? '✓' : v === false ? '✗' : (v === '' || v == null ? '—' : v);
+
+const ACTIONS = {
+  login: () => Store.signIn().catch(e => showAuth('הכניסה נכשלה: ' + esc(e.message))),
+  logout: () => { if (DEMO || confirm('להתנתק?')) Store.signOut(); },
+  reload: () => location.reload(),
+  copyRules: () => { navigator.clipboard && navigator.clipboard.writeText(RULES_SNIPPET).then(() => toast('הועתק')); },
+  tab: el => { ui.tab = el.dataset.k; try { localStorage.setItem('signs_tab', ui.tab); } catch (e) {} if (ui.tab !== 'settings') ui.importPreview = null; window.scrollTo(0, 0); render(); },
+  setf: el => { setPath(el.dataset.k, getPath(el.dataset.k) === el.dataset.v && el.dataset.k.endsWith('city') ? '' : el.dataset.v); if (el.dataset.k === 'yossi.tab') ui.yossi.city = ''; render(); },
+  setb: (el, ev) => { if (el.tagName === 'SUMMARY') { ev.preventDefault(); } setPath(el.dataset.k, !getPath(el.dataset.k)); render(); },
+  open: el => { ui.modal = el.dataset.id; ui.histAll = false; ui.modalUp = 0; render(); },
+  close: () => { ui.modal = ''; render(); },
+  closeBg: (el, ev) => { if (ev.target === el) { ui.modal = ''; render(); } },
+  histAll: () => { ui.histAll = true; render(); },
+  sel: (el, ev) => { ev.stopPropagation(); const id = el.dataset.id, s = ui.manage.sel; s.has(id) ? s.delete(id) : s.add(id); render(); },
+  selAll: el => { const m = ui.manage; const vis = [...document.querySelectorAll('.tbl .r[data-id]')].map(r => r.dataset.id); if (el.checked) vis.forEach(id => m.sel.add(id)); else vis.forEach(id => m.sel.delete(id)); render(); },
+  selClear: () => { ui.manage.sel.clear(); render(); },
+  bulk: async el => {
+    const b = BULK[el.dataset.k], ids = [...ui.manage.sel], ok = ids.filter(id => S.signs[id] && b.ok(S.signs[id]));
+    if (!ok.length) { toast('אף אחד מהשלטים שנבחרו לא מתאים לפעולה הזו', true); return; }
+    if (b.confirm && !confirm(b.confirm)) return;
+    try { await Promise.all(ok.map(id => Store.updateSign(id, b.patch, { hist: b.hist }))); toast(`עודכנו ${ok.length}${ids.length > ok.length ? `, דולגו ${ids.length - ok.length} שלא מתאימים` : ''}`); ui.manage.sel.clear(); render(); }
+    catch (e) { fail(e); }
+  },
+  exportView: () => {
+    const m = ui.manage;
+    exportExcel(list().filter(s => (!m.status || st(s) === m.status) && (!m.city || s.city === m.city) && (!m.access || (m.access === 'none' ? !s.access : s.access === m.access)) && matchQ(s, m.q)), 'שלטים');
+  },
+  exportAll: () => exportExcel(list(), 'שלטים-הכל'),
+  tog: el => {
+    const s = S.signs[el.dataset.id], f = el.dataset.f, v = !s[f];
+    const patch = { [f]: v };
+    if (f === 'done' && v) Object.assign(patch, { doneAt: Date.now(), doneBy: S.me.name });
+    if (f === 'toExecute' && v && s.yossiDecision !== 'approved' && !confirm('יוסי עדיין לא אישר את השלט הזה. לסמן לביצוע בכל זאת?')) return;
+    upd(s.id, patch, { hist: `${FIELD_LABELS[f]}: ${v ? '✓' : '✗'}` });
+  },
+  hqRec: el => { const s = S.signs[el.dataset.id], v = s.hqRec === el.dataset.v ? '' : el.dataset.v; upd(s.id, { hqRec: v }, { hist: `המלצת מטה: ${v || 'בוטלה'}` }); },
+  setAccess: el => { const s = S.signs[el.dataset.id]; upd(s.id, { access: el.dataset.v }, { hist: `גישה: ${el.dataset.v}` }); },
+  rmPhoto: async (el, ev) => { ev.preventDefault(); const s = S.signs[el.dataset.id], p = (s.photos || [])[+el.dataset.i]; if (p && confirm('להסיר את התמונה?')) Store.removeFromArray(s.id, 'photos', p, 'הוסרה תמונת מדידה').catch(fail); },
+  rmDonePhoto: async (el, ev) => { ev.preventDefault(); const s = S.signs[el.dataset.id], p = (s.donePhotos || [])[+el.dataset.i]; if (p && confirm('להסיר את התמונה?')) Store.removeFromArray(s.id, 'donePhotos', p, 'הוסרה תמונת ביצוע').catch(fail); },
+  del: async el => {
+    const s = S.signs[el.dataset.id];
+    if (!confirm(`למחוק לצמיתות את שלט ${s.num}?\nהמספר לא יחזור לשימוש. אפשר במקום זה לסמן "נדחה".`)) return;
+    try { await Store.deleteSign(s.id); ui.modal = ''; toast('השלט נמחק'); render(); } catch (e) { fail(e); }
+  },
+  yundo: el => { const s = S.signs[el.dataset.id]; upd(s.id, { yossiDecision: '' }, { hist: 'החלטת יוסי בוטלה' }); },
+
+  // הזנה
+  entrySave: async () => {
+    const f = trimAddr(ui.entry.form);
+    if (!validateAddr(f)) return;
+    ui.entry.saving = true; render();
+    try { const n = await Store.createSign({ ...blankSign(), ...f }, 'נוסף בהזנה'); ui.entry.form = { ...blankAddr(), city: f.city }; toast(`נוסף שלט מס' ${n}`); }
+    catch (e) { fail(e); }
+    ui.entry.saving = false; render();
+    const el = document.getElementById('e-street'); if (el) el.focus();
+  },
+
+  // תכנון
+  log: el => {
+    const id = el.dataset.id, inp = document.getElementById('ln-' + id), note = inp ? inp.value.trim() : '', type = el.dataset.type;
+    if (type === 'הערה' && !note) { toast('כתוב הערה בשדה', true); if (inp) inp.focus(); return; }
+    if (inp) inp.value = '';
+    upd(id, {}, { push: { contactLog: { t: Date.now(), by: S.me.name, type, note } } }).then(() => toast('נרשם: ' + type));
+  },
+  goMeasure: el => {
+    const s = S.signs[el.dataset.id];
+    ui.measure = { ...blankMeasure(), mode: 'list', signId: s.id, height: s.height || '', width: s.width || '', access: s.access || '', note: s.surveyNote || '' };
+    ui.tab = 'measure'; window.scrollTo(0, 0); render();
+  },
+
+  // מדידה
+  mMode: el => { ui.measure = { ...blankMeasure(), mode: el.dataset.v }; render(); },
+  mReset: () => {
+    const m = ui.measure;
+    if ((m.height || m.width || m.photos.length) && !confirm('לצאת בלי לשמור את המדידה?')) return;
+    ui.measure = (m.signId || m.baseId) ? { ...blankMeasure(), mode: m.mode, city: m.city, q: m.q } : blankMeasure(); render();
+  },
+  mPick: el => {
+    const m = ui.measure, s = S.signs[el.dataset.id];
+    if (m.mode === 'list') Object.assign(m, { signId: s.id, height: s.height || '', width: s.width || '', access: s.access || '', note: s.surveyNote || '' });
+    else m.baseId = s.id;
+    window.scrollTo(0, 0); render();
+  },
+  mAccess: el => { ui.measure.access = el.dataset.v; render(); },
+  mRmPhoto: el => { ui.measure.photos.splice(+el.dataset.i, 1); render(); },
+  mSave: async () => {
+    const m = ui.measure, h = parseM(m.height), w = parseM(m.width);
+    if (!(h > 0 && h <= 50) || !(w > 0 && w <= 50)) { toast('יש להזין גובה ורוחב תקינים (במטרים)', true); return; }
+    if (!m.access) { toast('יש לבחור גישה: קלה או מנוף', true); return; }
+    let addr = null;
+    if (m.mode === 'new') { addr = trimAddr(m.addr); if (!validateAddr(addr)) return; }
+    if (!m.photos.length && !confirm('לא צורפה תמונה. לשמור בלי תמונה?')) return;
+    const meas = { height: h, width: w, access: m.access, surveyNote: m.note.trim(), surveyBy: S.me.name, surveyAt: Date.now() };
+    const histTxt = `נמדד: ${fmtM(h)}×${fmtM(w)}, גישה ${m.access}${m.photos.length ? `, ${m.photos.length} תמונות` : ''}`;
+    m.saving = true; render();
+    try {
+      let n;
+      if (m.mode === 'list') { const s = S.signs[m.signId]; await Store.updateSign(s.id, meas, { hist: histTxt, push: { photos: m.photos } }); n = s.num; }
+      else if (m.mode === 'new') n = await Store.createSign({ ...blankSign(), ...addr, ...meas, photos: m.photos }, 'נוצר מהשטח · ' + histTxt);
+      else {
+        const b = S.signs[m.baseId];
+        n = await Store.createSign({ ...blankSign(), city: b.city, street: b.street, houseNo: b.houseNo, floor: b.floor, name: b.name, phone: b.phone,
+          note: [b.note, `שלט נוסף לשלט ${b.num}`].filter(Boolean).join(' · '), hqRec: b.hqRec || '', hqNote: b.hqNote || '', approved1: !!b.approved1,
+          ...meas, photos: m.photos }, `שלט נוסף לכתובת של שלט ${b.num} · ${histTxt}`);
+      }
+      toast(`המדידה נשמרה (שלט ${n})`);
+      ui.measure = blankMeasure();
+    } catch (e) { fail(e); m.saving = false; }
+    render(); window.scrollTo(0, 0);
+  },
+
+  // יוסי
+  ymode: el => {
+    const s = S.signs[el.dataset.id], v = el.dataset.v;
+    const patch = { yossiMode: v };
+    if (v === 'change' && !s.execHeight) Object.assign(patch, { execHeight: L.num(s.height), execWidth: L.num(s.width) });
+    upd(s.id, patch);
+  },
+  yapprove: el => {
+    const s = S.signs[el.dataset.id], d = yossiDims(s);
+    const patch = { yossiDecision: 'approved', yossiMode: s.yossiMode || 'approve', yossiAt: Date.now(), yossiBy: S.me.name };
+    if (s.yossiMode === 'change') {
+      if (!d.changed) { toast('הזן גובה ורוחב חדשים', true); return; }
+      Object.assign(patch, { execHeight: d.h, execWidth: d.w });
+    }
+    const p = L.price(d.h, d.w, pricing());
+    upd(s.id, patch, { hist: `יוסי אישר: ${fmtM(d.h)}×${fmtM(d.w)}${d.changed ? ' (מידות שונו)' : ''}${p && !p.special ? ` · ${ils(p.gross)}` : ''}` }).then(() => toast(`שלט ${s.num} אושר`));
+  },
+  yreject: el => { const s = S.signs[el.dataset.id]; if (confirm(`לסמן ששלט ${s.num} לא מאושר?`)) upd(s.id, { yossiDecision: 'rejected', yossiAt: Date.now(), yossiBy: S.me.name }, { hist: 'יוסי לא אישר' }); },
+
+  // תלייה
+  hangOpen: el => { ui.hang.open = el.dataset.id; ui.hang.form[el.dataset.id] = ui.hang.form[el.dataset.id] || { photos: [], note: '', uploading: 0 }; render(); },
+  hangCancel: () => { ui.hang.open = ''; render(); },
+  hRmPhoto: el => { ui.hang.form[el.dataset.id].photos.splice(+el.dataset.i, 1); render(); },
+  hangSave: async el => {
+    const id = el.dataset.id, f = ui.hang.form[id], s = S.signs[id];
+    if (!f.photos.length && !confirm('לא צורפה תמונת ביצוע. לסמן בוצע בלי תמונה?')) return;
+    try {
+      await Store.updateSign(id, { done: true, doneAt: Date.now(), doneBy: S.me.name, doneNote: f.note.trim() }, { hist: `בוצע (נתלה)${f.photos.length ? ` + ${f.photos.length} תמונות` : ''}`, push: { donePhotos: f.photos } });
+      delete ui.hang.form[id]; ui.hang.open = ''; toast(`שלט ${s.num} סומן כבוצע`); render();
+    } catch (e) { fail(e); }
+  },
+
+  // הגדרות
+  suRole: el => { const u = ui.settings.users[el.dataset.email], r = el.dataset.r; u.roles = u.roles || []; u.roles = u.roles.includes(r) ? u.roles.filter(x => x !== r) : [...u.roles, r]; render(); },
+  suDel: el => { if (confirm('להסיר את המשתמש?')) { delete ui.settings.users[el.dataset.email]; render(); } },
+  suAdd: () => {
+    const email = $('#su-new-email').value.trim().toLowerCase(), name = $('#su-new-name').value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('כתובת מייל לא תקינה', true); return; }
+    if (ui.settings.users[email]) { toast('המשתמש כבר קיים', true); return; }
+    ui.settings.users[email] = { name: name || email.split('@')[0], roles: [] }; render();
+    toast('נוסף. סמן תפקיד ולחץ "שמור"');
+  },
+  tierAdd: () => { const t = ui.settings.pricing.tiers; t.push({ max: (L.num((t[t.length - 1] || {}).max) || 0) + 1, price: 0, desc: '' }); render(); },
+  tierDel: el => { ui.settings.pricing.tiers.splice(+el.dataset.i, 1); render(); },
+  settingsReset: () => { ui.settings = null; render(); },
+  settingsSave: async () => {
+    const d = ui.settings, users = { ...d.users };
+    users[SUPER] = users[SUPER] || DEFAULT_USERS[SUPER];
+    if (!users[SUPER].roles.includes('admin')) users[SUPER].roles.push('admin');
+    const tiers = d.pricing.tiers.map(t => ({ max: parseM(t.max), price: parseM(t.price), desc: String(t.desc || '').trim() })).filter(t => t.max > 0).sort((a, b) => a.max - b.max);
+    if (!tiers.length) { toast('המחירון ריק', true); return; }
+    try {
+      await Store.saveConfig({ ...S.config, users, userEmails: Object.keys(users), pricing: { vat: parseM(d.pricing.vat), tiers } });
+      ui.settings = null; toast('ההגדרות נשמרו'); render();
+    } catch (e) { fail(e); }
+  },
+  importCancel: () => { ui.importPreview = null; render(); },
+  importRun: async () => {
+    const ip = ui.importPreview;
+    if (!confirm(`לייבא ${ip.add.length} שלטים?`)) return;
+    try { await Store.importSigns(ip.add, ip.nextNum); toast(`יובאו ${ip.add.length} שלטים`); ui.importPreview = null; render(); } catch (e) { fail(e); }
+  }
+};
+
+const CHANGES = {
+  setv: el => { setPath(el.dataset.k, el.value); render(); },
+  demoRole: el => { S.me.demoRoles = [el.value]; S.me.roles = [el.value]; ui.tab = null; render(); },
+  sf: el => {
+    const s = S.signs[el.dataset.id], f = el.dataset.f;
+    let v = el.value.trim();
+    if (['height', 'width'].includes(f)) v = parseM(v);
+    if (String(s[f] ?? '') === String(v)) return;
+    if (['city', 'street', 'phone'].includes(f) && !v) { toast(`${FIELD_LABELS[f]} הוא שדה חובה`, true); el.value = s[f] || ''; return; }
+    upd(s.id, { [f]: v }, { hist: `${FIELD_LABELS[f] || f}: ${valStr(s[f])} → ${valStr(v)}` });
+  },
+  ydim: el => {
+    const s = S.signs[el.dataset.id], h = parseM(($('#yh-' + s.id) || {}).value), w = parseM(($('#yw-' + s.id) || {}).value);
+    upd(s.id, { execHeight: h, execWidth: w });
+  },
+  photos: async el => {
+    const files = [...el.files]; el.value = '';
+    if (!files.length) return;
+    const t = el.dataset.target, id = el.dataset.id;
+    if (t === 'measure') {
+      const m = ui.measure;
+      const got = await uploadMany(files, n => { m.uploading += n; render(); }, () => { m.uploading--; });
+      if (ui.measure === m) { m.photos.push(...got); }
+      render();
+    } else if (t === 'hang') {
+      const f = ui.hang.form[id];
+      const got = await uploadMany(files, n => { f.uploading += n; render(); }, () => { f.uploading--; });
+      f.photos.push(...got); render();
+    } else if (t === 'modal-photos' || t === 'modal-done') {
+      const got = await uploadMany(files, n => { ui.modalUp = (ui.modalUp || 0) + n; render(); }, () => { ui.modalUp--; });
+      ui.modalUp = 0;
+      if (got.length) await upd(id, {}, { hist: `נוספו ${got.length} ${t === 'modal-done' ? 'תמונות ביצוע' : 'תמונות'}`, push: { [t === 'modal-done' ? 'donePhotos' : 'photos']: got } });
+      render();
+    }
+  },
+  importFile: async el => {
+    const file = el.files[0]; el.value = '';
+    if (!file) return;
+    try {
+      const j = JSON.parse(await file.text());
+      if (j.kind !== 'signs-import' || !Array.isArray(j.signs)) throw new Error('הקובץ אינו קובץ ייבוא שלטים');
+      const clean = j.signs.filter(s => s && Number.isInteger(s.num) && s.num > 0).map(s => { const o = { ...blankSign(), ...s }; delete o.id; return o; });
+      const skip = clean.filter(s => S.signs[String(s.num)]).map(s => s.num);
+      ui.importPreview = { signs: clean, add: clean.filter(s => !S.signs[String(s.num)]), skip, nextNum: Math.max(j.nextNum || 1, ...clean.map(s => s.num + 1)) };
+      render();
+    } catch (e) { fail(e); }
+  }
+};
+
+const INPUTS = {
+  setv: el => { setPath(el.dataset.k, el.value); if (['manage.q', 'plan.q', 'measure.q'].includes(el.dataset.k)) render(); },
+  form: el => { const tgt = el.dataset.s === 'entry' ? ui.entry.form : ui.measure.addr; tgt[el.dataset.k] = el.value; },
+  ydim: el => { const s = S.signs[el.dataset.id]; const box = document.getElementById('yp-' + s.id); if (box) box.innerHTML = yossiPriceBox({ ...s, yossiMode: 'change' }); },
+  hangNote: el => { ui.hang.form[el.dataset.id].note = el.value; },
+  suName: el => { ui.settings.users[el.dataset.email].name = el.value; },
+  tier: el => { ui.settings.pricing.tiers[+el.dataset.i][el.dataset.k] = el.value; },
+  vat: el => { ui.settings.pricing.vat = parseM(el.value) / 100; }
+};
+
+document.addEventListener('click', ev => {
+  const el = ev.target.closest('[data-act]');
+  if (!el || el.disabled) return;
+  const fn = ACTIONS[el.dataset.act];
+  if (fn) fn(el, ev);
+});
+document.addEventListener('change', ev => { const el = ev.target.closest('[data-chg]'); if (el && CHANGES[el.dataset.chg]) CHANGES[el.dataset.chg](el, ev); });
+document.addEventListener('input', ev => { const el = ev.target.closest('[data-inp]'); if (el && INPUTS[el.dataset.inp]) INPUTS[el.dataset.inp](el, ev); });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && ui.modal) { ui.modal = ''; render(); } });
+
+// ───────── הפעלה ─────────
+(async function boot() {
+  try { await Store.init(); }
+  catch (e) { showAuth('לא ניתן להתחבר לשרת: ' + esc(e.message) + '<br>בדוק חיבור לאינטרנט ורענן.'); return; }
+  Store.onAuth(u => {
+    stopSubs(); S.signsSub = false; S.user = u;
+    if (!u) { showAuth(); return; }
+    $('#auth').hidden = false; $('#authBody').innerHTML = '<div class="mute" style="margin-top:14px">⏳ מתחבר…</div>';
+    S.unsub.push(Store.subscribeConfig(onConfig, onDataError));
+  });
+})();
+</script>
+</body>
+</html>
