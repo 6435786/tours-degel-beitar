@@ -141,8 +141,20 @@ pre.code{direction:ltr;text-align:left;background:#0f172a;color:#e2e8f0;padding:
 table.s{width:100%;border-collapse:collapse;font-size:14px}
 table.s td,table.s th{padding:6px;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle}
 table.s input:not([type=checkbox]){padding:6px 8px}
-.menu-btn{display:none!important}
-.cur-tab{display:none}
+main.home{max-width:760px}
+.hbtn[hidden]{display:none!important}
+.hbtn{display:inline-flex!important;align-items:center;justify-content:center;gap:4px;min-width:40px;min-height:36px;padding:4px 10px!important}
+.hello{font-size:15px;color:var(--mute);margin:4px 2px 12px}
+.tiles{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:6px;min-height:112px;padding:14px;border:1px solid var(--line);border-radius:16px;background:#fff;font:inherit;text-align:right;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.tile:active{transform:scale(.98)}
+.tile .ti{font-size:30px;line-height:1}
+.tile .tl{font-size:17px;font-weight:700;color:var(--ink)}
+.tile .ts{font-size:13px;color:var(--mute)}
+.tile.has{border-color:#93c5fd;background:#f8fbff}
+.tile.has .ts{color:var(--pri);font-weight:700}
+.tile .tn{position:absolute;top:10px;left:10px;min-width:28px;height:28px;border-radius:14px;background:var(--bad);color:#fff;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;padding:0 7px}
+.hint{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:14px;line-height:1.55}
 .menu-bg{position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.45)}
 .menu{position:fixed;top:0;right:0;bottom:0;width:min(300px,85vw);background:#fff;z-index:61;padding:14px 10px calc(14px + env(safe-area-inset-bottom));overflow-y:auto;box-shadow:-6px 0 24px rgba(0,0,0,.2)}
 .menu .mh{display:flex;align-items:center;justify-content:space-between;padding:0 6px 10px;border-bottom:1px solid var(--line);margin-bottom:6px}
@@ -165,11 +177,11 @@ table.s input:not([type=checkbox]){padding:6px 8px}
 .trow{display:grid;gap:8px;grid-template-columns:120px 140px 1fr auto;align-items:end;padding:6px 0;border-bottom:1px solid var(--line)}
 @media (max-width:760px){
   .tabs{display:none}
-  .menu-btn{display:inline-flex!important;align-items:center;gap:5px;font-size:19px!important;padding:3px 10px!important}
-  .cur-tab{display:inline;font-weight:400;opacity:.9;font-size:15px}
+  .top{gap:6px;padding-inline:8px}
   .top .who{display:none}
-  .top .ttl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-  .top > [data-act=logout]{display:none}
+  .top .ttl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;font-size:16px}
+  .tiles{grid-template-columns:1fr 1fr;gap:10px}
+  .tile{min-height:104px;padding:12px}
   .bulk{top:56px}
   .urow{grid-template-columns:1fr}
   .trow{grid-template-columns:1fr 1fr}
@@ -191,17 +203,17 @@ table.s input:not([type=checkbox]){padding:6px 8px}
 
 <div id="app" hidden>
   <header class="top">
-    <button class="menu-btn" id="menuBtn" data-act="menuOpen" aria-label="תפריט">☰</button>
-    <span class="ttl">שלטים – דגל <span class="cur-tab" id="curTab"></span></span>
+    <button class="hbtn" data-act="goHome" aria-label="עמוד הבית" title="עמוד הבית"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg></button>
+    <span class="ttl" id="ttl">שלטים – דגל</span>
     <span class="who" id="who"></span>
     <span id="demoRole"></span>
-    <button data-act="logout">יציאה</button>
+    <button class="hbtn" id="gearBtn" data-act="goSettings" aria-label="הגדרות" title="הגדרות" hidden><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    <button class="hbtn" data-act="logout" aria-label="יציאה" title="יציאה">יציאה</button>
   </header>
   <nav class="tabs" id="tabs"></nav>
   <main id="view"></main>
 </div>
 
-<div id="menu"></div>
 <div id="modal"></div>
 <div id="toast" class="toast" hidden></div>
 
@@ -234,16 +246,41 @@ const DEFAULT_USERS = {
   [SUPER]: { name: 'שלמה', roles: ['admin'] },
   'a0548475907@gmail.com': { name: 'שלמה בלאט', roles: ['entry'] }
 };
+const ALL_ROLES = ['admin', 'entry', 'surveyor', 'yossi'];
 const TABS = [
-  { key: 'manage', label: 'ניהול', roles: ['admin'] },
-  { key: 'entry', label: 'הזנה', roles: ['admin', 'entry'] },
+  { key: 'home', label: 'בית', roles: ALL_ROLES },
+  { key: 'manage', label: 'כל השלטים', roles: ['admin'] },
+  { key: 'entry', label: 'הוספת כתובת', roles: ['admin', 'entry'] },
   { key: 'hq', label: 'המלצות מטה', roles: ['admin', 'entry'] },
-  { key: 'plan', label: 'תכנון מדידות', roles: ['admin', 'surveyor'] },
-  { key: 'measure', label: 'מדידה', roles: ['admin', 'surveyor'] },
+  { key: 'plan', label: 'תיאום מדידות', roles: ['admin', 'surveyor'] },
+  { key: 'measure', label: 'מדידה בשטח', roles: ['admin', 'surveyor'] },
   { key: 'yossi', label: 'אישור יוסי', roles: ['admin', 'yossi'] },
   { key: 'hang', label: 'תלייה', roles: ['admin', 'surveyor'] },
   { key: 'settings', label: 'הגדרות', roles: ['admin'] }
 ];
+// ריבועי עמוד הבית — לפי סדר העבודה. status = קיצור לרשימה מסוננת במסך "כל השלטים"
+const TILES = [
+  { k: 'entry', icon: '➕', label: 'הוספת כתובת', roles: ['entry'], hint: 'כתובת חדשה שהגיעה' },
+  { k: 'hq', icon: '🗳️', label: 'המלצות מטה', roles: ['entry'], count: b => b.hq },
+  { k: 'manage', status: 'await_admin', icon: '✅', label: 'לאישור שלי', roles: ['admin'], count: b => b.c.await_admin },
+  { k: 'plan', icon: '📞', label: 'תיאום מדידות', roles: ['surveyor'], count: b => b.plan },
+  { k: 'measure', icon: '📏', label: 'מדידה בשטח', roles: ['surveyor'], hint: 'מודדים, מצלמים, שומרים' },
+  { k: 'yossi', icon: '💰', label: 'אישור יוסי', roles: ['yossi'], count: b => b.yossi },
+  { k: 'manage', status: 'approved', icon: '🖨️', label: 'לשלוח לדפוס', roles: ['admin'], count: b => b.c.approved },
+  { k: 'manage', status: 'printing', icon: '📦', label: 'חזר מהדפוס?', roles: ['admin'], count: b => b.c.printing },
+  { k: 'manage', status: 'await_crane', icon: '🏗️', label: 'תיאום מנוף', roles: ['admin'], count: b => b.c.await_crane },
+  { k: 'hang', icon: '🪧', label: 'תלייה', roles: ['surveyor'], count: b => b.hang },
+  { k: 'manage', status: 'done', icon: '🏁', label: 'אישור סיום', roles: ['admin'], count: b => b.c.done },
+  { k: 'manage', status: '', icon: '📋', label: 'כל השלטים', roles: ['admin'], hint: 'חיפוש, סינון, ייצוא' }
+];
+const TASK_ACTION = { await_admin: ['approve1', '✓ אישור ראשון'], approved: ['toExecute', '✓ נשלח לדפוס'], printing: ['printReturned', '✓ חזר מהדפוס'], done: ['finished', '✓ הסתיים'] };
+const MANAGE_HINTS = {
+  await_admin: 'כתובות שקיבלו המלצת מטה (או שנוספו בשטח) ומחכות לאישור שלך. סמן את מה שאתה מאשר ולחץ «✓ אישור ראשון» – הן יעברו לבנימין לתיאום ומדידה. כדי לדחות שלט – פתח אותו וסמן «השלט נדחה».',
+  approved: 'יוסי אישר את השלטים האלה. כשאתה שולח אותם להדפסה – סמן אותם ולחץ «✓ נשלח לדפוס».',
+  printing: 'השלטים האלה בדפוס. כשהם מגיעים אליך – סמן ולחץ «✓ חזר מהדפוס». שלט עם גישה קלה עובר מיד לבנימין לתלייה; שלט שצריך מנוף עובר ל«תיאום מנוף».',
+  await_crane: 'שלטים שחזרו מהדפוס וצריכים מנוף. פתח כל שלט וקבע «מנוף תואם לתאריך» אחרי התיאום עם אלי – ואז הוא עובר לבנימין לתלייה.',
+  done: 'בנימין תלה את השלטים האלה. פתח שלט, הסתכל בתמונת הביצוע, וסמן «✓ הסתיים». אפשר גם לסמן כמה ולחץ «✓ הסתיים».'
+};
 const FIELD_LABELS = {
   city: 'עיר', street: 'רחוב', houseNo: 'מספר', floor: 'קומה', name: 'שם', phone: 'טלפון', note: 'הערת מיקום',
   hqRec: 'המלצת מטה', hqNote: 'הערת מטה', approved1: 'אישור ראשון', height: 'גובה', width: 'רוחב', access: 'גישה',
@@ -269,7 +306,7 @@ const ui = {
   settings: null, importPreview: null,
   modal: ''
 };
-try { ui.tab = localStorage.getItem('signs_tab'); } catch (e) {}
+ui.tab = 'home';
 
 // ───────── עזרים ─────────
 const $ = s => document.querySelector(s);
@@ -503,6 +540,16 @@ async function uploadPhoto(file) {
   if (!d.secure_url) throw new Error((d.error && d.error.message) || 'העלאת התמונה נכשלה');
   return { url: d.secure_url, publicId: d.public_id, src: 'cloudinary', ...meta };
 }
+async function uploadFromUrl(url) {
+  const fd = new FormData();
+  fd.append('file', url);
+  fd.append('upload_preset', CLOUDINARY.preset);
+  fd.append('folder', CLOUDINARY.folder);
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY.cloud}/image/upload`, { method: 'POST', body: fd });
+  const d = await r.json();
+  if (!d.secure_url) throw new Error((d.error && d.error.message) || 'העברה נכשלה');
+  return { url: d.secure_url, publicId: d.public_id, src: 'cloudinary' };
+}
 async function uploadMany(files, onStart, onDone) {
   const out = [];
   onStart(files.length);
@@ -613,24 +660,33 @@ function render() {
   const b = S.loaded ? badgeCounts() : {};
   $('#who').textContent = S.me.name;
   $('#demoRole').innerHTML = DEMO ? `<select data-chg="demoRole" title="תצוגה לפי תפקיד">${[['admin', 'מנהל'], ['entry', 'בלאט'], ['surveyor', 'בנימין'], ['yossi', 'יוסי']].map(([k, l]) => `<option value="${k}" ${roles()[0] === k ? 'selected' : ''}>דמו: ${l}</option>`).join('')}</select>` : '';
-  const totalBadge = tabs.reduce((a, t) => a + (b[t.key] || 0), 0);
   const curLabel = (tabs.find(t => t.key === ui.tab) || {}).label || '';
-  $('#curTab').textContent = '· ' + curLabel;
-  $('#menuBtn').innerHTML = '☰' + (totalBadge ? `<span class="n">${totalBadge}</span>` : '');
-  $('#menu').innerHTML = ui.menuOpen ? `<div class="menu-bg" data-act="menuBg"></div><nav class="menu" aria-label="תפריט">
-    <div class="mh"><b>שלטים – דגל</b><button class="btn sm" data-act="menuClose" aria-label="סגור">✕</button></div>
-    <div class="mute small" style="padding:0 12px 8px">${esc(S.me.name)}</div>
-    ${tabs.map(t => `<button class="mi ${t.key === ui.tab ? 'on' : ''}" data-act="tab" data-k="${t.key}"><span>${t.label}</span>${b[t.key] ? `<span class="n">${b[t.key]}</span>` : ''}</button>`).join('')}
-    <button class="mi" data-act="logout"><span>יציאה</span></button></nav>` : '';
+  const taskTile = ui.tab === 'manage' && ui.manage.status ? TILES.find(t => t.k === 'manage' && t.status === ui.manage.status) : null;
+  $('#ttl').textContent = ui.tab === 'home' ? 'שלטים – דגל' : taskTile ? taskTile.label : curLabel;
+  $('#gearBtn').hidden = !isAdmin();
+  document.querySelector('main').classList.toggle('home', ui.tab === 'home');
   $('#tabs').innerHTML = tabs.map(t => `<button class="tab ${t.key === ui.tab ? 'on' : ''}" data-act="tab" data-k="${t.key}">${t.label}${b[t.key] ? `<span class="n">${b[t.key]}</span>` : ''}</button>`).join('');
   $('#view').innerHTML = S.loaded ? (VIEWS[ui.tab] || (() => ''))() : emptyBox('⏳', 'טוען נתונים…');
   if (render._tab !== ui.tab) { render._tab = ui.tab; const on = $('#tabs .tab.on'); if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' }); }
   renderModal();
-  document.body.style.overflow = (ui.modal || ui.menuOpen) ? 'hidden' : '';
+  document.body.style.overflow = ui.modal ? 'hidden' : '';
   if (fid) { const el = document.getElementById(fid); if (el) { el.focus({ preventScroll: true }); try { if (ss != null) el.setSelectionRange(ss, se); } catch (e) {} } }
 }
 
 const VIEWS = {};
+
+// ═════════ עמוד הבית ═════════
+VIEWS.home = function () {
+  const b = badgeCounts();
+  const tiles = TILES.filter(t => can(...t.roles));
+  return `<div class="hello">שלום ${esc(S.me.name)}${tiles.some(t => t.count && t.count(b)) ? ' – יש משימות שמחכות לך' : ''}</div>
+  <div class="tiles">${tiles.map(t => {
+    const n = t.count ? t.count(b) || 0 : null;
+    return `<button class="tile ${n ? 'has' : ''}" data-act="tile" data-k="${t.k}"${t.status !== undefined ? ` data-status="${t.status}"` : ''}>
+      ${n ? `<span class="tn">${n}</span>` : ''}<span class="ti">${t.icon}</span>
+      <span><span class="tl">${t.label}</span><br><span class="ts">${n === null ? t.hint : n ? `${n} ממתינים` : 'אין ממתינים'}</span></span></button>`;
+  }).join('')}</div>`;
+};
 
 // ═════════ ניהול (שלמה) ═════════
 VIEWS.manage = function () {
@@ -643,15 +699,19 @@ VIEWS.manage = function () {
   const chips = [{ key: '', label: 'הכל', n: all.length }, ...L.STATUSES.map(x => ({ key: x.key, label: x.label, n: c[x.key] || 0, color: x.color }))]
     .filter(x => x.key === '' || x.n > 0 || x.key === m.status);
   const allSel = rows.length && rows.every(s => m.sel.has(s.id));
-  return `
-  <div class="kpi">
+  const task = !!MANAGE_HINTS[m.status];
+  return `${MANAGE_HINTS[m.status] ? `<div class="hint">${MANAGE_HINTS[m.status]}</div>` : ''}
+  ${m.status ? '' : `<div class="kpi">
     <div><span class="mute small">סה"כ שלטים</span><b>${all.length}</b></div>
     <div><span class="mute small">ממתינים לאישורך</span><b>${c.await_admin || 0}</b></div>
     <div><span class="mute small">אושרו ע"י יוסי ומעלה</span><b>${committed.length}</b></div>
     <div><span class="mute small">עלות מאושרים (כולל מע"מ)</span><b>${ilsInt(total)}</b></div>
     <div><span class="mute small">בוצעו / הסתיימו</span><b>${(c.done || 0) + (c.finished || 0)}</b></div>
-  </div>
-  <div class="chips">${chips.map(x => `<button class="chip ${m.status === x.key ? 'on' : ''}" data-act="setf" data-k="manage.status" data-v="${x.key}">${x.color ? `<span class="c" style="--c:${x.color}"></span>` : ''}${x.label}<small>${x.n}</small></button>`).join('')}</div>
+  </div>`}
+  ${task ? `<div class="flex" style="margin-bottom:10px">
+    ${rows.length ? `<button class="btn" data-act="selVisible">${allSel ? '☐ בטל בחירה' : '☑ בחר הכל'}</button>` : ''}
+    ${TASK_ACTION[m.status] ? `<button class="btn ok sp" data-act="bulk" data-k="${TASK_ACTION[m.status][0]}" ${m.sel.size ? '' : 'disabled'}>${TASK_ACTION[m.status][1]}${m.sel.size ? ` (${m.sel.size})` : ' – סמן שלטים'}</button>` : ''}
+  </div>` : `<div class="chips">${chips.map(x => `<button class="chip ${m.status === x.key ? 'on' : ''}" data-act="setf" data-k="manage.status" data-v="${x.key}">${x.color ? `<span class="c" style="--c:${x.color}"></span>` : ''}${x.label}<small>${x.n}</small></button>`).join('')}</div>
   <div class="toolbar">
     <input id="m-q" type="search" placeholder="חיפוש: מספר, כתובת, שם, טלפון…" value="${esc(m.q)}" data-inp="setv" data-k="manage.q">
     <select id="m-city" data-chg="setv" data-k="manage.city"><option value="">כל הערים</option>${cities().map(x => `<option ${m.city === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
@@ -665,7 +725,7 @@ VIEWS.manage = function () {
     <button class="btn" data-act="bulk" data-k="printReturned">✓ חזר מהדפוס</button>
     <button class="btn" data-act="bulk" data-k="finished">✓ הסתיים</button>
     <button class="btn bad" data-act="bulk" data-k="reject">✗ דחה</button>
-    <span class="sp"></span><button class="btn" data-act="selClear">נקה בחירה</button></div>` : ''}
+    <span class="sp"></span><button class="btn" data-act="selClear">נקה בחירה</button></div>` : ''}`}
   <div class="tbl">
     <div class="r hd"><span><input type="checkbox" data-act="selAll" ${allSel ? 'checked' : ''} title="בחר הכל"></span><span>מס'</span><span>עיר וכתובת</span><span>טלפון</span><span>מטה</span><span>מידות לביצוע</span><span>מחיר</span><span>סטטוס</span></div>
     ${rows.map(s => {
@@ -994,6 +1054,7 @@ VIEWS.settings = function () {
   const tiers = d.pricing.tiers;
   const ip = ui.importPreview;
   const demoCount = list().filter(x => x.isDemo).length;
+  const drivePh = list().reduce((a, x) => a + [...(x.photos || []), ...(x.donePhotos || [])].filter(ph => ph.src === 'drive').length, 0);
   return `<div class="card"><h2>משתמשים והרשאות</h2>
     <div class="mute small" style="margin-bottom:8px">כל משתמש נכנס עם חשבון הגוגל שלו. התפקידים קובעים אילו מסכים הוא רואה; אפשר לסמן כמה תפקידים לאותו אדם.</div>
     <div class="small" style="margin-bottom:10px;line-height:1.7">${Object.entries(ROLE_HELP).map(([r, h]) => `<b>${ROLE_LABELS[r]}</b> – ${h}`).join('<br>')}</div>
@@ -1026,6 +1087,13 @@ VIEWS.settings = function () {
       <div class="flex" style="margin-top:8px"><button class="btn ok" data-act="importRun" ${ip.add.length ? '' : 'disabled'}>ייבא ${ip.add.length} שלטים</button><button class="btn" data-act="importCancel">ביטול</button></div></div>` : ''}
   </div>
 
+  ${drivePh ? `<div class="card"><h2>תמונות מהטופס הישן</h2>
+    <div class="small" style="line-height:1.6;margin-bottom:8px">${drivePh} תמונות שצולמו דרך טופס הגוגל עדיין יושבות בגוגל דרייב, ולכן לא מוצגות בתוכנה. אפשר להעביר אותן לתוכנה פעם אחת:<br>
+      1. בגוגל דרייב, בעל התיקייה <b>"שלטים - דגל (File responses)"</b> משתף אותה זמנית: שיתוף ← גישה כללית ← "כל מי שיש לו את הקישור" (צפייה).<br>
+      2. לוחצים כאן על הכפתור ומחכים לסיום.<br>
+      3. מחזירים את השיתוף של התיקייה ל"מוגבלת".</div>
+    <button class="btn pri" data-act="migrateDrive" ${ui.migrating ? 'disabled' : ''}>${ui.migrating ? `מעביר… ${ui.migrating}` : `⬇ העבר ${drivePh} תמונות לתוכנה`}</button>
+  </div>` : ''}
   ${demoCount ? `<div class="card"><h2>שלטי דמה</h2>
     <div class="mute small" style="margin-bottom:8px">נשארו ${demoCount} שלטי דמה מהבדיקה (מסומנים בסגול). אפשר למחוק אותם בלחיצה אחת.</div>
     <button class="btn bad" data-act="demoDel">מחק את שלטי הדמה (${demoCount})</button>
@@ -1070,10 +1138,13 @@ const ACTIONS = {
   logout: () => { if (DEMO || confirm('להתנתק?')) Store.signOut(); },
   reload: () => location.reload(),
   copyRules: () => { navigator.clipboard && navigator.clipboard.writeText(RULES_SNIPPET).then(() => toast('הועתק')); },
-  menuOpen: () => { ui.menuOpen = true; render(); },
-  menuClose: () => { ui.menuOpen = false; render(); },
-  menuBg: (el, ev) => { if (ev.target === el) { ui.menuOpen = false; render(); } },
-  tab: el => { ui.menuOpen = false; ui.tab = el.dataset.k; try { localStorage.setItem('signs_tab', ui.tab); } catch (e) {} if (ui.tab !== 'settings') ui.importPreview = null; window.scrollTo(0, 0); render(); },
+  goHome: () => go('home'),
+  goSettings: () => go('settings'),
+  tile: el => {
+    if (el.dataset.status !== undefined) Object.assign(ui.manage, { status: el.dataset.status, q: '', city: '', access: '' }), ui.manage.sel.clear();
+    go(el.dataset.k);
+  },
+  tab: el => { if (el.dataset.k === 'manage') { ui.manage.status = ''; ui.manage.sel.clear(); } go(el.dataset.k); },
   setf: el => { setPath(el.dataset.k, getPath(el.dataset.k) === el.dataset.v && el.dataset.k.endsWith('city') ? '' : el.dataset.v); if (el.dataset.k === 'yossi.tab') ui.yossi.city = ''; render(); },
   setb: (el, ev) => { if (el.tagName === 'SUMMARY') { ev.preventDefault(); } setPath(el.dataset.k, !getPath(el.dataset.k)); render(); },
   open: (el, ev) => { if (ev && el.tagName === 'A') { ev.preventDefault(); ev.stopPropagation(); } ui.modal = el.dataset.id; ui.histAll = false; ui.modalUp = 0; render(); },
@@ -1139,7 +1210,7 @@ const ACTIONS = {
   goMeasure: el => {
     const s = S.signs[el.dataset.id];
     ui.measure = { ...blankMeasure(), mode: 'list', signId: s.id, height: s.height || '', width: s.width || '', access: s.access || '', note: s.surveyNote || '' };
-    ui.tab = 'measure'; window.scrollTo(0, 0); render();
+    go('measure');
   },
 
   // מדידה
@@ -1252,6 +1323,31 @@ const ACTIONS = {
     } catch (e) { fail(e); }
   },
   importCancel: () => { ui.importPreview = null; render(); },
+  migrateDrive: async () => {
+    const todo = list().filter(x => [...(x.photos || []), ...(x.donePhotos || [])].some(ph => ph.src === 'drive'));
+    const total = todo.reduce((a, x) => a + [...(x.photos || []), ...(x.donePhotos || [])].filter(ph => ph.src === 'drive').length, 0);
+    let done = 0, ok = 0, bad = 0;
+    ui.migrating = `0/${total}`; render();
+    const moveArr = async arr => {
+      const out = [];
+      for (const ph of arr || []) {
+        if (ph.src !== 'drive') { out.push(ph); continue; }
+        try {
+          const up = DEMO ? { url: ph.url, src: 'demo' } : await uploadFromUrl(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(ph.driveId)}`);
+          out.push({ ...up, t: ph.t || Date.now(), by: ph.by || '', fromDrive: ph.driveId }); ok++;
+        } catch (e) { out.push(ph); bad++; console.warn('drive photo', ph.driveId, e); }
+        done++; ui.migrating = `${done}/${total}`; render();
+      }
+      return out;
+    };
+    for (const x of todo) {
+      const photos = await moveArr(x.photos), donePhotos = await moveArr(x.donePhotos);
+      try { await Store.updateSign(x.id, { photos, donePhotos }, { hist: 'תמונות הועברו מגוגל דרייב לתוכנה' }); } catch (e) { fail(e); }
+    }
+    ui.migrating = ''; render();
+    if (!bad) toast(`הועברו ${ok} תמונות ✓`);
+    else toast(`הועברו ${ok}, נכשלו ${bad}. כנראה התיקייה בדרייב עדיין לא משותפת – שתף ונסה שוב.`, true);
+  },
   demoDel: async () => {
     const ids = list().filter(x => x.isDemo).map(x => x.id);
     if (!ids.length || !confirm(`למחוק ${ids.length} שלטי דמה?`)) return;
@@ -1331,7 +1427,19 @@ document.addEventListener('click', ev => {
 });
 document.addEventListener('change', ev => { const el = ev.target.closest('[data-chg]'); if (el && CHANGES[el.dataset.chg]) CHANGES[el.dataset.chg](el, ev); });
 document.addEventListener('input', ev => { const el = ev.target.closest('[data-inp]'); if (el && INPUTS[el.dataset.inp]) INPUTS[el.dataset.inp](el, ev); });
-document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && (ui.modal || ui.menuOpen)) { ui.modal = ''; ui.menuOpen = false; render(); } });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && ui.modal) { ui.modal = ''; render(); } });
+// מעבר בין מסכים + כפתור "חזור" של הטלפון
+function go(tab, fromHistory) {
+  if (ui.tab === 'settings' && tab !== 'settings') ui.importPreview = null;
+  ui.tab = tab; ui.modal = '';
+  if (!fromHistory) try { history.pushState({ tab }, '', '#' + tab); } catch (e) {}
+  window.scrollTo(0, 0); render();
+}
+window.addEventListener('popstate', ev => {
+  if (ui.modal) { ui.modal = ''; render(); return; }
+  go((ev.state && ev.state.tab) || 'home', true);
+});
+try { history.replaceState({ tab: 'home' }, '', location.pathname + location.search); } catch (e) {}
 
 // ───────── הפעלה ─────────
 (async function boot() {
