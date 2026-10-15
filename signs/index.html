@@ -175,13 +175,14 @@ const L = window.SignsLogic;
 const SUPER = '6435786@gmail.com';
 const DEMO = new URLSearchParams(location.search).has('demo');
 
+// פרויקט Firebase נפרד לשלטים — אין שום שיתוף משתמשים או הרשאות עם אפליקציית הטיולים
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAWvYdozI_PSlZwCKXv1CN1Qoj2YJOt-I0",
-  authDomain: "travel-beitar-degel.firebaseapp.com",
-  projectId: "travel-beitar-degel",
-  storageBucket: "travel-beitar-degel.firebasestorage.app",
-  messagingSenderId: "765811804557",
-  appId: "1:765811804557:web:1e75a1a716836d4eaf95c4"
+  apiKey: "AIzaSyCFvLMEQ-wupIxUNt9UihWHpGAYdS1-d-A",
+  authDomain: "signs-degel.firebaseapp.com",
+  projectId: "signs-degel",
+  storageBucket: "signs-degel.firebasestorage.app",
+  messagingSenderId: "818212061581",
+  appId: "1:818212061581:web:0fb0517ac9a9d7e2883dc4"
 };
 // העלאה בלתי חתומה בלבד (preset) — בלי מפתח סודי בדפדפן
 const CLOUDINARY = { cloud: 'djahciacr', preset: 'trips_upload', folder: 'signs' };
@@ -463,27 +464,29 @@ function showRulesHelp() {
   $('#app').hidden = true; $('#auth').hidden = false;
   $('#auth .card').style.maxWidth = '720px';
   $('#authBody').innerHTML = `<div class="warn" style="text-align:right;margin-top:14px">Firebase חוסם את הגישה לנתוני השלטים. צריך להוסיף פעם אחת הרשאה:<br>
-  1. להיכנס ל-<a href="https://console.firebase.google.com/project/travel-beitar-degel/firestore/rules" target="_blank" rel="noopener">כללי Firestore בפרויקט</a>.<br>
-  2. להדביק את הקטע הבא <b>בתוך</b> הבלוק <span dir="ltr">match /databases/{database}/documents { … }</span>, מתחת לכללים הקיימים של הטיולים (לא למחוק אותם).<br>
+  1. להיכנס ל-<a href="https://console.firebase.google.com/project/signs-degel/firestore/rules" target="_blank" rel="noopener">כללי Firestore בפרויקט signs-degel</a>.<br>
+  2. למחוק את כל מה שכתוב שם ולהדביק במקומו את הכללים הבאים.<br>
   3. ללחוץ Publish ולרענן את הדף.</div>
   <pre class="code">${esc(RULES_SNIPPET)}</pre><button class="btn" data-act="copyRules">העתק</button> <button class="btn" data-act="reload">רענן</button>`;
 }
-const RULES_SNIPPET = `    // ===== מערכת השלטים =====
-    function signsSignedIn() { return request.auth != null && request.auth.token.email is string; }
-    function signsEmail() { return request.auth.token.email.lower(); }
-    function signsCfg() { return get(/databases/$(database)/documents/signsMeta/config).data; }
-    function signsSuper() { return signsSignedIn() && signsEmail() == '${SUPER}'; }
-    function signsUser() {
-      return signsSuper() || (signsSignedIn()
+const RULES_SNIPPET = `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null && request.auth.token.email is string; }
+    function email() { return request.auth.token.email.lower(); }
+    function cfg() { return get(/databases/$(database)/documents/signsMeta/config).data; }
+    function isSuper() { return signedIn() && email() == '${SUPER}'; }
+    function isUser() {
+      return isSuper() || (signedIn()
         && exists(/databases/$(database)/documents/signsMeta/config)
-        && signsEmail() in signsCfg().userEmails);
+        && email() in cfg().userEmails);
     }
-    function signsAdmin() {
-      return signsSuper() || (signsUser() && 'admin' in signsCfg().users[signsEmail()].roles);
-    }
-    match /signs/{id} { allow read, write: if signsUser(); }
-    match /signsMeta/counter { allow read, write: if signsUser(); }
-    match /signsMeta/config { allow read: if signsUser(); allow write: if signsAdmin(); }`;
+    function isAdmin() { return isSuper() || (isUser() && 'admin' in cfg().users[email()].roles); }
+    match /signs/{id} { allow read, write: if isUser(); }
+    match /signsMeta/counter { allow read, write: if isUser(); }
+    match /signsMeta/config { allow read: if isUser(); allow write: if isAdmin(); }
+  }
+}`;
 
 function stopSubs() { S.unsub.forEach(f => { try { f(); } catch (e) {} }); S.unsub = []; S.signs = {}; S.loaded = false; S.me = null; S.config = null; }
 
@@ -581,6 +584,7 @@ VIEWS.manage = function () {
     <input id="m-q" type="search" placeholder="חיפוש: מספר, כתובת, שם, טלפון…" value="${esc(m.q)}" data-inp="setv" data-k="manage.q">
     <select id="m-city" data-chg="setv" data-k="manage.city"><option value="">כל הערים</option>${cities().map(x => `<option ${m.city === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
     <select id="m-acc" data-chg="setv" data-k="manage.access"><option value="">כל סוגי הגישה</option><option value="קלה" ${m.access === 'קלה' ? 'selected' : ''}>גישה קלה</option><option value="מנוף" ${m.access === 'מנוף' ? 'selected' : ''}>מנוף</option><option value="none" ${m.access === 'none' ? 'selected' : ''}>טרם נמדד</option></select>
+    <button class="btn" data-act="selVisible">${allSel ? '☐ בטל בחירה' : '☑ בחר את המוצגים'}</button>
     <button class="btn" data-act="exportView">⬇ ייצוא לאקסל</button>
   </div>
   ${m.sel.size ? `<div class="bulk"><span>נבחרו ${m.sel.size}:</span>
@@ -996,6 +1000,11 @@ const ACTIONS = {
   sel: (el, ev) => { ev.stopPropagation(); const id = el.dataset.id, s = ui.manage.sel; s.has(id) ? s.delete(id) : s.add(id); render(); },
   selAll: el => { const m = ui.manage; const vis = [...document.querySelectorAll('.tbl .r[data-id]')].map(r => r.dataset.id); if (el.checked) vis.forEach(id => m.sel.add(id)); else vis.forEach(id => m.sel.delete(id)); render(); },
   selClear: () => { ui.manage.sel.clear(); render(); },
+  selVisible: () => {
+    const m = ui.manage, vis = [...document.querySelectorAll('.tbl .r[data-id]')].map(r => r.dataset.id);
+    const all = vis.length && vis.every(id => m.sel.has(id));
+    vis.forEach(id => all ? m.sel.delete(id) : m.sel.add(id)); render();
+  },
   bulk: async el => {
     const b = BULK[el.dataset.k], ids = [...ui.manage.sel], ok = ids.filter(id => S.signs[id] && b.ok(S.signs[id]));
     if (!ok.length) { toast('אף אחד מהשלטים שנבחרו לא מתאים לפעולה הזו', true); return; }
