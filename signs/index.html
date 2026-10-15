@@ -187,6 +187,9 @@ main.home{max-width:760px}
   .trow{grid-template-columns:1fr 1fr}
   .trow .tdesc{grid-column:1/-1}
 }
+.cityf{margin-bottom:8px}
+.cityf select{font-weight:600;background:#fff}
+.xcard{border:2px dashed #c4b5fd;background:#faf5ff}
 .warn{background:var(--warn2);color:#78350f;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:14px}
 </style>
 <script src="logic.js"></script>
@@ -293,7 +296,7 @@ const COMMITTED = new Set(['approved', 'printing', 'await_crane', 'ready', 'done
 // ───────── מצב ─────────
 const S = { user: null, me: null, config: null, signs: {}, loaded: false, unsub: [] };
 const blankAddr = () => ({ city: '', street: '', houseNo: '', floor: '', name: '', phone: '', note: '' });
-const blankMeasure = () => ({ mode: '', signId: '', baseId: '', q: '', city: '', includeMeasured: false, addr: blankAddr(), height: '', width: '', access: '', note: '', photos: [], uploading: 0, saving: false });
+const blankMeasure = () => ({ mode: 'list', extras: [], signId: '', baseId: '', q: '', city: '', includeMeasured: false, addr: blankAddr(), height: '', width: '', access: '', note: '', photos: [], uploading: 0, saving: false });
 const ui = {
   tab: null,
   manage: { q: '', city: '', status: '', access: '', sel: new Set() },
@@ -375,7 +378,8 @@ function photoInput(target, label = '📷 צלם / הוסף תמונה', id = ''
 function cityChips(arr, cur, key) {
   const cs = cities(arr);
   if (cs.length < 2) return '';
-  return `<div class="chips"><button class="chip ${!cur ? 'on' : ''}" data-act="setf" data-k="${key}" data-v="">הכל <small>${arr.length}</small></button>${cs.map(c => `<button class="chip ${cur === c ? 'on' : ''}" data-act="setf" data-k="${key}" data-v="${esc(c)}">${esc(c)} <small>${arr.filter(s => s.city === c).length}</small></button>`).join('')}</div>`;
+  return `<div class="cityf"><select id="cf-${key.replace('.', '-')}" data-chg="setv" data-k="${key}" aria-label="סינון לפי עיר">
+    <option value="">☰ כל הערים (${arr.length})</option>${cs.map(c => `<option value="${esc(c)}" ${cur === c ? 'selected' : ''}>${esc(c)} (${arr.filter(s => s.city === c).length})</option>`).join('')}</select></div>`;
 }
 function emptyBox(icon, text) { return `<div class="card empty"><div class="i">${icon}</div>${text}</div>`; }
 function toast(msg, err) {
@@ -828,7 +832,7 @@ function renderModal() {
       ${hist.length > 8 && !ui.histAll ? `<button class="btn sm" data-act="histAll">הצג הכל (${hist.length})</button>` : ''}
     </div>
 
-    ${A ? `<div class="sec flex"><span class="sp"></span><button class="btn bad sm" data-act="del" data-id="${s.id}">מחק שלט</button></div>` : ''}
+    <div class="sec flex">${can('surveyor') ? `<button class="btn" data-act="mExtraFrom" data-id="${s.id}">➕ שלט נוסף בכתובת הזו</button>` : ''}<span class="sp"></span>${A ? `<button class="btn bad sm" data-act="del" data-id="${s.id}">מחק שלט</button>` : ''}</div>
   </div></div>`;
 }
 
@@ -912,33 +916,37 @@ VIEWS.plan = function () {
 // ═════════ מדידה (בנימין) ═════════
 VIEWS.measure = function () {
   const m = ui.measure;
-  if (!m.mode) return `<h2>מדידה</h2><div class="modes">
-    <button class="mode" data-act="mMode" data-v="list"><span class="i">📋</span><b>שלט מהרשימה</b><span class="mute small">כתובת שכבר קיימת וממתינה למדידה</span></button>
-    <button class="mode" data-act="mMode" data-v="new"><span class="i">＋</span><b>שלט חדש</b><span class="mute small">כתובת שלא ברשימה</span></button>
-    <button class="mode" data-act="mMode" data-v="extra"><span class="i">➕</span><b>שלט נוסף לכתובת</b><span class="mute small">עוד שלט בכתובת קיימת (גם אם כבר בוצע)</span></button>
-  </div>`;
-  const back = `<button class="btn sm" data-act="mReset">→ חזרה</button>`;
-  // בחירת שלט
-  if ((m.mode === 'list' && !m.signId) || (m.mode === 'extra' && !m.baseId)) {
-    const base = m.mode === 'list'
-      ? list().filter(s => !s.rejected && !s.done && !s.finished && !s.yossiDecision && (m.includeMeasured || !L.isMeasured(s)))
-      : list().filter(s => !s.rejected);
+  const back = `<button class="btn" data-act="mReset">→ חזרה לרשימה</button>`;
+  // רשימת השלטים למדידה
+  if (m.mode === 'list' && !m.signId) {
+    const base = list().filter(s => !s.rejected && !s.done && !s.finished && !s.yossiDecision && (m.includeMeasured || !L.isMeasured(s)));
     const rows = base.filter(s => (!m.city || s.city === m.city) && matchQ(s, m.q))
-      .sort((a, b) => (m.mode === 'list' ? (b.approved1 ? 1 : 0) - (a.approved1 ? 1 : 0) : 0) || a.city.localeCompare(b.city, 'he') || a.num - b.num);
-    return `<div class="flex" style="margin-bottom:8px">${back}<h2 style="margin:0">${m.mode === 'list' ? 'בחר שלט למדידה' : 'בחר כתובת לשלט נוסף'}</h2></div>
-      ${cityChips(base, m.city, 'measure.city')}
+      .sort((a, b) => (b.approved1 ? 1 : 0) - (a.approved1 ? 1 : 0) || a.city.localeCompare(b.city, 'he') || a.num - b.num);
+    return `${cityChips(base, m.city, 'measure.city')}
       <div class="toolbar"><input id="ms-q" type="search" placeholder="חיפוש כתובת / שם / מספר" value="${esc(m.q)}" data-inp="setv" data-k="measure.q">
-      ${m.mode === 'list' ? `<label class="flex small"><input type="checkbox" data-act="setb" data-k="measure.includeMeasured" ${m.includeMeasured ? 'checked' : ''}> כולל שכבר נמדדו</label>` : ''}</div>
+      <label class="flex small"><input type="checkbox" data-act="setb" data-k="measure.includeMeasured" ${m.includeMeasured ? 'checked' : ''}> כולל שכבר נמדדו</label></div>
       ${rows.slice(0, 150).map(s => `<button class="pick" data-act="mPick" data-id="${s.id}">${numTag(s)}<span class="sp"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span> <span class="mute small">${esc(s.name)}</span>${sibTag(s, false)}
-        ${m.mode === 'list' && !s.approved1 ? ' <span class="pill">טרם אושר</span>' : ''}${L.isMeasured(s) ? ' <span class="pill">נמדד</span>' : ''}</span>${m.mode === 'extra' ? statusBadge(s) : ''}</button>`).join('') || emptyBox('🔍', 'לא נמצאו שלטים')}`;
+        ${!s.approved1 ? ' <span class="pill">טרם אושר</span>' : ''}${L.isMeasured(s) ? ' <span class="pill">נמדד</span>' : ''}</span></button>`).join('') || emptyBox('🔍', 'לא נמצאו שלטים')}
+      <div class="mute small" style="text-align:center;margin:14px 0">כתובת שלא ברשימה? <a href="#" data-act="mNew">＋ הוסף כתובת חדשה מהשטח</a></div>`;
   }
   // טופס מדידה
-  const s = m.signId ? S.signs[m.signId] : null, b = m.baseId ? S.signs[m.baseId] : null;
-  const head = m.mode === 'new' ? `<div class="card"><h3>פרטי השלט החדש</h3>${addrForm('mn', m.addr, 'measure.addr')}</div>`
-    : `<div class="card"><div class="flex">${numTag(s || b)}<span class="addr sp">${esc((s || b).city)} · ${esc(addrOf(s || b))}${sibTag(s || b)}</span>${m.mode === 'extra' ? '<span class="pill">שלט נוסף</span>' : ''}</div>
-       <div class="small">${esc((s || b).name)} ${phoneLinks(s || b)}</div>${(s || b).note ? `<div class="mute small">${esc((s || b).note)}</div>` : ''}
+  const s = m.signId ? S.signs[m.signId] : null, b = m.baseId ? S.signs[m.baseId] : null, t = s || b;
+  if (m.mode !== 'new' && !t) { ui.measure = { ...blankMeasure(), city: m.city, q: m.q }; return VIEWS.measure(); }
+  const head = m.mode === 'new' ? `<div class="card"><h3>פרטי הכתובת החדשה</h3>${addrForm('mn', m.addr, 'measure.addr')}</div>`
+    : `<div class="card"><div class="flex">${numTag(t)}<span class="addr sp">${esc(t.city)} · ${esc(addrOf(t))}${sibTag(t)}</span>${m.mode === 'extra' ? '<span class="pill">שלט נוסף</span>' : ''}</div>
+       <div class="small">${esc(t.name)} ${phoneLinks(t)}</div>${t.note ? `<div class="mute small">${esc(t.note)}</div>` : ''}
        ${s && s.photos && s.photos.length ? `<div class="mute small" style="margin-top:6px">תמונות קיימות:</div>${photoStrip(s.photos)}` : ''}</div>`;
-  return `<div class="flex" style="margin-bottom:8px">${back}<h2 style="margin:0">${m.mode === 'new' ? 'שלט חדש' : m.mode === 'extra' ? 'שלט נוסף לכתובת' : 'מדידה'}</h2></div>
+  const extras = m.extras.map((x, i) => `<div class="card xcard">
+      <div class="flex"><b class="sp">➕ שלט נוסף בכתובת הזו${m.extras.length > 1 ? ` (${i + 1})` : ''}</b><button class="btn sm bad" data-act="mxDel" data-i="${i}">הסר</button></div>
+      <div class="seg" style="margin-top:8px"><button class="${x.same ? 'on' : ''}" data-act="mxSame" data-i="${i}" data-v="1">מידות זהות</button><button class="${!x.same ? 'on' : ''}" data-act="mxSame" data-i="${i}" data-v="0">מידות שונות</button></div>
+      ${x.same ? `<div class="mute small" style="margin-top:6px">יישמר באותן מידות: גובה ${esc(m.height || '?')} · רוחב ${esc(m.width || '?')}</div>`
+        : `<div class="row2" style="margin-top:8px">
+        <div><label class="f">גובה (מטר) <b>*</b></label><input id="mx-h-${i}" inputmode="decimal" value="${esc(x.height)}" data-inp="mx" data-i="${i}" data-k="height"></div>
+        <div><label class="f">רוחב (מטר) <b>*</b></label><input id="mx-w-${i}" inputmode="decimal" value="${esc(x.width)}" data-inp="mx" data-i="${i}" data-k="width"></div></div>`}
+      <div style="margin-top:8px"><input id="mx-n-${i}" placeholder="הערה לשלט הנוסף (לא חובה)" value="${esc(x.note)}" data-inp="mx" data-i="${i}" data-k="note"></div>
+    </div>`).join('');
+  const count = 1 + m.extras.length;
+  return `<div class="flex" style="margin-bottom:8px">${back}</div>
   ${head}
   <div class="card"><h3>מדידה</h3>
     <div class="row2">
@@ -951,8 +959,10 @@ VIEWS.measure = function () {
     ${photoStrip(m.photos, { removeAct: 'mRmPhoto', uploading: m.uploading })}
     ${photoInput('measure')}
     <div style="margin-top:10px"><label class="f">הערה (לא חובה)</label><textarea id="mm-note" data-inp="setv" data-k="measure.note">${esc(m.note)}</textarea></div>
-    <button class="btn ok big" style="margin-top:12px" data-act="mSave" ${m.saving || m.uploading ? 'disabled' : ''}>${m.uploading ? 'ממתין להעלאת תמונות…' : m.saving ? 'שומר…' : '✓ שמור מדידה'}</button>
-  </div>`;
+  </div>
+  ${extras}
+  <button class="btn" style="width:100%;margin-bottom:10px" data-act="mxAdd">➕ שלט נוסף לכתובת</button>
+  <button class="btn ok big" data-act="mSave" ${m.saving || m.uploading ? 'disabled' : ''}>${m.uploading ? 'ממתין להעלאת תמונות…' : m.saving ? 'שומר…' : count > 1 ? `✓ שמור ${count} שלטים` : '✓ שמור מדידה'}</button>`;
 };
 
 // ═════════ אישור יוסי ═════════
@@ -1127,6 +1137,21 @@ async function exportExcel(rows, name) {
   } catch (e) { fail(e); }
 }
 
+// ───────── מדידה: עזרים ─────────
+function extraFrom(b) {
+  return { ...blankSign(), city: b.city, street: b.street, houseNo: b.houseNo, floor: b.floor, name: b.name, phone: b.phone,
+    note: b.note || '', hqRec: b.hqRec || '', hqNote: b.hqNote || '', approved1: !!b.approved1 };
+}
+const measureDirty = () => { const m = ui.measure; return !m.saving && (m.mode === 'new' || m.signId || m.baseId) && (m.photos.length || m.extras.length || (m.signId && S.signs[m.signId] && (String(m.height) !== String(S.signs[m.signId].height || '') || String(m.width) !== String(S.signs[m.signId].width || ''))) || (!m.signId && (m.height || m.width))); };
+function measureLeaveOk() { return !measureDirty() || confirm('לצאת בלי לשמור את המדידה?'); }
+function measureToList(noHistory) {
+  const m = ui.measure;
+  ui.measure = { ...blankMeasure(), city: m.city, q: m.q, includeMeasured: m.includeMeasured };
+  if (!noHistory && history.state && history.state.sub) { try { history.replaceState({ tab: 'measure' }, '', '#measure'); } catch (e) {} }
+  window.scrollTo(0, 0); render();
+}
+function pushSub() { try { history.pushState({ tab: 'measure', sub: 'form' }, '', '#measure'); } catch (e) {} }
+
 // ───────── פעולות ─────────
 function setPath(path, v) { const [a, b] = path.split('.'); ui[a][b] = v; }
 function getPath(path) { const [a, b] = path.split('.'); return ui[a][b]; }
@@ -1210,48 +1235,56 @@ const ACTIONS = {
   goMeasure: el => {
     const s = S.signs[el.dataset.id];
     ui.measure = { ...blankMeasure(), mode: 'list', signId: s.id, height: s.height || '', width: s.width || '', access: s.access || '', note: s.surveyNote || '' };
-    go('measure');
+    go('measure'); pushSub();
   },
 
   // מדידה
-  mMode: el => { ui.measure = { ...blankMeasure(), mode: el.dataset.v }; render(); },
-  mReset: () => {
-    const m = ui.measure;
-    if ((m.height || m.width || m.photos.length) && !confirm('לצאת בלי לשמור את המדידה?')) return;
-    ui.measure = (m.signId || m.baseId) ? { ...blankMeasure(), mode: m.mode, city: m.city, q: m.q } : blankMeasure(); render();
-  },
+  mNew: (el, ev) => { if (ev) ev.preventDefault(); const m = ui.measure; ui.measure = { ...blankMeasure(), mode: 'new', city: m.city, q: m.q }; ui.measure.addr.city = m.city || ''; pushSub(); window.scrollTo(0, 0); render(); },
+  mReset: () => { if (!measureLeaveOk()) return; measureToList(); },
   mPick: el => {
     const m = ui.measure, s = S.signs[el.dataset.id];
-    if (m.mode === 'list') Object.assign(m, { signId: s.id, height: s.height || '', width: s.width || '', access: s.access || '', note: s.surveyNote || '' });
-    else m.baseId = s.id;
-    window.scrollTo(0, 0); render();
+    Object.assign(m, { mode: 'list', signId: s.id, baseId: '', extras: [], height: s.height || '', width: s.width || '', access: s.access || '', note: s.surveyNote || '', photos: [] });
+    pushSub(); window.scrollTo(0, 0); render();
   },
   mAccess: el => { ui.measure.access = el.dataset.v; render(); },
   mRmPhoto: el => { ui.measure.photos.splice(+el.dataset.i, 1); render(); },
+  mExtraFrom: el => { ui.measure = { ...blankMeasure(), mode: 'extra', baseId: el.dataset.id }; ui.modal = ''; go('measure'); pushSub(); },
+  mxAdd: () => { ui.measure.extras.push({ same: true, height: '', width: '', note: '' }); render(); },
+  mxDel: el => { ui.measure.extras.splice(+el.dataset.i, 1); render(); },
+  mxSame: el => { ui.measure.extras[+el.dataset.i].same = el.dataset.v === '1'; render(); },
   mSave: async () => {
     const m = ui.measure, h = parseM(m.height), w = parseM(m.width);
-    if (!(h > 0 && h <= 50) || !(w > 0 && w <= 50)) { toast('יש להזין גובה ורוחב תקינים (במטרים)', true); return; }
+    const okDim = x => x > 0 && x <= 50;
+    if (!okDim(h) || !okDim(w)) { toast('יש להזין גובה ורוחב תקינים (במטרים)', true); return; }
     if (!m.access) { toast('יש לבחור גישה: קלה או מנוף', true); return; }
+    const extras = m.extras.map(x => x.same ? { h, w, note: x.note.trim() } : { h: parseM(x.height), w: parseM(x.width), note: x.note.trim() });
+    if (extras.some(x => !okDim(x.h) || !okDim(x.w))) { toast('בשלט הנוסף: יש להזין גובה ורוחב, או לבחור "מידות זהות"', true); return; }
     let addr = null;
     if (m.mode === 'new') { addr = trimAddr(m.addr); if (!validateAddr(addr)) return; }
     if (!m.photos.length && !confirm('לא צורפה תמונה. לשמור בלי תמונה?')) return;
-    const meas = { height: h, width: w, access: m.access, surveyNote: m.note.trim(), surveyBy: S.me.name, surveyAt: Date.now() };
-    const histTxt = `נמדד: ${fmtM(h)}×${fmtM(w)}, גישה ${m.access}${m.photos.length ? `, ${m.photos.length} תמונות` : ''}`;
+    const meas = (hh, ww, note) => ({ height: hh, width: ww, access: m.access, surveyNote: note, surveyBy: S.me.name, surveyAt: Date.now() });
+    const histTxt = (hh, ww) => `נמדד: ${fmtM(hh)}×${fmtM(ww)}, גישה ${m.access}${m.photos.length ? `, ${m.photos.length} תמונות` : ''}`;
     m.saving = true; render();
     try {
-      let n;
-      if (m.mode === 'list') { const s = S.signs[m.signId]; await Store.updateSign(s.id, meas, { hist: histTxt, push: { photos: m.photos } }); n = s.num; }
-      else if (m.mode === 'new') n = await Store.createSign({ ...blankSign(), ...addr, ...meas, photos: m.photos }, 'נוצר מהשטח · ' + histTxt);
-      else {
+      let base, n;
+      if (m.mode === 'list') {
+        base = S.signs[m.signId];
+        await Store.updateSign(base.id, meas(h, w, m.note.trim()), { hist: histTxt(h, w), push: { photos: m.photos } }); n = base.num;
+      } else if (m.mode === 'new') {
+        n = await Store.createSign({ ...blankSign(), ...addr, ...meas(h, w, m.note.trim()), photos: m.photos }, 'נוצר מהשטח · ' + histTxt(h, w));
+        base = { ...addr, num: n, hqRec: '', hqNote: '', approved1: false };
+      } else {
         const b = S.signs[m.baseId];
-        n = await Store.createSign({ ...blankSign(), city: b.city, street: b.street, houseNo: b.houseNo, floor: b.floor, name: b.name, phone: b.phone,
-          note: [b.note, `שלט נוסף לשלט ${b.num}`].filter(Boolean).join(' · '), hqRec: b.hqRec || '', hqNote: b.hqNote || '', approved1: !!b.approved1,
-          ...meas, photos: m.photos }, `שלט נוסף לכתובת של שלט ${b.num} · ${histTxt}`);
+        n = await Store.createSign({ ...extraFrom(b), ...meas(h, w, m.note.trim()), photos: m.photos }, `שלט נוסף לכתובת של שלט ${b.num} · ${histTxt(h, w)}`);
+        base = b;
       }
-      toast(`המדידה נשמרה (שלט ${n})`);
-      ui.measure = blankMeasure();
-    } catch (e) { fail(e); m.saving = false; }
-    render(); window.scrollTo(0, 0);
+      const nums = [n];
+      for (const x of extras) {
+        nums.push(await Store.createSign({ ...extraFrom(base), ...meas(x.h, x.w, x.note), photos: m.photos }, `שלט נוסף לכתובת של שלט ${base.num} (נמדד יחד) · ${histTxt(x.h, x.w)}`));
+      }
+      toast(nums.length > 1 ? `נשמרו ${nums.length} שלטים: ${nums.join(', ')}` : `המדידה נשמרה (שלט ${n})`);
+      measureToList(true);
+    } catch (e) { fail(e); m.saving = false; render(); }
   },
 
   // יוסי
@@ -1410,7 +1443,8 @@ const CHANGES = {
 };
 
 const INPUTS = {
-  setv: el => { setPath(el.dataset.k, el.value); if (['manage.q', 'plan.q', 'measure.q'].includes(el.dataset.k)) render(); },
+  setv: el => { setPath(el.dataset.k, el.value); if (['manage.q', 'plan.q', 'measure.q'].includes(el.dataset.k) || (ui.measure.extras.length && ['measure.height', 'measure.width'].includes(el.dataset.k))) render(); },
+  mx: el => { ui.measure.extras[+el.dataset.i][el.dataset.k] = el.value; },
   form: el => { const tgt = el.dataset.s === 'entry' ? ui.entry.form : ui.measure.addr; tgt[el.dataset.k] = el.value; },
   ydim: el => { const s = S.signs[el.dataset.id]; const box = document.getElementById('yp-' + s.id); if (box) box.innerHTML = yossiPriceBox({ ...s, yossiMode: 'change' }); },
   hangNote: el => { ui.hang.form[el.dataset.id].note = el.value; },
@@ -1437,6 +1471,11 @@ function go(tab, fromHistory) {
 }
 window.addEventListener('popstate', ev => {
   if (ui.modal) { ui.modal = ''; render(); return; }
+  const m = ui.measure;
+  if (ui.tab === 'measure' && (m.signId || m.baseId || m.mode === 'new') && !(ev.state && ev.state.sub)) {
+    if (!measureLeaveOk()) { pushSub(); return; }
+    measureToList(true); return;
+  }
   go((ev.state && ev.state.tab) || 'home', true);
 });
 try { history.replaceState({ tab: 'home' }, '', location.pathname + location.search); } catch (e) {}
