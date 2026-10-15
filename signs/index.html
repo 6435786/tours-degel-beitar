@@ -637,6 +637,8 @@ function onDataError(e) {
 let pendingRender = false;
 function isEditing() {
   const a = document.activeElement;
+  // שדות שהערך שלהם נשמר במצב (ui) משוחזרים ברינדור — אין צורך לעכב בגללם
+  if (a && a.dataset && ['setv', 'form', 'mx', 'hangNote', 'suName', 'tier', 'vat'].includes(a.dataset.inp)) return false;
   return a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'checkbox' && a.type !== 'file' && (a.closest('#view') || a.closest('#modal'));
 }
 // עדכון מהשרת: לא לדרוס שדה שהמשתמש באמצע הקלדה בו
@@ -863,11 +865,14 @@ const trimAddr = f => Object.fromEntries(Object.entries(f).map(([k, v]) => [k, S
 
 VIEWS.entry = function () {
   const f = ui.entry.form;
-  const recent = list().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 12);
+  // רק מה שהמשתמש עצמו הוסיף היום — לאישור ולתיקון מהיר
+  const since = Date.now() - 864e5;
+  const recent = list().filter(s => !s.isDemo && s.createdBy === S.me.name && (s.createdAt || 0) > since)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 5);
   return `<div class="card"><h2>הוספת כתובת חדשה</h2>${addrForm('e', f, 'entry')}
-    <div style="margin-top:12px"><button class="btn pri big" data-act="entrySave" ${ui.entry.saving ? 'disabled' : ''}>${ui.entry.saving ? 'שומר…' : '＋ הוסף שלט'}</button></div></div>
-  <h3 style="margin-top:14px">נוספו לאחרונה</h3>
-  ${recent.map(s => `<button class="pick" data-act="open" data-id="${s.id}">${numTag(s)}<span class="sp"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span> <span class="mute small">${esc(s.name)} · ${fmtT(s.createdAt)}</span></span>${statusBadge(s)}</button>`).join('')}`;
+    <div style="margin-top:12px"><button class="btn pri big" data-act="entrySave" ${ui.entry.saving ? 'disabled' : ''}>${ui.entry.saving ? 'שומר…' : '＋ הוסף כתובת'}</button></div></div>
+  ${recent.length ? `<h3 style="margin-top:14px">הוספת היום <span class="mute small">– לחיצה פותחת לתיקון</span></h3>
+  ${recent.map(s => `<button class="pick" data-act="open" data-id="${s.id}">${numTag(s)}<span class="sp"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span> <span class="mute small">${esc(s.name)} · ${fmtT(s.createdAt)}</span></span></button>`).join('')}` : ''}`;
 };
 
 // ═════════ המלצות מטה (בלאט) ═════════
