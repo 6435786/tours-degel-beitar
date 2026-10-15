@@ -190,6 +190,33 @@ main.home{max-width:760px}
 .cityf{margin-bottom:8px}
 .cityf select{font-weight:600;background:#fff}
 .xcard{border:2px dashed #c4b5fd;background:#faf5ff}
+.lrow{background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden}
+.lrow.open{border-color:var(--pri);box-shadow:0 2px 10px rgba(29,78,216,.12)}
+.lh{display:grid;grid-template-columns:56px minmax(220px,2.2fr) 110px 90px minmax(160px,2fr) 22px;gap:10px;align-items:center;padding:10px 12px;cursor:pointer}
+.lh:hover{background:#f8fafc}
+.lh .ln{font-size:13px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lh .chev{color:var(--mute);font-size:14px;transition:transform .15s}
+.lrow.open .lh .chev{transform:rotate(180deg)}
+.lbody{border-top:1px solid var(--line);padding:12px;background:#fcfdff}
+.lbody .cols{display:grid;gap:14px;grid-template-columns:1fr 1fr}
+.hqrow{display:grid;grid-template-columns:56px minmax(240px,1.6fr) 190px minmax(200px,1.4fr);gap:10px;align-items:center;padding:10px 12px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+.hqrow.has-k{border-inline-start:5px solid var(--ok)}
+.hqrow.has-l{border-inline-start:5px solid var(--bad)}
+.hqrow .seg button{min-height:40px;padding:6px}
+.seg button.yes.on{background:var(--ok)}
+.seg button.no.on{background:var(--bad)}
+.showseg{display:inline-flex;margin-bottom:8px}
+.showseg button{min-height:36px;padding:6px 12px;white-space:nowrap;flex:0 0 auto}
+@media (max-width:760px){
+  .lh{display:flex;flex-wrap:wrap;gap:4px 8px}
+  .lh > .c-addr{flex:1 1 60%;min-width:0}
+  .lh > .c-dims,.lh > .c-price{order:5}
+  .lh > .c-note{order:6;flex:1 1 100%;white-space:normal}
+  .lh > .chev{order:2}
+  .lbody .cols{grid-template-columns:1fr}
+  .hqrow{grid-template-columns:auto 1fr;gap:8px}
+  .hqrow > .c-seg,.hqrow > .c-note{grid-column:1/-1}
+}
 .warn{background:var(--warn2);color:#78350f;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:14px}
 </style>
 <script src="logic.js"></script>
@@ -301,10 +328,10 @@ const ui = {
   tab: null,
   manage: { q: '', city: '', status: '', access: '', sel: new Set() },
   entry: { form: blankAddr(), saving: false },
-  hq: { city: '', onlyOpen: true },
+  hq: { city: '', show: 'all' },
   plan: { city: '', q: '' },
   measure: blankMeasure(),
-  yossi: { tab: 'pending', city: '' },
+  yossi: { tab: 'pending', city: '', open: '' },
   hang: { city: '', open: '', form: {}, showDone: false },
   settings: null, importPreview: null,
   modal: ''
@@ -878,17 +905,19 @@ VIEWS.entry = function () {
 // ═════════ המלצות מטה (בלאט) ═════════
 VIEWS.hq = function () {
   const h = ui.hq;
-  const base = list().filter(s => !s.rejected && !s.finished && !s.done && (!h.onlyOpen || !s.hqRec));
-  const rows = base.filter(s => !h.city || s.city === h.city);
-  return `<div class="flex" style="margin-bottom:8px"><h2 style="margin:0">המלצות ראשי מטה</h2><span class="sp"></span>
-    <label class="flex small"><input type="checkbox" data-act="setb" data-k="hq.onlyOpen" ${h.onlyOpen ? 'checked' : ''}> רק ללא המלצה</label></div>
-  ${cityChips(base, h.city, 'hq.city')}
-  ${rows.length ? `<div class="grid">${rows.map(s => `<div class="card">
-      <div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}${sibTag(s)}</span></div>
-      <div class="mute small">${esc(s.name)}${s.note ? ' · ' + esc(s.note) : ''}</div>
-      <div class="flex" style="margin-top:8px"><div class="seg sp"><button class="${s.hqRec === 'כ' ? 'on' : ''}" data-act="hqRec" data-v="כ" data-id="${s.id}">כן ✓</button><button class="${s.hqRec === 'ל' ? 'on' : ''}" data-act="hqRec" data-v="ל" data-id="${s.id}">לא ✗</button></div></div>
-      <div style="margin-top:8px"><input id="hqn-${s.id}" placeholder="הערת מטה" value="${esc(s.hqNote)}" data-chg="sf" data-f="hqNote" data-id="${s.id}"></div>
-    </div>`).join('')}</div>` : emptyBox('✓', 'אין כתובות שממתינות להמלצה')}`;
+  const active = list().filter(s => !s.rejected && !s.finished && !s.done);
+  const inCity = active.filter(s => !h.city || s.city === h.city);
+  const open = inCity.filter(s => !s.hqRec), marked = inCity.filter(s => s.hqRec);
+  const rows = h.show === 'open' ? open : h.show === 'done' ? marked : inCity;
+  const showBtn = (k, l, n) => `<button class="${h.show === k ? 'on' : ''}" data-act="setf" data-k="hq.show" data-v="${k}">${l} (${n})</button>`;
+  return `${cityChips(active, h.city, 'hq.city')}
+  <div class="seg showseg">${showBtn('all', 'הכל', inCity.length)}${showBtn('open', 'ממתינים', open.length)}${showBtn('done', 'סומנו', marked.length)}</div>
+  ${rows.length ? rows.map(s => `<div class="hqrow ${s.hqRec === 'כ' ? 'has-k' : s.hqRec === 'ל' ? 'has-l' : ''}">
+      <span>${numTag(s)}</span>
+      <span class="c-addr"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span>${sibTag(s)}<div class="mute small">${esc(s.name)}${s.note ? ' · ' + esc(s.note) : ''}</div></span>
+      <div class="seg c-seg"><button class="yes ${s.hqRec === 'כ' ? 'on' : ''}" data-act="hqRec" data-v="כ" data-id="${s.id}">✓ כן</button><button class="no ${s.hqRec === 'ל' ? 'on' : ''}" data-act="hqRec" data-v="ל" data-id="${s.id}">✗ לא</button></div>
+      <input class="c-note" id="hqn-${s.id}" placeholder="הערת מטה" value="${esc(s.hqNote)}" data-chg="sf" data-f="hqNote" data-id="${s.id}">
+    </div>`).join('') : emptyBox('✓', 'אין כתובות להצגה')}`;
 };
 
 // ═════════ תכנון מדידות (בנימין) ═════════
@@ -971,46 +1000,74 @@ VIEWS.measure = function () {
 };
 
 // ═════════ אישור יוסי ═════════
+function yossiLists() {
+  const all = list();
+  return {
+    pending: all.filter(s => st(s) === 'await_yossi'),
+    approved: all.filter(s => s.yossiDecision === 'approved' && !s.rejected),
+    rejected: all.filter(s => s.yossiDecision === 'rejected')
+  };
+}
 VIEWS.yossi = function () {
-  const y = ui.yossi, all = list();
-  const pend = all.filter(s => st(s) === 'await_yossi');
-  const appr = all.filter(s => s.yossiDecision === 'approved' && !s.rejected);
-  const rej = all.filter(s => s.yossiDecision === 'rejected');
+  const y = ui.yossi, ls = yossiLists();
   const sum = arr => arr.reduce((a, s) => a + ((priceOf(s) || {}).gross || 0), 0);
-  const cur = y.tab === 'pending' ? pend : y.tab === 'approved' ? appr : rej;
-  const rows = cur.filter(s => !y.city || s.city === y.city);
-  const head = `<div class="kpi">
-    <div><span class="mute small">ממתינים לאישורך</span><b>${pend.length}</b><span class="small mute">הערכה ${ilsInt(sum(pend))}</span></div>
-    <div><span class="mute small">אושרו</span><b>${appr.length}</b><span class="small mute">סה"כ ${ilsInt(sum(appr))} כולל מע"מ</span></div>
-  </div>
-  <div class="chips">${[['pending', 'ממתינים', pend.length], ['approved', 'אושרו', appr.length], ['rejected', 'לא אושרו', rej.length]].map(([k, l, n]) => `<button class="chip ${y.tab === k ? 'on' : ''}" data-act="setf" data-k="yossi.tab" data-v="${k}">${l}<small>${n}</small></button>`).join('')}</div>
+  const cur = ls[y.tab] || ls.pending;
+  const rows = cur.filter(s => !y.city || s.city === y.city);   // לפי סדר הכניסה (מספר השלט)
+  const tabBtn = (k, l, n) => `<button class="${y.tab === k ? 'on' : ''}" data-act="setf" data-k="yossi.tab" data-v="${k}">${l} (${n})</button>`;
+  const head = `<div class="mute small" style="margin-bottom:8px">ממתינים: <b>${ls.pending.length}</b> (הערכה ${ilsInt(sum(ls.pending))}) · אושרו: <b>${ls.approved.length}</b> (סה"כ ${ilsInt(sum(ls.approved))} כולל מע"מ)</div>
+  <div class="seg showseg">${tabBtn('pending', 'ממתינים', ls.pending.length)}${tabBtn('approved', 'אושרו', ls.approved.length)}${tabBtn('rejected', 'לא אושרו', ls.rejected.length)}</div>
   ${cityChips(cur, y.city, 'yossi.city')}`;
   if (!rows.length) return head + emptyBox('✓', y.tab === 'pending' ? 'אין שלטים שממתינים לאישור' : 'אין שלטים');
-  if (y.tab !== 'pending') return head + `<div class="grid">${rows.map(s => {
-    const p = priceOf(s), d = L.execDims(s);
-    return `<div class="card"><div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}${sibTag(s)}</span>${statusBadge(s)}</div>
-      <div style="margin-top:6px"><span class="dims">${fmtM(d.h)} × ${fmtM(d.w)}</span> מ' ${d.changed ? '<span class="mute small">(שונה)</span>' : ''} ${accessPill(s)}</div>
-      <div><b>${p ? (p.special ? 'מחיר מיוחד' : ils(p.gross)) : ''}</b> <span class="mute small">כולל מע"מ</span></div>
-      ${s.yossiNote ? `<div class="small mute">הערה: ${esc(s.yossiNote)}</div>` : ''}
-      ${!s.toExecute ? `<button class="btn sm" style="margin-top:6px" data-act="yundo" data-id="${s.id}">החזר להחלטה</button>` : ''}</div>`;
-  }).join('')}</div>`;
-  return head + `<div class="grid">${rows.map(s => {
-    const change = s.yossiMode === 'change';
-    return `<div class="card">
-      <div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}${sibTag(s)}</span>${accessPill(s)}</div>
-      ${photoStrip(s.photos, { empty: '<div class="mute small" style="margin:6px 0">אין תמונה</div>' })}
-      <div>נמדד: <span class="dims">${fmtM(s.height)} × ${fmtM(s.width)}</span> מ'</div>
-      ${s.surveyNote ? `<div class="small mute">הערת מודד: ${esc(s.surveyNote)}</div>` : ''}
-      <div class="seg" style="margin-top:8px"><button class="${s.yossiMode !== 'change' ? 'on' : ''}" data-act="ymode" data-v="approve" data-id="${s.id}">מאשר מידות</button><button class="${change ? 'on' : ''}" data-act="ymode" data-v="change" data-id="${s.id}">שנה מידות</button></div>
-      ${change ? `<div class="row2" style="margin-top:8px">
-        <div><label class="f">גובה חדש</label><input id="yh-${s.id}" inputmode="decimal" value="${s.execHeight ? esc(s.execHeight) : ''}" data-inp="ydim" data-chg="ydim" data-id="${s.id}"></div>
-        <div><label class="f">רוחב חדש</label><input id="yw-${s.id}" inputmode="decimal" value="${s.execWidth ? esc(s.execWidth) : ''}" data-inp="ydim" data-chg="ydim" data-id="${s.id}"></div></div>` : ''}
-      <div id="yp-${s.id}" style="margin-top:8px">${yossiPriceBox(s)}</div>
-      <div style="margin-top:8px"><input id="yn-${s.id}" placeholder="הערה (לא חובה)" value="${esc(s.yossiNote)}" data-chg="sf" data-f="yossiNote" data-id="${s.id}"></div>
-      <div class="flex" style="margin-top:10px"><button class="btn ok sp" data-act="yapprove" data-id="${s.id}">✓ אישור</button><button class="btn bad" data-act="yreject" data-id="${s.id}">לא מאשר</button></div>
+  return head + rows.map(s => {
+    const isOpen = y.open === s.id, d = y.tab === 'pending' ? yossiDims(s) : L.execDims(s), p = L.price(d.h, d.w, pricing());
+    return `<div class="lrow ${isOpen ? 'open' : ''}">
+      <div class="lh" data-act="yopen" data-id="${s.id}">
+        <span>${numTag(s)}</span>
+        <span class="c-addr"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span>${sibTag(s)}</span>
+        <span class="c-dims"><span dir="ltr">${fmtM(d.h)}×${fmtM(d.w)}</span>${d.changed ? ' <span class="mute small">(שונה)</span>' : ''} ${s.access === 'מנוף' ? '🏗' : ''}</span>
+        <span class="c-price"><b>${p ? (p.special ? 'מיוחד' : ilsInt(p.gross)) : ''}</b></span>
+        <span class="c-note ln">${s.surveyNote ? '📝 ' + esc(s.surveyNote) : '<span class="mute">אין הערת מודד</span>'}</span>
+        <span class="chev">▾</span>
+      </div>
+      ${isOpen ? `<div class="lbody">${yossiBody(s, y.tab)}</div>` : ''}
     </div>`;
-  }).join('')}</div>`;
+  }).join('');
 };
+function yossiBody(s, tab) {
+  const info = `<div>
+      ${photoStrip(s.photos, { empty: '<div class="mute small" style="margin:6px 0">אין תמונה</div>' })}
+      <div class="kv" style="margin-top:6px">
+        <span>נמדד</span><span><b dir="ltr">${fmtM(s.height)} × ${fmtM(s.width)}</b> מ' (גובה × רוחב) · ${esc(s.access)}</span>
+        <span>הערת מודד</span><span>${s.surveyNote ? esc(s.surveyNote) : '<span class="mute">—</span>'}</span>
+        ${s.note ? `<span>מיקום</span><span>${esc(s.note)}</span>` : ''}
+        ${s.hqNote ? `<span>הערת מטה</span><span>${esc(s.hqNote)}</span>` : ''}
+        <span>שם</span><span>${esc(s.name) || '—'}</span>
+        ${s.surveyBy ? `<span>מדד</span><span>${esc(s.surveyBy)} · ${fmtT(s.surveyAt)}</span>` : ''}
+      </div></div>`;
+  if (tab !== 'pending') {
+    const p = priceOf(s);
+    return `<div class="cols">${info}<div>
+      <div class="price">${p ? (p.special ? 'דרוש מחיר מיוחד' : `<div class="g">${ils(p.gross)} <span class="small mute">כולל מע"מ</span></div>`) : ''}</div>
+      ${s.yossiNote ? `<div class="small" style="margin-top:6px">הערת יוסי: ${esc(s.yossiNote)}</div>` : ''}
+      ${!s.toExecute ? `<button class="btn sm" style="margin-top:8px" data-act="yundo" data-id="${s.id}">החזר להחלטה</button>` : ''}
+      <button class="btn sm" style="margin-top:8px" data-act="open" data-id="${s.id}">כרטיס מלא</button></div></div>`;
+  }
+  const change = s.yossiMode === 'change';
+  return `<div class="cols">${info}<div>
+    <div class="seg"><button class="${!change ? 'on' : ''}" data-act="ymode" data-v="approve" data-id="${s.id}">מאשר מידות</button><button class="${change ? 'on' : ''}" data-act="ymode" data-v="change" data-id="${s.id}">שנה מידות</button></div>
+    ${change ? `<div class="row2" style="margin-top:8px">
+      <div><label class="f">גובה חדש</label><input id="yh-${s.id}" inputmode="decimal" value="${s.execHeight ? esc(s.execHeight) : ''}" data-inp="ydim" data-chg="ydim" data-id="${s.id}"></div>
+      <div><label class="f">רוחב חדש</label><input id="yw-${s.id}" inputmode="decimal" value="${s.execWidth ? esc(s.execWidth) : ''}" data-inp="ydim" data-chg="ydim" data-id="${s.id}"></div></div>` : ''}
+    <div id="yp-${s.id}" style="margin-top:8px">${yossiPriceBox(s)}</div>
+    <div style="margin-top:8px"><input id="yn-${s.id}" placeholder="הערה (לא חובה)" value="${esc(s.yossiNote)}" data-chg="sf" data-f="yossiNote" data-id="${s.id}"></div>
+    <div class="flex" style="margin-top:10px"><button class="btn ok sp" data-act="yapprove" data-id="${s.id}">✓ אישור</button><button class="btn bad" data-act="yreject" data-id="${s.id}">לא מאשר</button></div>
+  </div></div>`;
+}
+function yossiOpenNext(s) {
+  const y = ui.yossi, rows = yossiLists().pending.filter(x => !y.city || x.city === y.city);
+  const i = rows.findIndex(x => x.id === s.id), next = rows[i + 1] || rows[i - 1];
+  y.open = next && next.id !== s.id ? next.id : '';
+}
 function yossiDims(s) {
   if (s.yossiMode === 'change') {
     const hi = document.getElementById('yh-' + s.id), wi = document.getElementById('yw-' + s.id);
@@ -1175,7 +1232,7 @@ const ACTIONS = {
     go(el.dataset.k);
   },
   tab: el => { if (el.dataset.k === 'manage') { ui.manage.status = ''; ui.manage.sel.clear(); } go(el.dataset.k); },
-  setf: el => { setPath(el.dataset.k, getPath(el.dataset.k) === el.dataset.v && el.dataset.k.endsWith('city') ? '' : el.dataset.v); if (el.dataset.k === 'yossi.tab') ui.yossi.city = ''; render(); },
+  setf: el => { setPath(el.dataset.k, getPath(el.dataset.k) === el.dataset.v && el.dataset.k.endsWith('city') ? '' : el.dataset.v); if (el.dataset.k === 'yossi.tab') { ui.yossi.city = ''; ui.yossi.open = ''; } render(); },
   setb: (el, ev) => { if (el.tagName === 'SUMMARY') { ev.preventDefault(); } setPath(el.dataset.k, !getPath(el.dataset.k)); render(); },
   open: (el, ev) => { if (ev && el.tagName === 'A') { ev.preventDefault(); ev.stopPropagation(); } ui.modal = el.dataset.id; ui.histAll = false; ui.modalUp = 0; render(); },
   close: () => { ui.modal = ''; render(); },
@@ -1293,6 +1350,7 @@ const ACTIONS = {
   },
 
   // יוסי
+  yopen: el => { const id = el.dataset.id; ui.yossi.open = ui.yossi.open === id ? '' : id; render(); },
   ymode: el => {
     const s = S.signs[el.dataset.id], v = el.dataset.v;
     const patch = { yossiMode: v };
@@ -1307,9 +1365,10 @@ const ACTIONS = {
       Object.assign(patch, { execHeight: d.h, execWidth: d.w });
     }
     const p = L.price(d.h, d.w, pricing());
+    yossiOpenNext(s);
     upd(s.id, patch, { hist: `יוסי אישר: ${fmtM(d.h)}×${fmtM(d.w)}${d.changed ? ' (מידות שונו)' : ''}${p && !p.special ? ` · ${ils(p.gross)}` : ''}` }).then(() => toast(`שלט ${s.num} אושר`));
   },
-  yreject: el => { const s = S.signs[el.dataset.id]; if (confirm(`לסמן ששלט ${s.num} לא מאושר?`)) upd(s.id, { yossiDecision: 'rejected', yossiAt: Date.now(), yossiBy: S.me.name }, { hist: 'יוסי לא אישר' }); },
+  yreject: el => { const s = S.signs[el.dataset.id]; if (confirm(`לסמן ששלט ${s.num} לא מאושר?`)) yossiOpenNext(s), upd(s.id, { yossiDecision: 'rejected', yossiAt: Date.now(), yossiBy: S.me.name }, { hist: 'יוסי לא אישר' }); },
 
   // תלייה
   hangOpen: el => { ui.hang.open = el.dataset.id; ui.hang.form[el.dataset.id] = ui.hang.form[el.dataset.id] || { photos: [], note: '', uploading: 0 }; render(); },
