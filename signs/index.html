@@ -151,6 +151,9 @@ table.s input:not([type=checkbox]){padding:6px 8px}
 .menu .mi.on{background:var(--pri2);color:var(--pri);font-weight:700}
 .n{display:inline-block;min-width:20px;text-align:center;background:var(--bad);color:#fff;border-radius:999px;padding:0 6px;font-size:12px;font-weight:700}
 .num.demo{background:#7c3aed}
+.pill.sib{background:#ede9fe;color:#5b21b6;font-weight:600}
+.siblink{color:#5b21b6;font-weight:700}
+.sibs{background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:8px 10px;margin-top:8px;font-size:14px}
 .ulist{display:grid;gap:8px}
 .urow{border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:8px;grid-template-columns:minmax(190px,1.1fr) minmax(130px,1fr) 2.6fr;align-items:center}
 .uhead{display:flex;gap:8px;align-items:center;justify-content:space-between;min-width:0}
@@ -294,6 +297,23 @@ function matchQ(s, q) {
 }
 function numTag(s, style = '') {
   return `<span class="num${s.isDemo ? ' demo' : ''}"${style ? ` style="${style}"` : ''}${s.isDemo ? ' title="שלט דמה לבדיקה"' : ''}>${s.num}${s.isDemo ? ' דמה' : ''}</span>`;
+}
+// שלטים נוספים באותה כתובת (עיר + רחוב + מספר)
+const addrKey = s => [norm(s.city), norm(s.street), norm(s.houseNo)].join('|');
+let _sibCache = { src: null, map: null };
+function siblings(s) {
+  if (_sibCache.src !== S.signs) {
+    const map = {};
+    for (const x of Object.values(S.signs)) if (norm(x.street)) (map[addrKey(x)] = map[addrKey(x)] || []).push(x);
+    _sibCache = { src: S.signs, map };
+  }
+  return ((_sibCache.map[addrKey(s)]) || []).filter(x => x.id !== s.id).sort((a, b) => a.num - b.num);
+}
+function sibTag(s, clickable = true) {
+  const sb = siblings(s);
+  if (!sb.length) return '';
+  const nums = sb.map(x => clickable ? `<a href="#" class="siblink" data-act="open" data-id="${x.id}">${x.num}</a>` : x.num).join(', ');
+  return ` <span class="pill sib" title="שלטים נוספים באותה כתובת">🔗 גם ${nums} בכתובת</span>`;
 }
 function statusBadge(s) { const m = L.STATUS_MAP[st(s)]; return `<span class="badge" style="--c:${m.color}">${m.label}</span>`; }
 function phoneLinks(s) {
@@ -653,7 +673,7 @@ VIEWS.manage = function () {
       return `<div class="r ${m.sel.has(s.id) ? 'sel' : ''}" data-act="open" data-id="${s.id}">
         <span class="csel"><input type="checkbox" data-act="sel" data-id="${s.id}" ${m.sel.has(s.id) ? 'checked' : ''}></span>
         <span class="cnum">${numTag(s)}</span>
-        <span class="caddr"><span class="mute small">${esc(s.city)}</span> <span class="addr">${esc(addrOf(s))}</span>${s.name ? ` <span class="mute small">· ${esc(s.name)}</span>` : ''}${s.note ? `<div class="mute small">${esc(s.note)}</div>` : ''}</span>
+        <span class="caddr"><span class="mute small">${esc(s.city)}</span> <span class="addr">${esc(addrOf(s))}</span>${s.name ? ` <span class="mute small">· ${esc(s.name)}</span>` : ''}${sibTag(s)}${s.note ? `<div class="mute small">${esc(s.note)}</div>` : ''}</span>
         <span class="cph small">${esc(s.phone)}</span>
         <span class="meta">
           <div>${s.hqRec ? `<span class="pill ${s.hqRec === 'כ' ? 'ok' : 'bad'}">${s.hqRec === 'כ' ? 'כן' : 'לא'}</span>` : ''}</div>
@@ -690,6 +710,7 @@ function renderModal() {
   box.innerHTML = `<div class="modal-bg" data-act="closeBg"><div class="modal" role="dialog" aria-modal="true">
     <button class="x" data-act="close" aria-label="סגור">×</button>
     <div class="flex" style="padding-inline-end:40px">${numTag(s, 'font-size:16px')}<span class="addr" style="font-size:17px">${esc(s.city)} · ${esc(addrOf(s))}</span>${statusBadge(s)}</div>
+    ${siblings(s).length ? `<div class="sibs">🔗 באותה כתובת יש עוד: ${siblings(s).map(x => `<button class="btn sm" data-act="open" data-id="${x.id}">${x.num} · ${L.STATUS_MAP[st(x)].label}${L.isMeasured(x) ? ` · <span dir="ltr">${fmtM(L.execDims(x).h)}×${fmtM(L.execDims(x).w)}</span>` : ''}</button>`).join(' ')}</div>` : ''}
 
     <div class="sec"><h3>פרטים</h3>
       ${canDet ? `<div class="row2">${inp('city', 'עיר')}${inp('street', 'רחוב')}${inp('houseNo', 'מספר')}${inp('floor', 'קומה')}${inp('name', 'שם')}${inp('phone', 'טלפון', 'inputmode="tel"')}</div>
@@ -794,7 +815,7 @@ VIEWS.hq = function () {
     <label class="flex small"><input type="checkbox" data-act="setb" data-k="hq.onlyOpen" ${h.onlyOpen ? 'checked' : ''}> רק ללא המלצה</label></div>
   ${cityChips(base, h.city, 'hq.city')}
   ${rows.length ? `<div class="grid">${rows.map(s => `<div class="card">
-      <div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span></div>
+      <div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}${sibTag(s)}</span></div>
       <div class="mute small">${esc(s.name)}${s.note ? ' · ' + esc(s.note) : ''}</div>
       <div class="flex" style="margin-top:8px"><div class="seg sp"><button class="${s.hqRec === 'כ' ? 'on' : ''}" data-act="hqRec" data-v="כ" data-id="${s.id}">כן ✓</button><button class="${s.hqRec === 'ל' ? 'on' : ''}" data-act="hqRec" data-v="ל" data-id="${s.id}">לא ✗</button></div></div>
       <div style="margin-top:8px"><input id="hqn-${s.id}" placeholder="הערת מטה" value="${esc(s.hqNote)}" data-chg="sf" data-f="hqNote" data-id="${s.id}"></div>
@@ -815,7 +836,7 @@ VIEWS.plan = function () {
   ${rows.length ? `<div class="grid">${rows.map(s => {
     const log = (s.contactLog || []).slice().sort((a, b) => b.t - a.t), l = log[0];
     return `<div class="card">
-      <div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span></div>
+      <div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}${sibTag(s)}</span></div>
       <div class="small">${esc(s.name) || '<span class="mute">ללא שם</span>'}${s.note ? ` <span class="mute">· ${esc(s.note)}</span>` : ''}</div>
       ${s.hqNote ? `<div class="small mute">מטה: ${esc(s.hqNote)}</div>` : ''}
       <div style="margin-top:6px">${phoneLinks(s)}</div>
@@ -848,13 +869,13 @@ VIEWS.measure = function () {
       ${cityChips(base, m.city, 'measure.city')}
       <div class="toolbar"><input id="ms-q" type="search" placeholder="חיפוש כתובת / שם / מספר" value="${esc(m.q)}" data-inp="setv" data-k="measure.q">
       ${m.mode === 'list' ? `<label class="flex small"><input type="checkbox" data-act="setb" data-k="measure.includeMeasured" ${m.includeMeasured ? 'checked' : ''}> כולל שכבר נמדדו</label>` : ''}</div>
-      ${rows.slice(0, 150).map(s => `<button class="pick" data-act="mPick" data-id="${s.id}">${numTag(s)}<span class="sp"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span> <span class="mute small">${esc(s.name)}</span>
+      ${rows.slice(0, 150).map(s => `<button class="pick" data-act="mPick" data-id="${s.id}">${numTag(s)}<span class="sp"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span> <span class="mute small">${esc(s.name)}</span>${sibTag(s, false)}
         ${m.mode === 'list' && !s.approved1 ? ' <span class="pill">טרם אושר</span>' : ''}${L.isMeasured(s) ? ' <span class="pill">נמדד</span>' : ''}</span>${m.mode === 'extra' ? statusBadge(s) : ''}</button>`).join('') || emptyBox('🔍', 'לא נמצאו שלטים')}`;
   }
   // טופס מדידה
   const s = m.signId ? S.signs[m.signId] : null, b = m.baseId ? S.signs[m.baseId] : null;
   const head = m.mode === 'new' ? `<div class="card"><h3>פרטי השלט החדש</h3>${addrForm('mn', m.addr, 'measure.addr')}</div>`
-    : `<div class="card"><div class="flex">${numTag(s || b)}<span class="addr sp">${esc((s || b).city)} · ${esc(addrOf(s || b))}</span>${m.mode === 'extra' ? '<span class="pill">שלט נוסף</span>' : ''}</div>
+    : `<div class="card"><div class="flex">${numTag(s || b)}<span class="addr sp">${esc((s || b).city)} · ${esc(addrOf(s || b))}${sibTag(s || b)}</span>${m.mode === 'extra' ? '<span class="pill">שלט נוסף</span>' : ''}</div>
        <div class="small">${esc((s || b).name)} ${phoneLinks(s || b)}</div>${(s || b).note ? `<div class="mute small">${esc((s || b).note)}</div>` : ''}
        ${s && s.photos && s.photos.length ? `<div class="mute small" style="margin-top:6px">תמונות קיימות:</div>${photoStrip(s.photos)}` : ''}</div>`;
   return `<div class="flex" style="margin-bottom:8px">${back}<h2 style="margin:0">${m.mode === 'new' ? 'שלט חדש' : m.mode === 'extra' ? 'שלט נוסף לכתובת' : 'מדידה'}</h2></div>
@@ -892,7 +913,7 @@ VIEWS.yossi = function () {
   if (!rows.length) return head + emptyBox('✓', y.tab === 'pending' ? 'אין שלטים שממתינים לאישור' : 'אין שלטים');
   if (y.tab !== 'pending') return head + `<div class="grid">${rows.map(s => {
     const p = priceOf(s), d = L.execDims(s);
-    return `<div class="card"><div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span>${statusBadge(s)}</div>
+    return `<div class="card"><div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}${sibTag(s)}</span>${statusBadge(s)}</div>
       <div style="margin-top:6px"><span class="dims">${fmtM(d.h)} × ${fmtM(d.w)}</span> מ' ${d.changed ? '<span class="mute small">(שונה)</span>' : ''} ${accessPill(s)}</div>
       <div><b>${p ? (p.special ? 'מחיר מיוחד' : ils(p.gross)) : ''}</b> <span class="mute small">כולל מע"מ</span></div>
       ${s.yossiNote ? `<div class="small mute">הערה: ${esc(s.yossiNote)}</div>` : ''}
@@ -901,7 +922,7 @@ VIEWS.yossi = function () {
   return head + `<div class="grid">${rows.map(s => {
     const change = s.yossiMode === 'change';
     return `<div class="card">
-      <div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}</span>${accessPill(s)}</div>
+      <div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}${sibTag(s)}</span>${accessPill(s)}</div>
       ${photoStrip(s.photos, { empty: '<div class="mute small" style="margin:6px 0">אין תמונה</div>' })}
       <div>נמדד: <span class="dims">${fmtM(s.height)} × ${fmtM(s.width)}</span> מ'</div>
       ${s.surveyNote ? `<div class="small mute">הערת מודד: ${esc(s.surveyNote)}</div>` : ''}
@@ -945,7 +966,7 @@ VIEWS.hang = function () {
     const d = L.execDims(s), f = h.form[s.id] || { photos: [], note: '', uploading: 0 };
     const grp = s.city !== lastCity ? `<div class="citygrp" style="grid-column:1/-1">${esc(lastCity = s.city)}</div>` : '';
     return grp + `<div class="card">
-      <div class="flex">${numTag(s)}<span class="addr sp">${esc(addrOf(s))}</span>${accessPill(s)}</div>
+      <div class="flex">${numTag(s)}<span class="addr sp">${esc(addrOf(s))}${sibTag(s)}</span>${accessPill(s)}</div>
       <div class="small">${esc(s.name)}${s.note ? ` <span class="mute">· ${esc(s.note)}</span>` : ''}</div>
       <div style="margin-top:4px">${phoneLinks(s)}</div>
       <div style="margin-top:6px">לתלייה: <span class="dims">${fmtM(d.h)} × ${fmtM(d.w)}</span> מ'</div>
@@ -1005,36 +1026,11 @@ VIEWS.settings = function () {
       <div class="flex" style="margin-top:8px"><button class="btn ok" data-act="importRun" ${ip.add.length ? '' : 'disabled'}>ייבא ${ip.add.length} שלטים</button><button class="btn" data-act="importCancel">ביטול</button></div></div>` : ''}
   </div>
 
-  <div class="card"><h2>שלטי דמה לבדיקה</h2>
-    <div class="mute small" style="margin-bottom:8px">10 שלטים מומצאים בשלבים שונים, כדי לנסות את כל המסכים. הם מסומנים בסגול "דמה", במספרים 9001–9010, ולא משפיעים על המספור של השלטים האמיתיים. כשמסיימים לנסות – מוחקים אותם בלחיצה אחת.</div>
-    <div class="flex"><button class="btn" data-act="demoAdd" ${demoCount ? 'disabled' : ''}>＋ הוסף 10 שלטי דמה</button>
-      <button class="btn bad" data-act="demoDel" ${demoCount ? '' : 'disabled'}>מחק את שלטי הדמה (${demoCount})</button></div>
-  </div>`;
+  ${demoCount ? `<div class="card"><h2>שלטי דמה</h2>
+    <div class="mute small" style="margin-bottom:8px">נשארו ${demoCount} שלטי דמה מהבדיקה (מסומנים בסגול). אפשר למחוק אותם בלחיצה אחת.</div>
+    <button class="btn bad" data-act="demoDel">מחק את שלטי הדמה (${demoCount})</button>
+  </div>` : ''}`;
 };
-
-// ───────── שלטי דמה ─────────
-function demoSigns() {
-  const now = Date.now(), day = 864e5, by = S.me ? S.me.name : '';
-  const m = (h, w, access) => ({ height: h, width: w, access, surveyBy: 'בנימין (דמה)', surveyAt: now - 2 * day });
-  const yes = { hqRec: 'כ', approved1: true };
-  const rows = [
-    ['בני ברק', 'רחוב הדמה', '1', '3', {}],
-    ['בני ברק', 'רחוב הדמה', '2', 'אחרונה', { hqRec: 'כ', hqNote: 'מקום טוב (דמה)' }],
-    ['ירושלים', 'שדרות הניסיון', '5', '4', { ...yes, contactLog: [{ t: now - day, by: 'בנימין (דמה)', type: 'לא עונים', note: 'לנסות שוב בערב' }] }],
-    ['ירושלים', 'שדרות הניסיון', '9', '2', { ...yes, ...m(2, 3, 'קלה'), surveyNote: 'מרפסת פונה לכביש' }],
-    ['אלעד', 'רחוב הבדיקה', '12', '5', { ...yes, ...m(3, 5, 'מנוף') }],
-    ['אלעד', 'רחוב הבדיקה', '20', '', { ...yes, ...m(2, 4, 'קלה'), yossiDecision: 'approved', yossiMode: 'change', execHeight: 1.6, execWidth: 4, yossiNote: 'הוקטן לחיסכון (דמה)' }],
-    ['מודיעין עילית', 'רחוב המבחן', '3', '1', { ...yes, ...m(1.5, 3, 'קלה'), yossiDecision: 'approved', yossiMode: 'approve', toExecute: true }],
-    ['בית שמש', 'רחוב המבחן', '7', '6', { ...yes, ...m(3, 4, 'מנוף'), yossiDecision: 'approved', yossiMode: 'approve', toExecute: true, printReturned: true }],
-    ['בית שמש', 'רחוב המבחן', '11', '3', { ...yes, ...m(1.2, 3, 'קלה'), yossiDecision: 'approved', yossiMode: 'approve', toExecute: true, printReturned: true }],
-    ['אשדוד', 'רחוב הדוגמה', '4', '2', { ...yes, ...m(1, 2, 'קלה'), yossiDecision: 'approved', yossiMode: 'approve', toExecute: true, printReturned: true, done: true, doneAt: now - 3600e3, doneBy: 'בנימין (דמה)' }]
-  ];
-  return rows.map(([city, street, houseNo, floor, extra], i) => ({
-    ...blankSign(), city, street, houseNo, floor, name: `משפחת דמה ${i + 1}`, phone: '050000000' + i, note: 'שלט דמה לבדיקה',
-    ...extra, num: 9001 + i, isDemo: true, createdAt: now - 5 * day, createdBy: by, updatedAt: now,
-    history: [{ t: now, by, a: 'נוצר כשלט דמה לבדיקה' }]
-  }));
-}
 
 // ───────── ייצוא לאקסל ─────────
 async function exportExcel(rows, name) {
@@ -1080,7 +1076,7 @@ const ACTIONS = {
   tab: el => { ui.menuOpen = false; ui.tab = el.dataset.k; try { localStorage.setItem('signs_tab', ui.tab); } catch (e) {} if (ui.tab !== 'settings') ui.importPreview = null; window.scrollTo(0, 0); render(); },
   setf: el => { setPath(el.dataset.k, getPath(el.dataset.k) === el.dataset.v && el.dataset.k.endsWith('city') ? '' : el.dataset.v); if (el.dataset.k === 'yossi.tab') ui.yossi.city = ''; render(); },
   setb: (el, ev) => { if (el.tagName === 'SUMMARY') { ev.preventDefault(); } setPath(el.dataset.k, !getPath(el.dataset.k)); render(); },
-  open: el => { ui.modal = el.dataset.id; ui.histAll = false; ui.modalUp = 0; render(); },
+  open: (el, ev) => { if (ev && el.tagName === 'A') { ev.preventDefault(); ev.stopPropagation(); } ui.modal = el.dataset.id; ui.histAll = false; ui.modalUp = 0; render(); },
   close: () => { ui.modal = ''; render(); },
   closeBg: (el, ev) => { if (ev.target === el) { ui.modal = ''; render(); } },
   histAll: () => { ui.histAll = true; render(); },
@@ -1256,9 +1252,6 @@ const ACTIONS = {
     } catch (e) { fail(e); }
   },
   importCancel: () => { ui.importPreview = null; render(); },
-  demoAdd: async () => {
-    try { await Store.importSigns(demoSigns(), 0); toast('נוספו 10 שלטי דמה'); } catch (e) { fail(e); }
-  },
   demoDel: async () => {
     const ids = list().filter(x => x.isDemo).map(x => x.id);
     if (!ids.length || !confirm(`למחוק ${ids.length} שלטי דמה?`)) return;
