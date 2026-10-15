@@ -1182,7 +1182,10 @@ VIEWS.settings = function () {
       2. לוחצים כאן על הכפתור ומחכים לסיום.<br>
       3. מחזירים את השיתוף של התיקייה ל"מוגבלת".</div>
     <button class="btn pri" data-act="migrateDrive" ${ui.migrating ? 'disabled' : ''}>${ui.migrating ? `מעביר… ${ui.migrating}` : `⬇ העבר ${drivePh} תמונות לתוכנה`}</button>
-  </div>` : ''}
+    ${ui.migrateResult ? `<div class="${ui.migrateResult.bad ? 'warn' : 'hint'}" style="margin-top:10px">${ui.migrateResult.bad
+      ? `הועברו ${ui.migrateResult.ok}, <b>נכשלו ${ui.migrateResult.bad}</b>. הסיבה כמעט תמיד: התיקייה בדרייב עדיין לא משותפת "לכל מי שיש לו את הקישור". משתפים ולוחצים שוב.`
+      : `הועברו ${ui.migrateResult.ok} תמונות ✓`}</div>` : ''}
+  </div>` : (ui.migrateResult ? `<div class="card"><h2>תמונות מהטופס הישן</h2><div class="hint">כל התמונות הועברו לתוכנה ✓</div></div>` : '')}
   ${demoCount ? `<div class="card"><h2>שלטי דמה</h2>
     <div class="mute small" style="margin-bottom:8px">נשארו ${demoCount} שלטי דמה מהבדיקה (מסומנים בסגול). אפשר למחוק אותם בלחיצה אחת.</div>
     <button class="btn bad" data-act="demoDel">מחק את שלטי הדמה (${demoCount})</button>
@@ -1458,9 +1461,9 @@ const ACTIONS = {
       const photos = await moveArr(x.photos), donePhotos = await moveArr(x.donePhotos);
       try { await Store.updateSign(x.id, { photos, donePhotos }, { hist: 'תמונות הועברו מגוגל דרייב לתוכנה' }); } catch (e) { fail(e); }
     }
-    ui.migrating = ''; render();
-    if (!bad) toast(`הועברו ${ok} תמונות ✓`);
-    else toast(`הועברו ${ok}, נכשלו ${bad}. כנראה התיקייה בדרייב עדיין לא משותפת – שתף ונסה שוב.`, true);
+    ui.migrating = '';
+    ui.migrateResult = { ok, bad, t: Date.now() };
+    render();
   },
   demoDel: async () => {
     const ids = list().filter(x => x.isDemo).map(x => x.id);
