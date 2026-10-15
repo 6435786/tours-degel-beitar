@@ -204,6 +204,11 @@ main.home{max-width:760px}
 .hqrow.has-k{border-inline-start:5px solid var(--ok)}
 .hqrow.has-l{border-inline-start:5px solid var(--bad)}
 .hqrow .seg button{min-height:40px;padding:6px}
+.hqrow .hqopen{cursor:pointer}
+.hqrow .hqopen .chev{color:var(--mute);font-size:13px;display:inline-block;transition:transform .15s}
+.hqrow.open{border-color:var(--pri)}
+.hqrow.open .hqopen .chev{transform:rotate(180deg)}
+.hqrow .c-body{grid-column:1/-1;border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
 .seg button.yes.on{background:var(--ok)}
 .seg button.no.on{background:var(--bad)}
 .showseg{display:inline-flex;margin-bottom:8px}
@@ -329,7 +334,7 @@ const ui = {
   tab: null,
   manage: { q: '', city: '', status: '', access: '', sel: new Set() },
   entry: { form: blankAddr(), saving: false },
-  hq: { city: '', show: 'all' },
+  hq: { city: '', show: 'all', open: '' },
   plan: { city: '', q: '' },
   measure: blankMeasure(),
   yossi: { tab: 'pending', city: '', open: '' },
@@ -913,11 +918,12 @@ VIEWS.hq = function () {
   const showBtn = (k, l, n) => `<button class="${h.show === k ? 'on' : ''}" data-act="setf" data-k="hq.show" data-v="${k}">${l} (${n})</button>`;
   return `${cityChips(active, h.city, 'hq.city')}
   <div class="seg showseg">${showBtn('all', 'הכל', inCity.length)}${showBtn('open', 'ממתינים', open.length)}${showBtn('done', 'סומנו', marked.length)}</div>
-  ${rows.length ? rows.map(s => `<div class="hqrow ${s.hqRec === 'כ' ? 'has-k' : s.hqRec === 'ל' ? 'has-l' : ''}">
+  ${rows.length ? rows.map(s => `<div class="hqrow ${s.hqRec === 'כ' ? 'has-k' : s.hqRec === 'ל' ? 'has-l' : ''} ${h.open === s.id ? 'open' : ''}">
       <span>${numTag(s)}</span>
-      <span class="c-addr"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span>${sibTag(s)}<div class="mute small">${esc(s.name)}${s.note ? ' · ' + esc(s.note) : ''}</div></span>
+      <span class="c-addr hqopen" data-act="hqOpen" data-id="${s.id}" title="לחיצה: כל הפרטים"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span>${sibTag(s)} <span class="chev">▾</span><div class="mute small">${esc(s.name)}${s.note ? ' · ' + esc(s.note) : ''}</div></span>
       <div class="seg c-seg"><button class="yes ${s.hqRec === 'כ' ? 'on' : ''}" data-act="hqRec" data-v="כ" data-id="${s.id}">✓ כן</button><button class="no ${s.hqRec === 'ל' ? 'on' : ''}" data-act="hqRec" data-v="ל" data-id="${s.id}">✗ לא</button></div>
       <input class="c-note" id="hqn-${s.id}" placeholder="הערת מטה" value="${esc(s.hqNote)}" data-chg="sf" data-f="hqNote" data-id="${s.id}">
+      ${h.open === s.id ? `<div class="c-body">${signDetails(s)}</div>` : ''}
     </div>`).join('') : emptyBox('✓', 'אין כתובות להצגה')}`;
 };
 
@@ -1034,6 +1040,31 @@ VIEWS.yossi = function () {
     </div>`;
   }).join('');
 };
+// פרטי שלט מלאים לקריאה (ללא פעולות) — להמלצות מטה וכדומה
+function signDetails(s) {
+  const log = (s.contactLog || []).slice().sort((a, b) => b.t - a.t);
+  const hist = (s.history || []).slice().sort((a, b) => b.t - a.t).slice(0, 6);
+  const d = L.execDims(s), p = priceOf(s);
+  return `<div class="cols">
+    <div class="kv">
+      <span>סטטוס</span><span>${statusBadge(s)}</span>
+      <span>שם</span><span>${esc(s.name) || '—'}</span>
+      <span>טלפון</span><span>${phoneLinks(s)}</span>
+      ${s.note ? `<span>מיקום</span><span>${esc(s.note)}</span>` : ''}
+      ${s.sourceText ? `<span>מקור</span><span class="small">${esc(s.sourceText)}</span>` : ''}
+      <span>המלצת מטה</span><span>${s.hqRec ? `<span class="pill ${s.hqRec === 'כ' ? 'ok' : 'bad'}">${s.hqRec === 'כ' ? 'כן' : 'לא'}</span>` : '—'}${s.hqNote ? ' · ' + esc(s.hqNote) : ''}</span>
+      <span>אישור שלמה</span><span>${s.approved1 ? '✓' : '—'}</span>
+      ${L.isMeasured(s) ? `<span>נמדד</span><span><b dir="ltr">${fmtM(s.height)} × ${fmtM(s.width)}</b> מ' · ${esc(s.access)}${s.surveyBy ? ` · ${esc(s.surveyBy)} ${fmtT(s.surveyAt)}` : ''}</span>` : ''}
+      ${s.surveyNote ? `<span>הערת מודד</span><span>${esc(s.surveyNote)}</span>` : ''}
+      ${s.yossiDecision ? `<span>יוסי</span><span>${s.yossiDecision === 'approved' ? 'אושר' : 'לא אושר'}${d.changed ? ` · לביצוע <span dir="ltr">${fmtM(d.h)}×${fmtM(d.w)}</span>` : ''}${p && !p.special ? ` · ${ilsInt(p.gross)}` : ''}${s.yossiNote ? ' · ' + esc(s.yossiNote) : ''}</span>` : ''}
+      ${s.craneDate ? `<span>מנוף</span><span>${fmtDay(s.craneDate)}</span>` : ''}
+      ${log.length ? `<span>שיחות</span><span>${log.slice(0, 3).map(l => `${esc(l.type)}${l.note ? ' – ' + esc(l.note) : ''} (${fmtT(l.t)})`).join('<br>')}</span>` : ''}
+    </div>
+    <div>${photoStrip(s.photos, { empty: '<div class="mute small">אין תמונות</div>' })}${photoStrip(s.donePhotos)}
+      <ul class="log">${hist.map(h => `<li>${esc(h.a)} <span class="t">· ${esc(h.by)} · ${fmtT(h.t)}</span></li>`).join('')}</ul>
+      <button class="btn sm" style="margin-top:6px" data-act="open" data-id="${s.id}">כרטיס מלא</button></div>
+  </div>`;
+}
 function yossiBody(s, tab) {
   const log = (s.contactLog || []).slice().sort((a, b) => b.t - a.t);
   const hist = (s.history || []).slice().sort((a, b) => b.t - a.t).slice(0, 6);
@@ -1370,6 +1401,7 @@ const ACTIONS = {
   },
 
   // יוסי
+  hqOpen: (el, ev) => { if (ev.target.closest('.siblink')) return; const id = el.dataset.id; ui.hq.open = ui.hq.open === id ? '' : id; render(); },
   yopen: el => { const id = el.dataset.id; ui.yossi.open = ui.yossi.open === id ? '' : id; render(); },
   ymode: el => {
     const s = S.signs[el.dataset.id], v = el.dataset.v;
