@@ -558,6 +558,7 @@ async function compress(file, max = 1600, q = 0.82) {
     const c = document.createElement('canvas');
     c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
     c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    if (bmp.close) bmp.close();
     return await new Promise(r => c.toBlob(b => r(b || file), 'image/jpeg', q));
   } catch (e) { return file; }
 }
@@ -568,10 +569,12 @@ async function uploadPhoto(file) {
     const url = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
     return { url, src: 'demo', ...meta };
   }
+  const uid = `sign_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const fd = new FormData();
-  fd.append('file', blob, 'sign.jpg');
+  fd.append('file', blob, uid + '.jpg');
   fd.append('upload_preset', CLOUDINARY.preset);
   fd.append('folder', CLOUDINARY.folder);
+  fd.append('public_id', uid);   // שם ייחודי לכל תמונה — בלי זה preset שמשתמש בשם הקובץ דורס את הקודמת
   const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY.cloud}/image/upload`, { method: 'POST', body: fd });
   const d = await r.json();
   if (!d.secure_url) throw new Error((d.error && d.error.message) || 'העלאת התמונה נכשלה');
@@ -582,6 +585,7 @@ async function uploadFromUrl(url) {
   fd.append('file', url);
   fd.append('upload_preset', CLOUDINARY.preset);
   fd.append('folder', CLOUDINARY.folder);
+  fd.append('public_id', `sign_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
   const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY.cloud}/image/upload`, { method: 'POST', body: fd });
   const d = await r.json();
   if (!d.secure_url) throw new Error((d.error && d.error.message) || 'העברה נכשלה');
