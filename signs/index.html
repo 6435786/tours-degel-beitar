@@ -312,7 +312,7 @@ const TILES = [
 const TASK_ACTION = { await_admin: ['approve1', '✓ אישור ראשון'], approved: ['toExecute', '✓ נשלח לדפוס'], printing: ['printReturned', '✓ חזר מהדפוס'], done: ['finished', '✓ הסתיים'] };
 const MANAGE_HINTS = {
   await_admin: 'כתובות שקיבלו המלצת מטה (או שנוספו בשטח) ומחכות לאישור שלך. סמן את מה שאתה מאשר ולחץ «✓ אישור ראשון» – הן יעברו לבנימין לתיאום ומדידה. כדי לדחות שלט – פתח אותו וסמן «השלט נדחה».',
-  approved: 'יוסי אישר את השלטים האלה. כשאתה שולח אותם להדפסה – סמן אותם ולחץ «✓ נשלח לדפוס».',
+  approved: 'יוסי אישר את השלטים האלה. «📄 הזמנה לדפוס» מפיק דף מסודר לשליחה לדפוס (מידות לביצוע וכיוון, בלי מחירים); אם סימנת שלטים – רק הם נכנסים, אחרת כולם. אחרי ששלחת – סמן ולחץ «✓ נשלח לדפוס».',
   printing: 'השלטים האלה בדפוס. כשהם מגיעים אליך – סמן ולחץ «✓ חזר מהדפוס». שלט עם גישה קלה עובר מיד לבנימין לתלייה; שלט שצריך מנוף עובר ל«תיאום מנוף».',
   await_crane: 'שלטים שחזרו מהדפוס וצריכים מנוף. פתח כל שלט וקבע «מנוף תואם לתאריך» אחרי התיאום עם אלי – ואז הוא עובר לבנימין לתלייה.',
   done: 'בנימין תלה את השלטים האלה. פתח שלט, הסתכל בתמונת הביצוע, וסמן «✓ הסתיים». אפשר גם לסמן כמה ולחץ «✓ הסתיים».'
@@ -753,6 +753,7 @@ VIEWS.manage = function () {
   </div>`}
   ${task ? `<div class="flex" style="margin-bottom:10px">
     ${rows.length ? `<button class="btn" data-act="selVisible">${allSel ? '☐ בטל בחירה' : '☑ בחר הכל'}</button>` : ''}
+    ${['approved', 'printing'].includes(m.status) && rows.length ? `<button class="btn" data-act="printOrder">📄 הזמנה לדפוס${m.sel.size ? ` (${m.sel.size})` : ''}</button><button class="btn" data-act="printExcel">⬇ אקסל לדפוס</button>` : ''}
     ${TASK_ACTION[m.status] ? `<button class="btn ok sp" data-act="bulk" data-k="${TASK_ACTION[m.status][0]}" ${m.sel.size ? '' : 'disabled'}>${TASK_ACTION[m.status][1]}${m.sel.size ? ` (${m.sel.size})` : ' – סמן שלטים'}</button>` : ''}
   </div>` : `<div class="chips">${chips.map(x => `<button class="chip ${m.status === x.key ? 'on' : ''}" data-act="setf" data-k="manage.status" data-v="${x.key}">${x.color ? `<span class="c" style="--c:${x.color}"></span>` : ''}${x.label}<small>${x.n}</small></button>`).join('')}</div>
   <div class="toolbar">
@@ -1227,6 +1228,63 @@ VIEWS.settings = function () {
   </div>` : ''}`;
 };
 
+// ───────── הזמנה לדפוס ─────────
+const orient = (h, w) => h > w ? 'שלט עומד' : w > h ? 'שלט שוכב' : '';
+function orderRows() {
+  const m = ui.manage;
+  const vis = list().filter(s => st(s) === m.status && (!m.city || s.city === m.city) && matchQ(s, m.q));
+  const chosen = m.sel.size ? vis.filter(s => m.sel.has(s.id)) : vis;
+  return chosen.map(s => { const d = L.execDims(s), p = L.price(d.h, d.w, pricing()); return { s, h: d.h, w: d.w, p }; });
+}
+function printOrder() {
+  const rows = orderRows();
+  if (!rows.length) { toast('אין שלטים להזמנה', true); return; }
+  // מלבן בפרופורציה האמיתית, בסגנון השלט: מסגרת כפולה כחולה וטקסט השלט בפנים
+  const mini = (h, w) => {
+    const k = 112 / Math.max(h, w), bw = Math.max(14, Math.round(w * k)), bh = Math.max(14, Math.round(h * k));
+    const oneLine = bw >= bh * 1.6;
+    const fs = oneLine ? Math.max(7, Math.min(13, Math.floor(bh * 0.5), Math.floor(bw / 9))) : Math.max(6, Math.min(11, Math.floor(bh / 6), Math.floor(bw / 4.2)));
+    const txt = oneLine ? 'הזכות לחיות חרדי' : 'הזכות<br>לחיות<br>חרדי';
+    return `<span class="mini" style="width:${bw}px;height:${bh}px"><b style="font-size:${fs}px">${txt}</b></span>`;
+  };
+  const today = new Date().toLocaleDateString('he-IL');
+  const html = `<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="UTF-8"><title>הזמנת שלטים ${today}</title>
+  <style>body{font-family:system-ui,Arial,sans-serif;margin:24px;color:#111;font-size:14px}h1{font-size:20px;margin:0 0 4px}.sub{color:#555;margin-bottom:14px}
+  .note{border:1px solid #999;background:#f6f6f6;padding:8px 10px;margin-bottom:14px;font-size:13px}
+  table{width:100%;border-collapse:collapse}th,td{border:1px solid #888;padding:8px 10px;text-align:right;vertical-align:middle}th{background:#eee;font-size:13px}
+  td.n{text-align:center;font-weight:700}td.m{font-size:20px;font-weight:700;text-align:center;direction:ltr}td.o{text-align:center;white-space:nowrap;width:150px}
+  .sm{font-size:12px;color:#444;display:block;margin-top:3px}
+  .mini{display:inline-flex;align-items:center;justify-content:center;background:#fff;border:1.5px solid #1a2a6c;box-shadow:inset 0 0 0 3px #fff,inset 0 0 0 5px #1a2a6c;vertical-align:middle;padding:3px;box-sizing:border-box;overflow:hidden}
+  .mini b{font-family:"Arial Hebrew",Narkisim,David,Arial,sans-serif;font-weight:900;color:#1a2a6c;line-height:1.05;text-align:center;white-space:nowrap}
+  @media print{.np{display:none}body{margin:10mm}}</style></head><body>
+  <div class="np" style="margin-bottom:12px"><button onclick="print()" style="font-size:15px;padding:8px 16px">🖨️ הדפסה / שמירה כ-PDF</button></div>
+  <h1>הזמנת שלטי שמשונית – דגל</h1><div class="sub">תאריך: ${today} · ${rows.length} שלטים</div>
+  <div class="note"><b>המידות במטרים.</b> גובה = הצד האנכי, רוחב = הצד האופקי, כפי שהשלט ייתלה. "שלט עומד" = הגובה גדול מהרוחב; "שלט שוכב" = הרוחב גדול מהגובה. הציור הוא להמחשת הכיוון בלבד – המספרים הם הקובעים.</div>
+  <table><thead><tr><th>#</th><th>מס' שלט</th><th>עיר</th><th>כתובת</th><th>גובה (אנכי)</th><th>רוחב (אופקי)</th><th>כיוון</th></tr></thead><tbody>
+  ${rows.map((r, i) => `<tr><td class="n">${i + 1}</td><td class="n">${r.s.num}</td><td>${esc(r.s.city)}</td><td>${esc(addrOf(r.s))}</td>
+    <td class="m">${fmtM(r.h)}</td><td class="m">${fmtM(r.w)}</td><td class="o">${mini(r.h, r.w)}${orient(r.h, r.w) ? `<span class="sm">${orient(r.h, r.w)}</span>` : ''}</td></tr>`).join('')}
+  </tbody></table>
+  </body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { toast('הדפדפן חסם את החלון – אפשר לאשר חלונות קופצים לאתר ולנסות שוב', true); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+async function printExcel() {
+  const rows = orderRows();
+  if (!rows.length) { toast('אין שלטים להזמנה', true); return; }
+  try {
+    if (!window.XLSX) await loadScript('../vendor/xlsx-js-style.js');
+    const head = ["מס' שלט", 'עיר', 'כתובת', "גובה (אנכי) מ'", "רוחב (אופקי) מ'", 'כיוון'];
+    const data = rows.map(r => [r.s.num, r.s.city, addrOf(r.s), r.h, r.w, orient(r.h, r.w)]);
+    const ws = XLSX.utils.aoa_to_sheet([head, ...data]);
+    ws['!cols'] = [8, 14, 30, 14, 14, 12].map(wch => ({ wch }));
+    head.forEach((h, i) => { const c = ws[XLSX.utils.encode_cell({ r: 0, c: i })]; if (c) c.s = { font: { bold: true }, fill: { fgColor: { rgb: 'DBEAFE' } } }; });
+    const wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] };
+    XLSX.utils.book_append_sheet(wb, ws, 'הזמנה לדפוס');
+    XLSX.writeFile(wb, `הזמנה-לדפוס-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  } catch (e) { fail(e); }
+}
+
 // ───────── ייצוא לאקסל ─────────
 async function exportExcel(rows, name) {
   try {
@@ -1313,6 +1371,8 @@ const ACTIONS = {
     exportExcel(list().filter(s => (!m.status || st(s) === m.status) && (!m.city || s.city === m.city) && (!m.access || (m.access === 'none' ? !s.access : s.access === m.access)) && matchQ(s, m.q)), 'שלטים');
   },
   exportAll: () => exportExcel(list(), 'שלטים-הכל'),
+  printOrder: () => printOrder(),
+  printExcel: () => printExcel(),
   tog: el => {
     const s = S.signs[el.dataset.id], f = el.dataset.f, v = !s[f];
     const patch = { [f]: v };
