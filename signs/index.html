@@ -318,8 +318,8 @@ const MANAGE_HINTS = {
   done: 'בנימין תלה את השלטים האלה. פתח שלט, הסתכל בתמונת הביצוע, וסמן «✓ הסתיים». אפשר גם לסמן כמה ולחץ «✓ הסתיים».'
 };
 const FIELD_LABELS = {
-  city: 'עיר', street: 'רחוב', houseNo: 'מספר', floor: 'קומה', name: 'שם', phone: 'טלפון', note: 'הערת מיקום',
-  hqRec: 'המלצת מטה', hqNote: 'הערת מטה', approved1: 'אישור ראשון', height: 'גובה', width: 'רוחב', access: 'גישה',
+  city: 'עיר', street: 'רחוב', houseNo: 'מספר', floor: 'קומה', name: 'שם', phone: 'טלפון', note: 'הערה',
+  hqRec: 'המלצת מטה', approved1: 'אישור ראשון', height: 'גובה', width: 'רוחב', access: 'גישה', printNote: 'הערת דפוס',
   surveyNote: 'הערת מדידה', toExecute: 'לביצוע', printReturned: 'חזר מהדפוס', craneDate: 'מנוף תואם', done: 'בוצע',
   finished: 'הסתיים', rejected: 'נדחה', rejectNote: 'סיבת דחייה', yossiNote: 'הערת יוסי'
 };
@@ -423,8 +423,8 @@ function fail(e) { console.error(e); toast('שגיאה: ' + (e && e.code === 'pe
 function blankSign() {
   return {
     city: '', street: '', houseNo: '', floor: '', note: '', name: '', phone: '', sourceText: '',
-    hqRec: '', hqNote: '', approved1: false,
-    height: 0, width: 0, access: '', surveyNote: '', photos: [],
+    hqRec: '', approved1: false,
+    height: 0, width: 0, access: '', printNote: '', surveyNote: '', photos: [],
     yossiMode: '', execHeight: 0, execWidth: 0, yossiDecision: '', yossiNote: '',
     toExecute: false, printReturned: false, craneDate: '', done: false, donePhotos: [], finished: false, rejected: false, rejectNote: '',
     contactLog: []
@@ -512,7 +512,7 @@ function DemoStore() {
       ['בית שמש', 'נחל שחם', '3', '4', 'משפחת דוגמא', '0534564567', { hqRec: 'כ', approved1: true, height: 1.2, width: 3, access: 'קלה', yossiDecision: 'approved', toExecute: true, printReturned: true }],
       ['בית שמש', 'הרצוג', '37', '', 'משפחת מדגם', '0527897897', { hqRec: 'כ', approved1: true, height: 3, width: 4, access: 'מנוף', yossiDecision: 'approved', toExecute: true, printReturned: true }],
       ['אשדוד', 'יד איתמר', '9', '', 'משפחת הדגמה', '0533213213', { hqRec: 'כ', approved1: true, height: 1, width: 2, access: 'קלה', yossiDecision: 'approved', toExecute: true, printReturned: true, done: true }],
-      ['ערד', 'חרוב', '9', '3', '', '050410322', { hqRec: 'ל', hqNote: 'לא מרכזי' }]
+      ['ערד', 'חרוב', '9', '3', '', '050410322', { hqRec: 'ל', note: 'לא מרכזי' }]
     ];
     base.forEach(([city, street, houseNo, floor, name, phone, extra]) => {
       const n = next++;
@@ -658,7 +658,7 @@ function onConfig(cfg) {
   S.me = { email, name: (u && u.name) || S.user.displayName || email, roles: demoRoles || [...rs], demoRoles };
   if (!S.signsSub) {
     S.signsSub = true;
-    S.unsub.push(Store.subscribeSigns(m => { S.signs = m; S.loaded = true; rerender(); }, onDataError));
+    S.unsub.push(Store.subscribeSigns(m => { S.signs = m; S.loaded = true; migrateHqNotes(); rerender(); }, onDataError));
   }
   $('#auth').hidden = true; $('#app').hidden = false;
   render();
@@ -829,13 +829,12 @@ function renderModal() {
         <div class="seg" style="min-width:160px"><button class="${s.hqRec === 'כ' ? 'on' : ''}" data-act="hqRec" data-v="כ" data-id="${s.id}" ${canHq ? '' : 'disabled'}>כן</button><button class="${s.hqRec === 'ל' ? 'on' : ''}" data-act="hqRec" data-v="ל" data-id="${s.id}" ${canHq ? '' : 'disabled'}>לא</button></div>
         ${tog('approved1', 'אישור ראשון (שלמה)')}
       </div>
-      <div style="margin-top:8px">${canHq ? inp('hqNote', 'הערת מטה') : `<span class="mute">הערת מטה:</span> ${esc(s.hqNote)}`}</div>
     </div>
 
     <div class="sec"><h3>מדידה</h3>
       ${A ? `<div class="row2">${inp('height', 'גובה (מ\')', 'inputmode="decimal"')}${inp('width', 'רוחב (מ\')', 'inputmode="decimal"')}
         <div><label class="f">גישה</label><div class="seg"><button class="${s.access === 'קלה' ? 'on' : ''}" data-act="setAccess" data-v="קלה" data-id="${s.id}">קלה</button><button class="${s.access === 'מנוף' ? 'on' : ''}" data-act="setAccess" data-v="מנוף" data-id="${s.id}">מנוף</button></div></div></div>
-        <div style="margin-top:8px">${inp('surveyNote', 'הערת מדידה')}</div>`
+        <div class="row2" style="margin-top:8px">${inp('surveyNote', 'הערת מודד')}${inp('printNote', 'הערת דפוס')}</div>`
       : `<div class="kv">${ro('מידות', L.isMeasured(s) ? `<span dir="ltr">${fmtM(s.height)} × ${fmtM(s.width)}</span> מ'` : '')}${ro('גישה', esc(s.access))}${ro('הערה', esc(s.surveyNote))}</div>`}
       ${s.surveyBy ? `<div class="mute small" style="margin-top:4px">נמדד ע"י ${esc(s.surveyBy)} · ${fmtT(s.surveyAt)}</div>` : ''}
       ${photoStrip(s.photos, { removeAct: A ? 'rmPhoto' : '', id: s.id, uploading: ui.modalUp || 0, empty: '<div class="mute small" style="margin:6px 0">אין תמונות</div>' })}
@@ -888,7 +887,7 @@ function addrForm(prefix, f, stateKey) {
     ${field('name', 'שם', false, 'autocomplete="off"')}
     ${field('phone', 'טלפון', true, 'inputmode="tel" autocomplete="off"')}
   </div>
-  <div style="margin-top:8px">${field('note', 'הערת מיקום (לא חובה)', false, 'placeholder="למשל: פינת…, מול הפארק" autocomplete="off"')}</div>`;
+  <div style="margin-top:8px">${field('note', 'הערה (לא חובה)', false, 'placeholder="למשל: פינת…, מול הפארק" autocomplete="off"')}</div>`;
 }
 function validateAddr(f) {
   const miss = [['city', 'עיר'], ['street', 'רחוב'], ['phone', 'טלפון']].filter(([k]) => !String(f[k] || '').trim()).map(x => x[1]);
@@ -925,9 +924,9 @@ VIEWS.hq = function () {
   <div class="seg showseg">${showBtn('all', 'הכל', inCity.length)}${showBtn('open', 'ממתינים', open.length)}${showBtn('done', 'סומנו', marked.length)}</div>
   ${rows.length ? rows.map(s => `<div class="hqrow ${s.hqRec === 'כ' ? 'has-k' : s.hqRec === 'ל' ? 'has-l' : ''} ${h.open === s.id ? 'open' : ''}">
       <span>${numTag(s)}</span>
-      <span class="c-addr hqopen" data-act="hqOpen" data-id="${s.id}" title="לחיצה: כל הפרטים"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span>${sibTag(s)} <span class="chev">▾</span><div class="mute small">${esc(s.name)}${s.note ? ' · ' + esc(s.note) : ''}</div></span>
+      <span class="c-addr hqopen" data-act="hqOpen" data-id="${s.id}" title="לחיצה: כל הפרטים"><span class="addr">${esc(s.city)} · ${esc(addrOf(s))}</span>${sibTag(s)} <span class="chev">▾</span><div class="mute small">${esc(s.name)}</div></span>
       <div class="seg c-seg"><button class="yes ${s.hqRec === 'כ' ? 'on' : ''}" data-act="hqRec" data-v="כ" data-id="${s.id}">✓ כן</button><button class="no ${s.hqRec === 'ל' ? 'on' : ''}" data-act="hqRec" data-v="ל" data-id="${s.id}">✗ לא</button></div>
-      <input class="c-note" id="hqn-${s.id}" placeholder="הערת מטה" value="${esc(s.hqNote)}" data-chg="sf" data-f="hqNote" data-id="${s.id}">
+      <input class="c-note" id="hqn-${s.id}" placeholder="הערה" value="${esc(s.note)}" data-chg="sf" data-f="note" data-id="${s.id}">
       ${h.open === s.id ? `<div class="c-body">${signDetails(s)}</div>` : ''}
     </div>`).join('') : emptyBox('✓', 'אין כתובות להצגה')}`;
 };
@@ -948,7 +947,6 @@ VIEWS.plan = function () {
     return `<div class="card">
       <div class="flex">${numTag(s)}<span class="addr sp">${esc(s.city)} · ${esc(addrOf(s))}${sibTag(s)}</span></div>
       <div class="small">${esc(s.name) || '<span class="mute">ללא שם</span>'}${s.note ? ` <span class="mute">· ${esc(s.note)}</span>` : ''}</div>
-      ${s.hqNote ? `<div class="small mute">מטה: ${esc(s.hqNote)}</div>` : ''}
       <div style="margin-top:6px">${phoneLinks(s)}</div>
       ${l ? `<div class="lastlog">אחרון: <b>${esc(l.type)}</b>${l.note ? ' – ' + esc(l.note) : ''} <span class="mute small">· ${fmtT(l.t)}</span></div>` : ''}
       <div style="margin-top:8px"><input id="ln-${s.id}" placeholder="הערה לשיחה (לא חובה)"></div>
@@ -1004,7 +1002,8 @@ VIEWS.measure = function () {
     <label class="f" style="margin-top:10px">תמונות</label>
     ${photoStrip(m.photos, { removeAct: 'mRmPhoto', uploading: m.uploading })}
     ${photoInput('measure')}
-    <div style="margin-top:10px"><label class="f">הערה (לא חובה)</label><textarea id="mm-note" data-inp="setv" data-k="measure.note">${esc(m.note)}</textarea></div>
+    <div style="margin-top:10px"><label class="f">הערת מודד (לא חובה)</label><textarea id="mm-note" data-inp="setv" data-k="measure.note">${esc(m.note)}</textarea></div>
+    <div style="margin-top:10px"><label class="f">הערת דפוס (לא חובה) <span class="mute">– מה שחשוב שהדפוס יידע</span></label><input id="mm-pn" value="${esc(m.printNote || '')}" placeholder="למשל: עם תמונה / בלי תמונה / רקע לבן" data-inp="setv" data-k="measure.printNote"></div>
   </div>
   ${extras}
   <button class="btn" style="width:100%;margin-bottom:10px" data-act="mxAdd">➕ שלט נוסף לכתובת</button>
@@ -1055,9 +1054,10 @@ function signDetails(s) {
       <span>סטטוס</span><span>${statusBadge(s)}</span>
       <span>שם</span><span>${esc(s.name) || '—'}</span>
       <span>טלפון</span><span>${phoneLinks(s)}</span>
-      ${s.note ? `<span>מיקום</span><span>${esc(s.note)}</span>` : ''}
+      ${s.note ? `<span>הערה</span><span>${esc(s.note)}</span>` : ''}
+      ${s.printNote ? `<span>הערת דפוס</span><span>${esc(s.printNote)}</span>` : ''}
       ${s.sourceText ? `<span>מקור</span><span class="small">${esc(s.sourceText)}</span>` : ''}
-      <span>המלצת מטה</span><span>${s.hqRec ? `<span class="pill ${s.hqRec === 'כ' ? 'ok' : 'bad'}">${s.hqRec === 'כ' ? 'כן' : 'לא'}</span>` : '—'}${s.hqNote ? ' · ' + esc(s.hqNote) : ''}</span>
+      <span>המלצת מטה</span><span>${s.hqRec ? `<span class="pill ${s.hqRec === 'כ' ? 'ok' : 'bad'}">${s.hqRec === 'כ' ? 'כן' : 'לא'}</span>` : '—'}</span>
       <span>אישור שלמה</span><span>${s.approved1 ? '✓' : '—'}</span>
       ${L.isMeasured(s) ? `<span>נמדד</span><span><b dir="ltr">${fmtM(s.height)} × ${fmtM(s.width)}</b> מ' · ${esc(s.access)}${s.surveyBy ? ` · ${esc(s.surveyBy)} ${fmtT(s.surveyAt)}` : ''}</span>` : ''}
       ${s.surveyNote ? `<span>הערת מודד</span><span>${esc(s.surveyNote)}</span>` : ''}
@@ -1078,8 +1078,8 @@ function yossiBody(s, tab) {
       <div class="kv" style="margin-top:6px">
         <span>נמדד</span><span><b dir="ltr">${fmtM(s.height)} × ${fmtM(s.width)}</b> מ' (גובה × רוחב) · ${esc(s.access)}</span>
         <span>הערת מודד</span><span>${s.surveyNote ? esc(s.surveyNote) : '<span class="mute">—</span>'}</span>
-        <span>הערת מטה</span><span>${s.hqNote ? esc(s.hqNote) : '<span class="mute">—</span>'}${s.hqRec ? ` <span class="pill ${s.hqRec === 'כ' ? 'ok' : 'bad'}">${s.hqRec === 'כ' ? 'מטה: כן' : 'מטה: לא'}</span>` : ''}</span>
-        ${s.note ? `<span>מיקום</span><span>${esc(s.note)}</span>` : ''}
+        <span>הערה</span><span>${s.note ? esc(s.note) : '<span class="mute">—</span>'}${s.hqRec ? ` <span class="pill ${s.hqRec === 'כ' ? 'ok' : 'bad'}">${s.hqRec === 'כ' ? 'מטה: כן' : 'מטה: לא'}</span>` : ''}</span>
+        <span>הערת דפוס</span><span>${s.printNote ? esc(s.printNote) : '<span class="mute">—</span>'}</span>
       </div>
       <details class="more" style="margin-top:6px"><summary class="small mute">עוד פרטים</summary>
         <div class="kv small" style="margin-top:4px">
@@ -1108,7 +1108,8 @@ function yossiBody(s, tab) {
       <div><label class="f">גובה חדש</label><input id="yh-${s.id}" inputmode="decimal" value="${s.execHeight ? esc(s.execHeight) : ''}" data-inp="ydim" data-chg="ydim" data-id="${s.id}"></div>
       <div><label class="f">רוחב חדש</label><input id="yw-${s.id}" inputmode="decimal" value="${s.execWidth ? esc(s.execWidth) : ''}" data-inp="ydim" data-chg="ydim" data-id="${s.id}"></div></div>` : ''}
     <div id="yp-${s.id}" style="margin-top:8px">${yossiPriceBox(s)}</div>
-    <div style="margin-top:8px"><input id="yn-${s.id}" placeholder="הערה (לא חובה)" value="${esc(s.yossiNote)}" data-chg="sf" data-f="yossiNote" data-id="${s.id}"></div>
+    <div style="margin-top:8px"><input id="yn-${s.id}" placeholder="הערת יוסי (לא חובה)" value="${esc(s.yossiNote)}" data-chg="sf" data-f="yossiNote" data-id="${s.id}"></div>
+    <div style="margin-top:8px"><input id="ypn-${s.id}" placeholder="הערת דפוס (מה שהדפוס צריך לדעת)" value="${esc(s.printNote)}" data-chg="sf" data-f="printNote" data-id="${s.id}"></div>
     <div class="flex" style="margin-top:10px">
       <button class="btn ok sp" data-act="yapprove" data-id="${s.id}">${s.yossiDecision === 'approved' ? '✓ עדכן ואשר' : s.yossiDecision === 'rejected' ? '✓ אשר בכל זאת' : '✓ אישור'}</button>
       ${s.yossiDecision === 'rejected' ? `<button class="btn" data-act="yundo" data-id="${s.id}">החזר לממתינים</button>` : `<button class="btn bad" data-act="yreject" data-id="${s.id}">לא מאשר</button>`}
@@ -1241,18 +1242,18 @@ function printOrder() {
   if (!rows.length) { toast('אין שלטים להזמנה', true); return; }
   // מלבן בפרופורציה האמיתית, בסגנון השלט: מסגרת כפולה כחולה וטקסט השלט בפנים
   const mini = (h, w) => {
-    const k = 112 / Math.max(h, w), bw = Math.max(14, Math.round(w * k)), bh = Math.max(14, Math.round(h * k));
+    const k = 84 / Math.max(h, w), bw = Math.max(12, Math.round(w * k)), bh = Math.max(12, Math.round(h * k));
     const oneLine = bw >= bh * 1.6;
     const fs = oneLine ? Math.max(7, Math.min(13, Math.floor(bh * 0.5), Math.floor(bw / 9))) : Math.max(6, Math.min(11, Math.floor(bh / 6), Math.floor(bw / 4.2)));
-    const txt = oneLine ? 'הזכות לחיות חרדי' : 'הזכות<br>לחיות<br>חרדי';
+    const txt = oneLine ? 'הזכות להיות חרדי' : 'הזכות<br>להיות<br>חרדי';
     return `<span class="mini" style="width:${bw}px;height:${bh}px"><b style="font-size:${fs}px">${txt}</b></span>`;
   };
   const today = new Date().toLocaleDateString('he-IL');
   const html = `<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="UTF-8"><title>הזמנת שלטים ${today}</title>
   <style>body{font-family:system-ui,Arial,sans-serif;margin:24px;color:#111;font-size:14px}h1{font-size:20px;margin:0 0 4px}.sub{color:#555;margin-bottom:14px}
   .note{border:1px solid #999;background:#f6f6f6;padding:8px 10px;margin-bottom:14px;font-size:13px}
-  table{width:100%;border-collapse:collapse}th,td{border:1px solid #888;padding:8px 10px;text-align:right;vertical-align:middle}th{background:#eee;font-size:13px}
-  td.n{text-align:center;font-weight:700}td.m{font-size:20px;font-weight:700;text-align:center;direction:ltr}td.o{text-align:center;white-space:nowrap;width:150px}
+  table{border-collapse:collapse;display:inline-table;width:auto}th,td{border:1px solid #888;padding:5px 8px;text-align:right;vertical-align:middle;white-space:nowrap}th{background:#eee;font-size:12px}
+  td.n{text-align:center;font-weight:700}td.m{font-size:18px;font-weight:700;text-align:center;direction:ltr}td.o{text-align:center}td.tel{direction:ltr;text-align:right}td.pn{white-space:normal;max-width:220px;font-size:13px}td.ad{white-space:normal;max-width:220px}
   .sm{font-size:12px;color:#444;display:block;margin-top:3px}
   .mini{display:inline-flex;align-items:center;justify-content:center;background:#fff;border:1.5px solid #1a2a6c;box-shadow:inset 0 0 0 3px #fff,inset 0 0 0 5px #1a2a6c;vertical-align:middle;padding:3px;box-sizing:border-box;overflow:hidden}
   .mini b{font-family:"Arial Hebrew",Narkisim,David,Arial,sans-serif;font-weight:900;color:#1a2a6c;line-height:1.05;text-align:center;white-space:nowrap}
@@ -1260,9 +1261,9 @@ function printOrder() {
   <div class="np" style="margin-bottom:12px"><button onclick="print()" style="font-size:15px;padding:8px 16px">🖨️ הדפסה / שמירה כ-PDF</button></div>
   <h1>הזמנת שלטי שמשונית – דגל</h1><div class="sub">תאריך: ${today} · ${rows.length} שלטים</div>
   <div class="note"><b>המידות במטרים.</b> גובה = הצד האנכי, רוחב = הצד האופקי, כפי שהשלט ייתלה. "שלט עומד" = הגובה גדול מהרוחב; "שלט שוכב" = הרוחב גדול מהגובה. הציור הוא להמחשת הכיוון בלבד – המספרים הם הקובעים.</div>
-  <table><thead><tr><th>#</th><th>מס' שלט</th><th>עיר</th><th>כתובת</th><th>גובה (אנכי)</th><th>רוחב (אופקי)</th><th>כיוון</th></tr></thead><tbody>
-  ${rows.map((r, i) => `<tr><td class="n">${i + 1}</td><td class="n">${r.s.num}</td><td>${esc(r.s.city)}</td><td>${esc(addrOf(r.s))}</td>
-    <td class="m">${fmtM(r.h)}</td><td class="m">${fmtM(r.w)}</td><td class="o">${mini(r.h, r.w)}${orient(r.h, r.w) ? `<span class="sm">${orient(r.h, r.w)}</span>` : ''}</td></tr>`).join('')}
+  <table><thead><tr><th>#</th><th>מס' שלט</th><th>עיר</th><th>כתובת</th><th>שם</th><th>טלפון</th><th>גובה (אנכי)</th><th>רוחב (אופקי)</th><th>כיוון</th><th>הערת דפוס</th></tr></thead><tbody>
+  ${rows.map((r, i) => `<tr><td class="n">${i + 1}</td><td class="n">${r.s.num}</td><td>${esc(r.s.city)}</td><td class="ad">${esc(addrOf(r.s))}</td><td>${esc(r.s.name)}</td><td class="tel">${esc(r.s.phone)}</td>
+    <td class="m">${fmtM(r.h)}</td><td class="m">${fmtM(r.w)}</td><td class="o">${mini(r.h, r.w)}${orient(r.h, r.w) ? `<span class="sm">${orient(r.h, r.w)}</span>` : ''}</td><td class="pn">${esc(r.s.printNote) || ''}</td></tr>`).join('')}
   </tbody></table>
   </body></html>`;
   const w = window.open('', '_blank');
@@ -1274,10 +1275,10 @@ async function printExcel() {
   if (!rows.length) { toast('אין שלטים להזמנה', true); return; }
   try {
     if (!window.XLSX) await loadScript('../vendor/xlsx-js-style.js');
-    const head = ["מס' שלט", 'עיר', 'כתובת', "גובה (אנכי) מ'", "רוחב (אופקי) מ'", 'כיוון'];
-    const data = rows.map(r => [r.s.num, r.s.city, addrOf(r.s), r.h, r.w, orient(r.h, r.w)]);
+    const head = ["מס'", 'עיר', 'כתובת', 'שם', 'טלפון', "גובה (אנכי)", "רוחב (אופקי)", 'כיוון', 'הערת דפוס'];
+    const data = rows.map(r => [r.s.num, r.s.city, addrOf(r.s), r.s.name, r.s.phone, r.h, r.w, orient(r.h, r.w), r.s.printNote || '']);
     const ws = XLSX.utils.aoa_to_sheet([head, ...data]);
-    ws['!cols'] = [8, 14, 30, 14, 14, 12].map(wch => ({ wch }));
+    ws['!cols'] = [7, 12, 26, 16, 20, 9, 9, 10, 28].map(wch => ({ wch }));
     head.forEach((h, i) => { const c = ws[XLSX.utils.encode_cell({ r: 0, c: i })]; if (c) c.s = { font: { bold: true }, fill: { fgColor: { rgb: 'DBEAFE' } } }; });
     const wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] };
     XLSX.utils.book_append_sheet(wb, ws, 'הזמנה לדפוס');
@@ -1289,13 +1290,13 @@ async function printExcel() {
 async function exportExcel(rows, name) {
   try {
     if (!window.XLSX) await loadScript('../vendor/xlsx-js-style.js');
-    const head = ["מס'", 'עיר', 'רחוב', 'מספר', 'קומה', 'הערת מיקום', 'שם', 'טלפון', 'המלצת מטה', 'הערת מטה', 'אישור ראשון', 'גובה', 'רוחב', 'גישה', 'הערת מדידה',
+    const head = ["מס'", 'עיר', 'רחוב', 'מספר', 'קומה', 'הערת מיקום', 'שם', 'טלפון', 'המלצת מטה', 'אישור ראשון', 'גובה', 'רוחב', 'גישה', 'הערת מדידה', 'הערת דפוס',
       'החלטת יוסי', 'גובה לביצוע', 'רוחב לביצוע', 'מחיר לפני מע"מ', 'מחיר כולל מע"מ', 'לביצוע', 'חזר מהדפוס', 'מנוף תואם', 'בוצע', 'הסתיים', 'סטטוס', 'יומן שיחות', 'תמונות', 'תמונות ביצוע'];
     const yn = v => v ? 'כן' : '';
     const data = rows.map(s => {
       const d = L.execDims(s), p = priceOf(s);
-      return [s.num, s.city, s.street, s.houseNo, s.floor, s.note, s.name, s.phone, s.hqRec, s.hqNote, yn(s.approved1),
-        L.num(s.height) || '', L.num(s.width) || '', s.access, s.surveyNote,
+      return [s.num, s.city, s.street, s.houseNo, s.floor, s.note, s.name, s.phone, s.hqRec, yn(s.approved1),
+        L.num(s.height) || '', L.num(s.width) || '', s.access, s.surveyNote, s.printNote,
         s.yossiDecision === 'approved' ? 'אושר' : s.yossiDecision === 'rejected' ? 'לא אושר' : '', d.h || '', d.w || '',
         p && !p.special ? p.net : '', p && !p.special ? p.gross : (p ? 'מחיר מיוחד' : ''),
         yn(s.toExecute), yn(s.printReturned), fmtDay(s.craneDate), yn(s.done), yn(s.finished), L.STATUS_MAP[st(s)].label,
@@ -1312,10 +1313,24 @@ async function exportExcel(rows, name) {
   } catch (e) { fail(e); }
 }
 
+// העברה חד-פעמית: הערת מטה ישנה → לתוך "הערה" (עם קידומת "מטה:")
+let _migratedHq = false;
+function migrateHqNotes() {
+  if (_migratedHq || !isAdmin()) return;
+  const todo = list().filter(s => s.hqNote && String(s.hqNote).trim());
+  if (!todo.length) { _migratedHq = true; return; }
+  _migratedHq = true;
+  todo.forEach(s => {
+    const hq = 'מטה: ' + String(s.hqNote).trim();
+    const note = s.note && !s.note.includes(hq) ? `${s.note} · ${hq}` : (s.note || hq);
+    Store.updateSign(s.id, { note, hqNote: '' }, { hist: 'הערת מטה אוחדה לתוך "הערה"' }).catch(() => {});
+  });
+}
+
 // ───────── מדידה: עזרים ─────────
 function extraFrom(b) {
   return { ...blankSign(), city: b.city, street: b.street, houseNo: b.houseNo, floor: b.floor, name: b.name, phone: b.phone,
-    note: b.note || '', hqRec: b.hqRec || '', hqNote: b.hqNote || '', approved1: !!b.approved1 };
+    note: b.note || '', hqRec: b.hqRec || '', approved1: !!b.approved1 };
 }
 const measureDirty = () => { const m = ui.measure; return !m.saving && (m.mode === 'new' || m.signId || m.baseId) && (m.photos.length || m.extras.length || (m.signId && S.signs[m.signId] && (String(m.height) !== String(S.signs[m.signId].height || '') || String(m.width) !== String(S.signs[m.signId].width || ''))) || (!m.signId && (m.height || m.width))); };
 function measureLeaveOk() { return !measureDirty() || confirm('לצאת בלי לשמור את המדידה?'); }
@@ -1411,7 +1426,7 @@ const ACTIONS = {
   },
   goMeasure: el => {
     const s = S.signs[el.dataset.id];
-    ui.measure = { ...blankMeasure(), mode: 'list', signId: s.id, height: s.height || '', width: s.width || '', access: s.access || '', note: s.surveyNote || '' };
+    ui.measure = { ...blankMeasure(), mode: 'list', signId: s.id, height: s.height || '', width: s.width || '', access: s.access || '', printNote: s.printNote || '', note: s.surveyNote || '' };
     go('measure'); pushSub();
   },
 
@@ -1420,7 +1435,7 @@ const ACTIONS = {
   mReset: () => { if (!measureLeaveOk()) return; measureToList(); },
   mPick: el => {
     const m = ui.measure, s = S.signs[el.dataset.id];
-    Object.assign(m, { mode: 'list', signId: s.id, baseId: '', extras: [], height: s.height || '', width: s.width || '', access: s.access || '', note: s.surveyNote || '', photos: [] });
+    Object.assign(m, { mode: 'list', signId: s.id, baseId: '', extras: [], height: s.height || '', width: s.width || '', access: s.access || '', printNote: s.printNote || '', note: s.surveyNote || '', photos: [] });
     pushSub(); window.scrollTo(0, 0); render();
   },
   mAccess: el => { ui.measure.access = el.dataset.v; render(); },
@@ -1439,7 +1454,7 @@ const ACTIONS = {
     let addr = null;
     if (m.mode === 'new') { addr = trimAddr(m.addr); if (!validateAddr(addr)) return; }
     if (!m.photos.length && !confirm('לא צורפה תמונה. לשמור בלי תמונה?')) return;
-    const meas = (hh, ww, note) => ({ height: hh, width: ww, access: m.access, surveyNote: note, surveyBy: S.me.name, surveyAt: Date.now() });
+    const meas = (hh, ww, note) => ({ height: hh, width: ww, access: m.access, printNote: (m.printNote || '').trim(), surveyNote: note, surveyBy: S.me.name, surveyAt: Date.now() });
     const histTxt = (hh, ww) => `נמדד: ${fmtM(hh)}×${fmtM(ww)}, גישה ${m.access}${m.photos.length ? `, ${m.photos.length} תמונות` : ''}`;
     m.saving = true; render();
     try {
@@ -1449,7 +1464,7 @@ const ACTIONS = {
         await Store.updateSign(base.id, meas(h, w, m.note.trim()), { hist: histTxt(h, w), push: { photos: m.photos } }); n = base.num;
       } else if (m.mode === 'new') {
         n = await Store.createSign({ ...blankSign(), ...addr, ...meas(h, w, m.note.trim()), photos: m.photos }, 'נוצר מהשטח · ' + histTxt(h, w));
-        base = { ...addr, num: n, hqRec: '', hqNote: '', approved1: false };
+        base = { ...addr, num: n, hqRec: '', approved1: false };
       } else {
         const b = S.signs[m.baseId];
         n = await Store.createSign({ ...extraFrom(b), ...meas(h, w, m.note.trim()), photos: m.photos }, `שלט נוסף לכתובת של שלט ${b.num} · ${histTxt(h, w)}`);
